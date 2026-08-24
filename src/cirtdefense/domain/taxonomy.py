@@ -374,7 +374,9 @@ APPLICATION_ATTACKS: tuple[AttackType, ...] = (
         category="session_hijacking",
         detection_sources=("UEBA (impossible travel, anomalie de session)",),
         signal="Session utilisee depuis deux localisations incompatibles, reutilisation de token",
-        prescribed_actions="Revocation de la session/du token concerne, forcage de re-authentification",
+        prescribed_actions=(
+            "Revocation de la session/du token concerne, forcage de re-authentification"
+        ),
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.HIGH,
         base_severity=Severity.HIGH,
@@ -395,7 +397,9 @@ INSIDER_ANOMALIES: tuple[AttackType, ...] = (
         category="privilege_escalation",
         detection_sources=("UEBA",),
         signal="Changement de role/permission hors processus habituel, sans ticket associe",
-        prescribed_actions="Revocation immediate du privilege accorde, restauration du role anterieur",
+        prescribed_actions=(
+            "Revocation immediate du privilege accorde, restauration du role anterieur"
+        ),
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.HIGH,
         base_severity=Severity.HIGH,
