@@ -142,7 +142,7 @@ class Platform:
             "knowledge_base": self.enrichment.corpus_size(),
             "playbooks": self.planner.categories(),
             "actuators": self.registry.describe(),
-            "audit_chain": self.ledger.verify_chain().__dict__,
+            "audit_chain": self.ledger.verify_chain().to_dict(),
         }
 
     def close(self) -> None:

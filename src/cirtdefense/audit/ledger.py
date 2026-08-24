@@ -56,6 +56,14 @@ class ChainVerification:
     first_broken_seq: int | None = None
     detail: str = ""
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "valid": self.valid,
+            "entries_checked": self.entries_checked,
+            "first_broken_seq": self.first_broken_seq,
+            "detail": self.detail,
+        }
+
 
 class AuditLedger:
     """Ecriture serialisee : la chaine impose un ordre total des entrees."""
