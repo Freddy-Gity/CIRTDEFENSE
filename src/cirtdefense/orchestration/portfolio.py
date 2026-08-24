@@ -26,6 +26,15 @@ class PortfolioEntry:
     actions_executed: int
     actions_rolled_back: int
     autonomous: bool
+    # Qualification au catalogue CIRT : c'est elle qui donne son sens a
+    # l'ordre du portefeuille, la priorite Axe 4 pesant sur le score.
+    attack_code: str = ""
+    attack_label: str = ""
+    family: str = ""
+    family_label: str = ""
+    dangerousness: float = 0.0
+    priority: str = ""
+    priority_rank: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -38,6 +47,13 @@ class PortfolioEntry:
             "actions_executed": self.actions_executed,
             "actions_rolled_back": self.actions_rolled_back,
             "autonomous": self.autonomous,
+            "attack_code": self.attack_code,
+            "attack_label": self.attack_label,
+            "family": self.family,
+            "family_label": self.family_label,
+            "dangerousness": self.dangerousness,
+            "priority": self.priority,
+            "priority_rank": self.priority_rank,
         }
 
 
@@ -71,6 +87,13 @@ class PortfolioService:
                     actions_executed=per_incident.get("executed", 0),
                     actions_rolled_back=per_incident.get("rolled_back", 0),
                     autonomous=bool(per_incident),
+                    attack_code=data.get("attack_code", ""),
+                    attack_label=data.get("attack_label", ""),
+                    family=data.get("family", ""),
+                    family_label=data.get("family_label", ""),
+                    dangerousness=data.get("dangerousness", 0.0),
+                    priority=data.get("priority", ""),
+                    priority_rank=data.get("priority_rank", 0),
                 )
             )
         return entries
@@ -103,11 +126,20 @@ class PortfolioService:
             "actions_blocked": counts.get("blocked_by_policy", 0),
             "rollback_ratio": round(rolled_back / total_terminal, 3) if total_terminal else 0.0,
             "top_categories": _top_categories(data),
+            "by_family": _count(data, "family_label"),
+            "by_attack_type": _count(data, "attack_code"),
+            "by_priority": _count(data, "priority"),
         }
 
 
 def _top_categories(data: list[dict[str, Any]]) -> list[tuple[str, int]]:
+    return sorted(_count(data, "category").items(), key=lambda kv: (-kv[1], kv[0]))[:5]
+
+
+def _count(data: list[dict[str, Any]], key: str) -> dict[str, int]:
     counts: dict[str, int] = {}
     for item in data:
-        counts[item["category"]] = counts.get(item["category"], 0) + 1
-    return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
+        value = item.get(key) or ""
+        if value:
+            counts[value] = counts.get(value, 0) + 1
+    return counts

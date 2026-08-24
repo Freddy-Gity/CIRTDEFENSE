@@ -3,12 +3,24 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from .api.deps import get_platform
-from .api.routes import actions, admin, audit, events, health, incidents, policy
+from .api.routes import (
+    actions,
+    admin,
+    assistant,
+    audit,
+    demo,
+    events,
+    health,
+    incidents,
+    policy,
+)
 from .config import get_settings
 from .logging_setup import configure_logging
 
@@ -57,15 +69,19 @@ def create_app() -> FastAPI:
     app.include_router(audit.router)
     app.include_router(audit.notifications_router)
     app.include_router(admin.router)
+    app.include_router(demo.router)
+    app.include_router(assistant.router)
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     def dashboard() -> str:
-        from pathlib import Path
-
         page = Path(__file__).resolve().parents[2] / "web" / "index.html"
         if page.exists():
             return page.read_text(encoding="utf-8")
         return "<h1>CIRTDEFENSE v3.0</h1><p>Documentation : <a href='/docs'>/docs</a></p>"
+
+    web_root = Path(__file__).resolve().parents[2] / "web"
+    if (web_root / "static").is_dir():
+        app.mount("/static", StaticFiles(directory=web_root / "static"), name="static")
 
     app.state.settings = settings
     return app

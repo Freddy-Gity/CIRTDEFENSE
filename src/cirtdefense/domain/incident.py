@@ -129,7 +129,9 @@ class Incident:
         self.attack_label = classification.label
         self.family = classification.family.value if classification.family else ""
         self.family_label = classification.family.label if classification.family else ""
-        self.dangerousness = classification.dangerousness
+        # Arrondi a la source : la valeur est affichee, comparee et exportee
+        # en rapport ; un bruit de virgule flottante y serait visible.
+        self.dangerousness = round(classification.dangerousness, 1)
         self.priority = classification.priority.value
         self.priority_rank = classification.priority.rank
         if classification.severity > self.severity:

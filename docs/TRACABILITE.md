@@ -60,6 +60,9 @@ Les exigences en gras sont celles que le pivot v3.0 a creees ou reecrites.
 | CR-13 | Journal immuable et verifiable | `TestCR13_JournalImmuable` |
 | **CR-14** | **Non-regression securitaire (CDCF §5.3)** | `TestCR14_NonRegressionSecuritaire` |
 | CR-15 | Absence de validation prealable | `TestCR15_AbsenceDeValidationPrealable` |
+| **CR-16** | **Classification des 22 types du catalogue CIRT** | `TestCR16_ClassificationDesAttaques` |
+| **CR-17** | **Mode demonstration eprouvable depuis l'interface** | `TestCR17_ModeDemonstration` |
+| **CR-18** | **Assistant fonde sur les faits et rapports exportables** | `TestCR18_AssistantEtRapports` |
 
 Execution : `make test-recette`.
 
@@ -94,4 +97,7 @@ le jury releverait.
 | `orchestration/policy_compiler.py` | Le garde-fou d'irreversibilite reste injecte et prioritaire |
 | `orchestration/portfolio.py` | Les compteurs viennent de la table `actions`, pas de l'instantane d'incident |
 | `api/routes/` | CR-15 : aucun chemin de validation prealable n'apparait |
+| `domain/taxonomy.py` | Aucune entree irreversible n'est introduite (`test_aucune_action_irreversible_au_catalogue`) |
+| Un actuateur, un verbe | Le catalogue de reversibilite ET le vocabulaire de politique sont completes — sinon l'action devient non interdictible |
+| `assistant/` | Aucun chiffre ne provient d'ailleurs que des depots (`test_aucun_nombre_non_nul_invente`) |
 | `enrichment/knowledge/` | Chaque document declare les codes de categorie qu'il couvre |

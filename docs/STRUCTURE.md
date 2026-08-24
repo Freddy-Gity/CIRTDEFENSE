@@ -46,6 +46,7 @@ CIRTDEFENSE/
 │   │
 │   ├── domain/                   ── Modele metier pur, sans aucune E/S ──
 │   │   ├── enums.py              Vocabulaire ferme du domaine
+│   │   ├── taxonomy.py           Catalogue CIRT : les 22 types d'attaques
 │   │   ├── events.py             DetectionEvent, Asset (schema pivot EF-18/20)
 │   │   ├── incident.py           Agregat de correlation, score de risque (Axe 4)
 │   │   ├── action.py             ActionSpec, ActionResult, invariants EF-14
@@ -86,6 +87,7 @@ CIRTDEFENSE/
 │   │   ├── circuit_breaker.py    Coupe-circuit global (EF-26)
 │   │   ├── executor.py           Execution sans validation (EF-07)
 │   │   ├── rollback.py           Annulation autonome et manuelle (EF-25)
+│   │   ├── classifier.py         Type, famille, criticite, dangerosite
 │   │   ├── portfolio.py          Portefeuille priorise (Axe 4)
 │   │   └── engine.py             Chaine complete et conditions d'arret
 │   │
@@ -104,6 +106,17 @@ CIRTDEFENSE/
 │   │
 │   ├── degraded/                 ── Mode degrade (Axe 5) ──
 │   │   └── queue.py              File persistante et rejeu
+│   │
+│   ├── demo/                     ── Mode demonstration ──
+│   │   └── scenarios.py          Une charge utile realiste par type d'attaque
+│   │
+│   ├── assistant/                ── Bilan et rapports ──
+│   │   ├── facts.py              Collecte des faits, depuis les seuls depots
+│   │   ├── service.py            Intentions reconnues et redaction
+│   │   └── reports.py            Rapport d'operations transmissible
+│   │
+│   ├── llm/                      ── Redaction optionnelle ──
+│   │   └── client.py             Repli deterministe par defaut
 │   │
 │   ├── persistence/
 │   │   ├── db.py                 Schema SQLite, declencheurs d'immuabilite
@@ -209,8 +222,8 @@ probante, et se traite comme telle.
 | Besoin | Emplacement | Reste-t-il quelque chose a modifier ? |
 |---|---|---|
 | Nouvelle source de detection | `ingestion/normalizers/` + `registry.load_builtin()` | Non |
-| Nouvelle famille de menace | `enrichment/knowledge/` + `orchestration/playbooks/` | Non |
-| Nouvelle action corrective | `actuators/` + entree au catalogue `reversibility.py` | Non |
+| Nouvelle famille de menace | `domain/taxonomy.py` + `enrichment/knowledge/` + `orchestration/playbooks/` + `demo/scenarios.py` | Non |
+| Nouvelle action corrective | `actuators/` + catalogue `reversibility.py` + vocabulaire `policy_compiler.py` | Non |
 | Nouvel equipement du meme type | Classe `Live*` de l'actuateur concerne | Non |
 | Nouvelle regle de politique | Aucune : l'administrateur l'ecrit en langage naturel | — |
 | Nouveau critere de recette | `tests/acceptance/` | Non |

@@ -217,7 +217,7 @@ class Classifier:
         confidence_factor = 0.7 + 0.3 * event.confidence
         factors.append(f"x{confidence_factor:.2f} : confiance de la source {event.confidence:.0%}")
 
-        return max(0.0, min(10.0, (base + criticality_bonus) * confidence_factor))
+        return round(max(0.0, min(10.0, (base + criticality_bonus) * confidence_factor)), 1)
 
     # -- priorite Axe 4 ------------------------------------------------------
 

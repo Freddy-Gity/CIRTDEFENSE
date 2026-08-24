@@ -25,6 +25,9 @@ from .actuators import network as network_module
 from .actuators import notify as notify_module
 from .actuators import service as service_module
 from .actuators import waf as waf_module
+from .assistant.facts import FactCollector
+from .assistant.reports import ReportBuilder
+from .assistant.service import AssistantService
 from .audit.ledger import AuditLedger
 from .audit.notifier import AnalystNotifier
 from .config import Settings, get_settings
@@ -37,6 +40,7 @@ from .detection.ueba.scorer import UebaScorer
 from .domain.policy import IRREVERSIBLE_GUARD, ResponsePolicy
 from .enrichment.rag import EnrichmentService
 from .ingestion.adapter import IngestionAdapter
+from .llm import build_provider
 from .logging_setup import log_with
 from .orchestration.circuit_breaker import CircuitBreaker
 from .orchestration.engine import OrchestrationEngine, OrchestrationResult
@@ -89,6 +93,8 @@ class Platform:
     ueba: UebaScorer
     monitor: InfrastructureMonitor
     probe: HealthProbe
+    assistant: AssistantService
+    reports: ReportBuilder
     degraded: bool = False
 
     # -- chaine nominale ----------------------------------------------------
@@ -239,6 +245,24 @@ def build_platform(
         autonomy_enabled=settings.autonomy.enabled,
     )
 
+    # Assistant : les faits viennent des depots, la redaction du fournisseur
+    # configure. Sans cle, le rendu deterministe s'applique — la plateforme
+    # doit rester utilisable hors connexion.
+    collector = FactCollector(
+        ledger=ledger,
+        incidents=incidents,
+        actions=actions,
+        portfolio=PortfolioService(incidents, actions),
+        notifications=notifications,
+        breaker=breaker,
+        settings=settings,
+    )
+    assistant = AssistantService(
+        collector,
+        build_provider(settings.llm_provider, settings.llm_api_key, settings.llm_model),
+    )
+    reports = ReportBuilder(collector, site_id=settings.site_id)
+
     platform = Platform(
         settings=settings,
         connection=connection,
@@ -265,6 +289,8 @@ def build_platform(
         ueba=UebaScorer(BaselineStore(settings.degraded_spool.parent / "baselines.json")),
         monitor=monitor,
         probe=health_probe,
+        assistant=assistant,
+        reports=reports,
     )
 
     log_with(

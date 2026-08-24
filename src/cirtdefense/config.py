@@ -74,7 +74,7 @@ class Settings:
     """EF-04 : sous ce seuil, le contexte est juge non fonde et le moteur
     refuse d'agir plutot que d'agir sur une hypothese."""
     llm_provider: str = "offline"
-    llm_model: str = "claude-sonnet-5"
+    llm_model: str = "claude-opus-5"
     llm_api_key: str = ""
     degraded_spool: Path = field(default_factory=lambda: PROJECT_ROOT / "data" / "spool")
     degraded_max_items: int = 10000
@@ -98,7 +98,7 @@ class Settings:
             ),
             grounding_min_score=_float("CIRT_GROUNDING_MIN_SCORE", 0.15),
             llm_provider=os.getenv("CIRT_LLM_PROVIDER", "offline"),
-            llm_model=os.getenv("CIRT_LLM_MODEL", "claude-sonnet-5"),
+            llm_model=os.getenv("CIRT_LLM_MODEL", "claude-opus-5"),
             llm_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
             degraded_spool=Path(
                 os.getenv("CIRT_DEGRADED_SPOOL", str(PROJECT_ROOT / "data" / "spool"))

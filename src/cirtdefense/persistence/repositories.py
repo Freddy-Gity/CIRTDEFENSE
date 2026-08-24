@@ -138,6 +138,17 @@ class IncidentRepository:
             asset_criticality=data["asset_criticality"],
             site_id=data["site_id"],
             labels=data.get("labels", {}),
+            # La classification doit survivre au rechargement : sans ces
+            # champs, tout incident re-sauvegarde apres une annulation
+            # perdait son type, sa famille et sa priorite, et disparaissait
+            # des repartitions du portefeuille et des rapports.
+            attack_code=data.get("attack_code", ""),
+            attack_label=data.get("attack_label", ""),
+            family=data.get("family", ""),
+            family_label=data.get("family_label", ""),
+            dangerousness=data.get("dangerousness", 0.0),
+            priority=data.get("priority", ""),
+            priority_rank=data.get("priority_rank", 0),
         )
         rows = self._conn.execute(
             "SELECT payload FROM events WHERE incident_id = ? ORDER BY received_at ASC",

@@ -16,7 +16,12 @@ import time
 import pytest
 
 from cirtdefense.detection.infra.health import HealthSnapshot
-from cirtdefense.domain.enums import ActionStatus, DecisionOutcome, Reversibility
+from cirtdefense.domain.enums import (
+    ActionStatus,
+    DecisionOutcome,
+    Reversibility,
+    Severity,
+)
 
 pytestmark = pytest.mark.acceptance
 
@@ -408,3 +413,139 @@ class TestCR15_AbsenceDeValidationPrealable:
         recours apres l'action."""
         chemins = client.get("/openapi.json").json()["paths"]
         assert any("rollback" in c for c in chemins)
+
+
+class TestCR16_ClassificationDesAttaques:
+    """CR-16 (nouveau) — Toute attaque du catalogue CIRT est qualifiee selon
+    son type, sa famille, sa criticite et sa dangerosite.
+
+    Reponse a l'exigence du document de classification : la reponse autonome
+    ne suffit pas, encore faut-il que le systeme sache dire a quoi il a eu
+    affaire et avec quel enjeu.
+    """
+
+    def test_les_22_types_sont_qualifies(self, platform, probe):
+        from cirtdefense.demo import SCENARIOS, build_payload
+        from cirtdefense.demo.scenarios import ASSETS
+
+        for nom in ASSETS:
+            probe.set(
+                HealthSnapshot(
+                    target=nom, reachable=True, latency_ms=80, error_rate=0.01, throughput=400
+                )
+            )
+        platform.breaker._enabled = False
+
+        for scenario in SCENARIOS:
+            result = platform.ingest_and_respond(scenario.source, build_payload(scenario.code))
+            c = result.decision.classification
+            assert c["code"] == scenario.code
+            assert c["family_label"]
+            assert c["severity"]
+            assert 0 < c["dangerousness"] <= 10
+            assert c["priority"]
+
+    def test_la_qualification_est_explicable(self, platform):
+        """Sans validation humaine en amont, une qualification qu'on ne sait
+        pas justifier a posteriori ne vaut rien."""
+        from cirtdefense.demo import build_payload
+
+        result = platform.ingest_and_respond("generic_json", build_payload("A6"))
+        assert result.decision.classification["factors"]
+
+    def test_criticite_et_dangerosite_sont_distinctes(self, platform):
+        """Les deux mesurent des choses differentes, et les confondre
+        conduirait a mal prioriser.
+
+        Un balayage (A3) casse peu — criticite basse — mais annonce une
+        intrusion : sa dangerosite n'est pas nulle. Une panne de service (D3)
+        est l'inverse : elle gene fortement sans donner la main a un
+        attaquant.
+        """
+        from cirtdefense.domain.events import Asset, DetectionEvent
+        from cirtdefense.orchestration.classifier import Classifier
+
+        classifier = Classifier()
+        scan = classifier.classify(
+            DetectionEvent(
+                category="scan",
+                severity=Severity.LOW,
+                asset=Asset(asset_id="a", criticality=2),
+            )
+        )
+        panne = classifier.classify(
+            DetectionEvent(
+                category="service_unavailable",
+                severity=Severity.HIGH,
+                asset=Asset(asset_id="b", criticality=5),
+            )
+        )
+
+        assert scan.severity is Severity.LOW
+        assert scan.dangerousness > 0, "un precurseur n'est jamais sans danger"
+        assert panne.severity > scan.severity
+        # La panne est plus critique mais pas la plus dangereuse du catalogue :
+        # elle interrompt un service, elle n'ouvre pas d'acces.
+        assert panne.dangerousness < 9
+
+
+class TestCR17_ModeDemonstration:
+    """CR-17 (nouveau) — Les competences de la plateforme sont eprouvables
+    depuis l'interface, sans mener d'attaque reelle."""
+
+    def test_le_catalogue_est_simulable(self, client):
+        body = client.get("/api/v1/demo/scenarios").json()
+        assert body["count"] == 22
+
+    def test_une_attaque_se_declenche_d_un_appel(self, client):
+        body = client.post("/api/v1/demo/run/B3").json()
+        assert body["accepted"]
+        assert body["execution"]["executed"] >= 1
+
+    def test_le_mode_demonstration_est_refuse_en_actionnement_reel(self, settings, probe):
+        """En posture `live`, une attaque simulee declencherait de vraies
+        actions sur les equipements."""
+        from dataclasses import replace
+
+        from fastapi.testclient import TestClient
+
+        from cirtdefense.api.deps import set_platform
+        from cirtdefense.main import create_app
+        from cirtdefense.platform import build_platform
+
+        reel = replace(settings, autonomy=replace(settings.autonomy, actuation_mode="live"))
+        platform = build_platform(reel, probe=probe)
+        try:
+            set_platform(platform)
+            with TestClient(create_app()) as client:
+                response = client.post("/api/v1/demo/run/A1")
+            assert response.status_code == 409
+            assert "effets reels" in response.json()["detail"]
+        finally:
+            set_platform(None)
+            platform.close()
+
+
+class TestCR18_AssistantEtRapports:
+    """CR-18 (nouveau) — L'assistant rend compte des operations a partir des
+    seules donnees observees, et produit un rapport transmissible."""
+
+    def test_le_bilan_repose_sur_des_faits_verifiables(self, platform):
+        from cirtdefense.demo import build_payload
+
+        platform.ingest_and_respond("generic_json", build_payload("A6"))
+        answer = platform.assistant.daily_brief()
+
+        assert answer.facts["incidents_total"] == len(platform.portfolio.list(limit=10))
+        assert answer.sources
+
+    def test_l_assistant_refuse_ce_qu_il_ne_sait_pas(self, platform):
+        """Un bilan de securite comportant un fait invente serait pire
+        qu'une absence de reponse."""
+        answer = platform.assistant.ask("Quel temps fera-t-il demain ?")
+        assert "ne sais pas repondre" in answer.text.lower()
+
+    def test_le_rapport_est_exportable(self, client):
+        response = client.get("/api/v1/assistant/report.md?hours=24")
+        assert response.status_code == 200
+        assert response.text.startswith("# Rapport d'operations")
