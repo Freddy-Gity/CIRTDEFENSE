@@ -1,0 +1,54 @@
+%% Diagramme de cas d'utilisation — CDCF v3.0
+%% Delta applique par rapport a la v2.1 (plan de lancement §4) :
+%%   RETIRES : Valider / Modifier / Rejeter une recommandation
+%%   AJOUTES : execution autonome, rollback automatique, notification a
+%%             posteriori, politique a priori, rollback manuel, coupe-circuit
+%% Aucun cas de validation cote Analyste en amont d'une execution.
+
+graph LR
+    Analyste(["Analyste<br/><i>superviseur a posteriori</i>"])
+    Decideur(["Decideur"])
+    Admin(["Administrateur<br/><i>role renforce</i>"])
+    Systeme(["Systeme<br/><i>acteur declencheur</i>"])
+
+    subgraph Plateforme["CIRTDEFENSE v3.0"]
+        UC1["Ingerer un evenement<br/>normalise"]
+        UC2["Executer une action<br/>corrective automatiquement"]
+        UC3["Consulter les metadonnees<br/>de reversibilite"]
+        UC4["Effectuer un rollback<br/>automatique"]
+        UC5["Notifier l'analyste<br/>a posteriori"]
+        UC6["Declencher un rollback<br/>manuel a posteriori"]
+        UC7["Consulter le journal<br/>d'audit des decisions"]
+        UC8["Consulter le portefeuille<br/>d'incidents priorise"]
+        UC9["Definir une politique de<br/>reponse en langage naturel"]
+        UC10["Gerer le catalogue<br/>de reversibilite"]
+        UC11["Configurer le coupe-circuit<br/>d'autonomie"]
+        UC12["Consulter la file de<br/>synchronisation (mode degrade)"]
+    end
+
+    Systeme --> UC1
+    Systeme --> UC2
+    Systeme --> UC4
+    Systeme --> UC5
+
+    UC2 -.->|include| UC3
+    UC4 -.->|include| UC3
+    UC2 -.->|include| UC5
+
+    Analyste --> UC6
+    Analyste --> UC7
+    Analyste --> UC8
+    Analyste --> UC12
+
+    Decideur --> UC7
+    Decideur --> UC8
+
+    Admin --> UC9
+    Admin --> UC10
+    Admin --> UC11
+    Admin --> UC7
+    Admin --> UC12
+
+    style UC2 stroke-width:3px
+    style UC4 stroke-width:3px
+    style UC11 stroke-dasharray: 5 5

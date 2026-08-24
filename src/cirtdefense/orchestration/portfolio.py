@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..domain.enums import IncidentStatus
-from ..persistence.repositories import IncidentRepository
+from ..persistence.repositories import ActionRepository, IncidentRepository
 
 
 @dataclass(slots=True)
@@ -42,13 +42,24 @@ class PortfolioEntry:
 
 
 class PortfolioService:
-    def __init__(self, incidents: IncidentRepository) -> None:
+    """Les compteurs d'actions viennent de la table des actions, jamais de
+    l'instantane stocke avec l'incident.
+
+    L'instantane est fige au moment de l'execution : il ignore les annulations
+    survenues ensuite. S'en servir affichait un taux d'annulation de 0 % alors
+    meme que le systeme venait d'annuler cinq actions — c'est-a-dire faux sur
+    precisement l'indicateur qui mesure la fiabilite de l'autonomie.
+    """
+
+    def __init__(self, incidents: IncidentRepository, actions: ActionRepository) -> None:
         self._incidents = incidents
+        self._actions = actions
 
     def list(self, limit: int = 50, status: str | None = None) -> list[PortfolioEntry]:
+        counts = self._actions.status_counts_by_incident()
         entries: list[PortfolioEntry] = []
         for data in self._incidents.portfolio(limit=limit, status=status):
-            actions = data.get("actions", [])
+            per_incident = counts.get(data["incident_id"], {})
             entries.append(
                 PortfolioEntry(
                     incident_id=data["incident_id"],
@@ -57,32 +68,39 @@ class PortfolioService:
                     status=data["status"],
                     risk_score=data.get("risk_score", 0.0),
                     updated_at=data["updated_at"],
-                    actions_executed=sum(1 for a in actions if a["status"] == "executed"),
-                    actions_rolled_back=sum(1 for a in actions if a["status"] == "rolled_back"),
-                    autonomous=bool(actions),
+                    actions_executed=per_incident.get("executed", 0),
+                    actions_rolled_back=per_incident.get("rolled_back", 0),
+                    autonomous=bool(per_incident),
                 )
             )
         return entries
 
     def statistics(self) -> dict[str, Any]:
-        """Indicateurs de pilotage. Le taux d'annulation est le plus important :
-        il mesure la frequence a laquelle le systeme se corrige lui-meme, et
-        c'est lui que la soutenance interrogera."""
+        """Indicateurs de pilotage.
+
+        Le taux d'annulation est le plus important : il mesure la frequence a
+        laquelle le systeme doit se corriger lui-meme. C'est l'indicateur que
+        la soutenance interrogera, et celui qui, s'il derive, justifie de
+        rouvrir la question de la posture d'autonomie.
+        """
         data = self._incidents.portfolio(limit=1000)
-        actions = [a for d in data for a in d.get("actions", [])]
-        executed = sum(1 for a in actions if a["status"] == "executed")
-        rolled_back = sum(1 for a in actions if a["status"] == "rolled_back")
-        total_terminal = executed + rolled_back
+        counts = self._actions.status_counts()
+        executed = counts.get("executed", 0)
+        rolled_back = counts.get("rolled_back", 0)
+        rollback_failed = counts.get("rollback_failed", 0)
+        total_terminal = executed + rolled_back + rollback_failed
         return {
             "incidents_total": len(data),
             "incidents_by_status": {
                 status.value: sum(1 for d in data if d["status"] == status.value)
                 for status in IncidentStatus
             },
-            "actions_total": len(actions),
+            "actions_total": sum(counts.values()),
             "actions_executed": executed,
             "actions_rolled_back": rolled_back,
-            "actions_failed": sum(1 for a in actions if a["status"] == "failed"),
+            "actions_failed": counts.get("failed", 0),
+            "actions_rollback_failed": rollback_failed,
+            "actions_blocked": counts.get("blocked_by_policy", 0),
             "rollback_ratio": round(rolled_back / total_terminal, 3) if total_terminal else 0.0,
             "top_categories": _top_categories(data),
         }

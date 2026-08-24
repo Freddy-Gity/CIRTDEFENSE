@@ -21,9 +21,9 @@ from ..actuators.base import ActuatorRegistry
 from ..audit.ledger import AuditLedger
 from ..detection.infra.post_action_watch import PostActionWatcher, WatchVerdict
 from ..domain.action import ActionResult
-from ..domain.enums import ActionStatus, AuditEventType
+from ..domain.enums import ActionStatus, AuditEventType, IncidentStatus
 from ..logging_setup import log_with
-from ..persistence.repositories import ActionRepository
+from ..persistence.repositories import ActionRepository, IncidentRepository
 from .reversibility import ReversibilityCatalog, get_catalog
 
 logger = logging.getLogger(__name__)
@@ -82,11 +82,13 @@ class RollbackService:
         ledger: AuditLedger,
         watcher: PostActionWatcher,
         catalog: ReversibilityCatalog | None = None,
+        incidents: IncidentRepository | None = None,
         *,
         max_latency_seconds: int = 180,
     ) -> None:
         self._registry = registry
         self._actions = actions
+        self._incidents = incidents
         self._ledger = ledger
         self._watcher = watcher
         self._catalog = catalog or get_catalog()
@@ -195,6 +197,7 @@ class RollbackService:
         result.rollback_reason = reason
         result.rollback_actor = actor
         self._actions.save(result)
+        self._refresh_incident_status(result.incident_id)
 
         within_bound = latency <= bound
         self._ledger.record(
@@ -242,6 +245,19 @@ class RollbackService:
             f"degradation constatee sur {verdict.target} apres l'action : "
             + " ; ".join(verdict.reasons)
         )
+
+    def _refresh_incident_status(self, incident_id: str) -> None:
+        """Un incident dont tous les confinements ont ete annules n'est plus
+        « contenu ». Sans cette remise a jour, le portefeuille afficherait une
+        maitrise que la realite dement."""
+        if not incident_id or self._incidents is None:
+            return
+        incident = self._incidents.get(incident_id)
+        if incident is None:
+            return
+        if not incident.has_active_containment:
+            incident.status = IncidentStatus.ROLLED_BACK
+            self._incidents.save(incident)
 
     def _refuse(self, result: ActionResult, reason: str, actor: str) -> RollbackOutcome:
         log_with(logger, logging.WARNING, "annulation refusee",

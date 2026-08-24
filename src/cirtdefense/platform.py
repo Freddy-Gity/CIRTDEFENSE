@@ -187,7 +187,7 @@ def build_platform(
         registry, actions, ledger, watcher, catalog, actuation_mode=mode
     )
     rollback = RollbackService(
-        registry, actions, ledger, watcher, catalog,
+        registry, actions, ledger, watcher, catalog, incidents,
         max_latency_seconds=settings.autonomy.rollback_max_latency_seconds,
     )
     breaker = CircuitBreaker(
@@ -240,7 +240,7 @@ def build_platform(
         rollback=rollback,
         breaker=breaker,
         engine=engine,
-        portfolio=PortfolioService(incidents),
+        portfolio=PortfolioService(incidents, actions),
         notifier=notifier,
         spool=DegradedSpool(settings.degraded_spool, settings.degraded_max_items),
         ueba=UebaScorer(BaselineStore(settings.degraded_spool.parent / "baselines.json")),

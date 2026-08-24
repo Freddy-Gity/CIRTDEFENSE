@@ -226,6 +226,28 @@ class ActionRepository:
         ).fetchone()
         return int(row["n"])
 
+    def status_counts(self) -> dict[str, int]:
+        """Repartition globale par statut, lue depuis la table des actions.
+
+        Le portefeuille ne doit pas deduire ces chiffres de l'instantane
+        stocke avec l'incident : cet instantane est fige au moment de
+        l'execution et ignore les annulations survenues ensuite.
+        """
+        rows = self._conn.execute(
+            "SELECT status, COUNT(*) AS n FROM actions GROUP BY status"
+        ).fetchall()
+        return {r["status"]: int(r["n"]) for r in rows}
+
+    def status_counts_by_incident(self) -> dict[str, dict[str, int]]:
+        rows = self._conn.execute(
+            "SELECT incident_id, status, COUNT(*) AS n FROM actions "
+            "GROUP BY incident_id, status"
+        ).fetchall()
+        counts: dict[str, dict[str, int]] = {}
+        for row in rows:
+            counts.setdefault(row["incident_id"], {})[row["status"]] = int(row["n"])
+        return counts
+
     def executed_reversible(self, limit: int = 200) -> list[ActionResult]:
         rows = self._conn.execute(
             """SELECT payload FROM actions

@@ -1,0 +1,47 @@
+%% Sequence nominale — de la detection a l'action, sans validation humaine.
+%% L'analyste apparait en fin de sequence : il est informe, il n'autorise pas.
+
+sequenceDiagram
+    participant S as Source
+    participant A as Adaptateur
+    participant E as Enrichissement
+    participant P as Planificateur
+    participant Pol as Politique
+    participant CB as Coupe-circuit
+    participant W as Surveillance
+    participant X as Executeur
+    participant Eq as Equipement
+    participant J as Journal d'audit
+    participant An as Analyste
+
+    S->>A: alerte brute
+    A->>A: normalise, dedoublonne, correle
+    A->>J: event.ingested
+
+    A->>E: DetectionEvent
+    E->>E: recherche documentaire + garde EF-04
+    E->>J: context.enriched
+    alt contexte non fonde
+        E-->>J: decision.made (no_grounded_context)
+        Note over E,J: REFUS D'AGIR — aucune action
+    end
+
+    E->>P: contexte fonde
+    P->>P: playbook -> actions candidates
+    P->>P: filtre par catalogue de reversibilite
+    P->>Pol: actions candidates
+    Pol->>Pol: evalue les contraintes compilees
+    Pol->>CB: actions autorisees
+    CB->>CB: circuit ferme ?
+    CB->>J: decision.made
+
+    CB->>X: ordre d'execution
+    X->>W: MESURE DE REFERENCE de la cible
+    Note over X,W: avant l'action, jamais apres
+    X->>Eq: applique
+    Eq-->>X: succes + jeton d'annulation
+    X->>J: action.executed
+
+    X->>An: notification a posteriori
+    X->>J: analyst.notified
+    Note over An: l'analyste decouvre<br/>une action deja faite

@@ -1,0 +1,49 @@
+%% Boucle de controle fermee (EF-25) et declenchement du coupe-circuit (EF-26).
+%% C'est la contrepartie de l'abandon de la validation prealable : personne ne
+%% relit avant, donc le systeme relit son propre effet apres.
+
+sequenceDiagram
+    participant T as Declencheur periodique
+    participant R as Service de rollback
+    participant W as Surveillance post-action
+    participant Sonde as Sonde de sante
+    participant Eq as Equipement
+    participant CB as Coupe-circuit
+    participant J as Journal d'audit
+    participant An as Analyste
+
+    T->>R: passage de la boucle
+    R->>R: actions reversibles encore actives
+
+    loop pour chaque action
+        R->>W: verdict pour l'action
+        W->>Sonde: mesure l'etat d'APRES
+        Note over W,Sonde: sur la cible de la mesure de reference,<br/>pas sur la cible de l'action
+        Sonde-->>W: etat courant
+        W->>W: compare a la reference
+
+        alt pas de degradation
+            W-->>R: action saine
+            Note over R: le confinement est conserve
+        else degradation imputee a l'action
+            W-->>R: degrade + motifs
+            R->>J: rollback.triggered
+            R->>Eq: annule (jeton d'annulation)
+            alt annulation reussie
+                Eq-->>R: retire
+                R->>J: rollback.completed (delai mesure)
+            else annulation impossible
+                Eq-->>R: echec
+                R->>J: rollback.failed
+                Note over R,J: etat le plus grave :<br/>action appliquee, sans retour arriere
+                R->>An: alerte — intervention manuelle requise
+            end
+        end
+    end
+
+    R->>CB: bilan du passage
+    CB->>CB: annulations dans la fenetre >= seuil ?
+    alt seuil atteint
+        CB->>J: breaker.tripped
+        Note over CB: AUTONOMIE SUSPENDUE<br/>rearmement manuel uniquement
+    end

@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CIRTDEFENSE — supervision</title>
+<style>
+  :root {
+    --fond: #0f1419; --carte: #171d24; --bord: #263039;
+    --texte: #e3e8ee; --attenue: #8b98a5;
+    --accent: #4a9eff; --vert: #3fb950; --orange: #d29922; --rouge: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--fond); color: var(--texte);
+    font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  header {
+    padding: 18px 24px; border-bottom: 1px solid var(--bord);
+    display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+  }
+  h1 { font-size: 17px; margin: 0; letter-spacing: .02em; }
+  h1 span { color: var(--attenue); font-weight: 400; }
+  main { padding: 24px; max-width: 1280px; margin: 0 auto; }
+  section { margin-bottom: 32px; }
+  h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--attenue); margin: 0 0 12px; font-weight: 600;
+  }
+  .grille { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .carte { background: var(--carte); border: 1px solid var(--bord); border-radius: 8px; padding: 14px 16px; }
+  .carte .valeur { font-size: 26px; font-weight: 600; line-height: 1.2; }
+  .carte .libelle { color: var(--attenue); font-size: 12px; margin-top: 2px; }
+  .carte .note { color: var(--attenue); font-size: 11px; margin-top: 8px; line-height: 1.4; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; color: var(--attenue); font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: .06em; padding: 8px 10px;
+    border-bottom: 1px solid var(--bord);
+  }
+  td { padding: 9px 10px; border-bottom: 1px solid #1d242c; }
+  tr:last-child td { border-bottom: none; }
+  .pastille {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; letter-spacing: .02em;
+  }
+  .critical, .high, .open, .rollback_failed { background: #3d1418; color: var(--rouge); }
+  .medium, .contained { background: #3a2c0a; color: var(--orange); }
+  .low, .info, .closed { background: #14301c; color: var(--vert); }
+  .rolled_back { background: #1b2b3d; color: var(--accent); }
+  .ok { color: var(--vert); } .alerte { color: var(--rouge); } .attention { color: var(--orange); }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+  .bandeau {
+    padding: 10px 16px; border-radius: 8px; margin-bottom: 20px;
+    border: 1px solid; font-weight: 500;
+  }
+  .bandeau.actif { border-color: #1f4d2b; background: #102417; color: var(--vert); }
+  .bandeau.suspendu { border-color: #5c1d21; background: #2a1214; color: var(--rouge); }
+  .vide { color: var(--attenue); padding: 20px 10px; }
+  footer { color: var(--attenue); font-size: 12px; padding: 0 24px 32px; max-width: 1280px; margin: 0 auto; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>CIRTDEFENSE <span>v3.0 — orchestration autonome</span></h1>
+  <span id="site" class="mono" style="color:var(--attenue)"></span>
+  <span style="margin-left:auto"><a href="/docs">Documentation de l'API</a></span>
+</header>
+
+<main>
+  <div id="bandeau" class="bandeau">Chargement…</div>
+
+  <section>
+    <h2>Posture</h2>
+    <div class="grille" id="posture"></div>
+  </section>
+
+  <section>
+    <h2>Portefeuille d'incidents — ce que le systeme a traite</h2>
+    <div class="carte" style="padding:0;overflow:auto">
+      <table><thead><tr>
+        <th>Incident</th><th>Categorie</th><th>Gravite</th><th>Etat</th>
+        <th>Risque</th><th>Executees</th><th>Annulees</th><th>Mise a jour</th>
+      </tr></thead><tbody id="incidents"></tbody></table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Notifications a posteriori non acquittees</h2>
+    <div class="carte" style="padding:0;overflow:auto">
+      <table><thead><tr>
+        <th>Emise</th><th>Gravite</th><th>Objet</th><th>Incident</th>
+      </tr></thead><tbody id="notifications"></tbody></table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Journal d'audit — dernieres entrees</h2>
+    <div class="carte" style="padding:0;overflow:auto">
+      <table><thead><tr>
+        <th>#</th><th>Horodatage</th><th>Type</th><th>Acteur</th><th>Incident</th>
+      </tr></thead><tbody id="audit"></tbody></table>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Le systeme execute les actions correctives sans validation humaine prealable (EF-07).
+  L'analyste est notifie apres coup et peut annuler ; il ne valide rien en amont.
+  Rafraichissement automatique toutes les 10 secondes.
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+async function json(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`${url} → ${r.status}`);
+  return r.json();
+}
+
+function carte(valeur, libelle, classe = "", note = "") {
+  return `<div class="carte">
+    <div class="valeur ${classe}">${esc(valeur)}</div>
+    <div class="libelle">${esc(libelle)}</div>
+    ${note ? `<div class="note">${esc(note)}</div>` : ""}
+  </div>`;
+}
+
+function heure(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "medium" });
+}
+
+async function rafraichir() {
+  try {
+    const [etat, portefeuille, stats, notifs, audit] = await Promise.all([
+      json("/api/v1/status"),
+      json("/api/v1/incidents?limit=25"),
+      json("/api/v1/incidents/statistics"),
+      json("/api/v1/notifications?limit=15"),
+      json("/api/v1/audit?limit=20"),
+    ]);
+
+    $("site").textContent = `${etat.site_id} · ${etat.environment}`;
+
+    const actif = etat.autonomy.effective;
+    const bandeau = $("bandeau");
+    bandeau.className = "bandeau " + (actif ? "actif" : "suspendu");
+    bandeau.textContent = actif
+      ? `Autonomie ACTIVE — actionnement « ${etat.autonomy.actuation_mode} ». `
+        + `Les actions partent sans validation prealable.`
+      : `Autonomie SUSPENDUE — ${etat.circuit_breaker.reason || "coupe-circuit ouvert"}. `
+        + `Aucune action n'est executee jusqu'au rearmement par l'administrateur.`;
+
+    const cb = etat.circuit_breaker;
+    $("posture").innerHTML = [
+      carte(cb.state === "closed" ? "ferme" : "OUVERT", "Coupe-circuit (EF-26)",
+            cb.state === "closed" ? "ok" : "alerte",
+            `${cb.observations.rollbacks_in_window}/${cb.observations.rollback_threshold} annulations `
+            + `sur ${cb.observations.window_seconds} s`),
+      carte(stats.actions_executed, "Actions executees", "",
+            "confinements actuellement en place"),
+      carte(stats.actions_rolled_back, "Actions annulees",
+            stats.actions_rolled_back > 0 ? "attention" : "",
+            "dont annulations autonomes (EF-25)"),
+      carte((stats.rollback_ratio * 100).toFixed(0) + " %", "Taux d'annulation",
+            stats.rollback_ratio > 0.3 ? "alerte" : "ok",
+            "frequence a laquelle le systeme se corrige"),
+      carte(`${etat.catalog.autonomously_executable} / ${etat.catalog.total}`,
+            "Perimetre autonome (EF-14)", "",
+            "actions annulables sur total du catalogue"),
+      carte(etat.audit_chain.valid ? "intacte" : "ROMPUE", "Chaine d'audit",
+            etat.audit_chain.valid ? "ok" : "alerte",
+            `${etat.audit_chain.entries_checked} entrees verifiees`),
+      carte(etat.policy.rules, "Regles de politique", "",
+            `empreinte ${etat.policy.checksum}`),
+      carte(etat.degraded_mode ? "DEGRADE" : "nominal", "Mode de fonctionnement",
+            etat.degraded_mode ? "attention" : "ok",
+            etat.degraded_mode ? `${etat.spool_size} evenement(s) en file` : "equipements joignables"),
+    ].join("");
+
+    $("incidents").innerHTML = portefeuille.incidents.length
+      ? portefeuille.incidents.map(i => `<tr>
+          <td class="mono">${esc(i.incident_id.slice(0, 20))}</td>
+          <td>${esc(i.category)}</td>
+          <td><span class="pastille ${esc(i.severity)}">${esc(i.severity)}</span></td>
+          <td><span class="pastille ${esc(i.status)}">${esc(i.status)}</span></td>
+          <td>${i.risk_score}</td>
+          <td>${i.actions_executed}</td>
+          <td>${i.actions_rolled_back || "—"}</td>
+          <td style="color:var(--attenue)">${heure(i.updated_at)}</td>
+        </tr>`).join("")
+      : `<tr><td colspan="8" class="vide">Aucun incident.</td></tr>`;
+
+    $("notifications").innerHTML = notifs.notifications.length
+      ? notifs.notifications.map(n => `<tr>
+          <td style="color:var(--attenue)">${heure(n.created_at)}</td>
+          <td><span class="pastille ${esc(n.severity)}">${esc(n.severity)}</span></td>
+          <td>${esc(n.subject)}</td>
+          <td class="mono">${esc((n.incident_id || "—").slice(0, 20))}</td>
+        </tr>`).join("")
+      : `<tr><td colspan="4" class="vide">Aucune notification en attente.</td></tr>`;
+
+    $("audit").innerHTML = audit.entries.map(e => `<tr>
+        <td class="mono">${e.seq}</td>
+        <td style="color:var(--attenue)">${heure(e.recorded_at)}</td>
+        <td class="mono">${esc(e.event_type)}</td>
+        <td class="mono" style="color:var(--attenue)">${esc(e.actor)}</td>
+        <td class="mono">${esc((e.incident_id || "—").slice(0, 20))}</td>
+      </tr>`).join("");
+
+  } catch (err) {
+    $("bandeau").className = "bandeau suspendu";
+    $("bandeau").textContent = "Interface injoignable : " + err.message;
+  }
+}
+
+rafraichir();
+setInterval(rafraichir, 10000);
+</script>
+</body>
+</html>
