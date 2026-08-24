@@ -38,8 +38,11 @@ def verify(platform: PlatformDep) -> dict:
 @router.get("/timeline/{incident_id}")
 def timeline(incident_id: str, platform: PlatformDep) -> dict:
     entries = platform.ledger.incident_timeline(incident_id)
-    return {"incident_id": incident_id, "count": len(entries),
-            "timeline": [e.to_dict() for e in entries]}
+    return {
+        "incident_id": incident_id,
+        "count": len(entries),
+        "timeline": [e.to_dict() for e in entries],
+    }
 
 
 notifications_router = APIRouter(prefix="/api/v1/notifications", tags=["notifications"])

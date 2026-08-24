@@ -14,6 +14,7 @@ from __future__ import annotations
 import time
 
 import pytest
+
 from cirtdefense.detection.infra.health import HealthSnapshot
 from cirtdefense.domain.enums import ActionStatus, DecisionOutcome, Reversibility
 
@@ -27,14 +28,38 @@ class TestCR01_NormalisationMultiSources:
     @pytest.mark.parametrize(
         "source,payload",
         [
-            ("wazuh", {"rule": {"level": 10, "description": "Multiple failed password"},
-                       "agent": {"id": "srv-01"}, "data": {"srcip": "41.202.1.9"}}),
-            ("suricata", {"alert": {"signature": "ET TROJAN Beacon", "severity": 1},
-                          "src_ip": "10.0.0.5", "dest_ip": "185.1.1.1"}),
-            ("syslog", {"line": "<131>1 2026-08-24T10:05:00Z fw-01 sshd 1 ID47 "
-                                "Failed password for user root from 41.202.1.9"}),
-            ("generic_json", {"category": "scan", "severity": "low", "asset_id": "srv-01",
-                              "indicators": {"srcip": "41.202.1.9"}}),
+            (
+                "wazuh",
+                {
+                    "rule": {"level": 10, "description": "Multiple failed password"},
+                    "agent": {"id": "srv-01"},
+                    "data": {"srcip": "41.202.1.9"},
+                },
+            ),
+            (
+                "suricata",
+                {
+                    "alert": {"signature": "ET TROJAN Beacon", "severity": 1},
+                    "src_ip": "10.0.0.5",
+                    "dest_ip": "185.1.1.1",
+                },
+            ),
+            (
+                "syslog",
+                {
+                    "line": "<131>1 2026-08-24T10:05:00Z fw-01 sshd 1 ID47 "
+                    "Failed password for user root from 41.202.1.9"
+                },
+            ),
+            (
+                "generic_json",
+                {
+                    "category": "scan",
+                    "severity": "low",
+                    "asset_id": "srv-01",
+                    "indicators": {"srcip": "41.202.1.9"},
+                },
+            ),
         ],
     )
     def test_source_traitee_de_bout_en_bout(self, platform, source, payload):
@@ -59,11 +84,16 @@ class TestCR03_Correlation:
 
     def test_regroupement(self, platform):
         for i in range(3):
-            platform.ingest_and_respond("generic_json", {
-                "category": "bruteforce", "severity": "high", "asset_id": "srv-01",
-                "indicators": {"srcip": f"41.202.1.{i}"},
-                "occurred_at": f"2026-08-24T10:0{i}:00Z",
-            })
+            platform.ingest_and_respond(
+                "generic_json",
+                {
+                    "category": "bruteforce",
+                    "severity": "high",
+                    "asset_id": "srv-01",
+                    "indicators": {"srcip": f"41.202.1.{i}"},
+                    "occurred_at": f"2026-08-24T10:0{i}:00Z",
+                },
+            )
         assert len(platform.portfolio.list()) == 1
 
 
@@ -79,10 +109,15 @@ class TestCR04_EnrichissementFonde:
         assert result.decision.trace.context_sources
 
     def test_menace_non_documentee_bloque_l_action(self, platform):
-        result = platform.ingest_and_respond("generic_json", {
-            "category": "menace_inedite_non_repertoriee", "severity": "critical",
-            "asset_id": "srv-01", "title": "signal inconnu",
-        })
+        result = platform.ingest_and_respond(
+            "generic_json",
+            {
+                "category": "menace_inedite_non_repertoriee",
+                "severity": "critical",
+                "asset_id": "srv-01",
+                "title": "signal inconnu",
+            },
+        )
         assert result.decision.outcome is DecisionOutcome.NO_GROUNDED_CONTEXT
         assert result.execution is None
 
@@ -102,8 +137,11 @@ class TestCR05_ExecutionAutonome:
         """Il n'existe aucun statut « en attente de validation » : ce serait le
         signe d'une validation humaine residuelle."""
         platform.ingest_and_respond("wazuh", bruteforce_payload)
-        statuts = {a.status.value for i in platform.portfolio.list()
-                   for a in platform.incidents.get(i.incident_id).actions}
+        statuts = {
+            a.status.value
+            for i in platform.portfolio.list()
+            for a in platform.incidents.get(i.incident_id).actions
+        }
         assert not any("attente" in s or "pending" in s for s in statuts)
 
 
@@ -124,7 +162,8 @@ class TestCR06_PerimetreReversible:
 
         result = platform.executor.execute(
             ActionSpec(verb="wipe_disk", actuator="edr", target="srv-01"),
-            incident_id="inc_test", decision_id="dec_test",
+            incident_id="inc_test",
+            decision_id="dec_test",
         )
         assert result.status is ActionStatus.BLOCKED_BY_POLICY
         assert "hors du perimetre" in (result.error or "")
@@ -187,16 +226,26 @@ class TestCR09_PortefeuillePriorise:
     (Axe 4). Sa sortie change en v3.0 : il montre ce qui a ete traite."""
 
     def test_ordre_par_score_de_risque(self, platform):
-        platform.ingest_and_respond("generic_json", {
-            "category": "scan", "severity": "low", "asset_id": "poste-01",
-            "asset": {"asset_id": "poste-01", "criticality": 1},
-            "indicators": {"srcip": "41.202.1.1"},
-        })
-        platform.ingest_and_respond("generic_json", {
-            "category": "malware", "severity": "critical", "confidence": 0.9,
-            "asset": {"asset_id": "srv-01", "criticality": 5},
-            "indicators": {"file_path": "/tmp/x"},
-        })
+        platform.ingest_and_respond(
+            "generic_json",
+            {
+                "category": "scan",
+                "severity": "low",
+                "asset_id": "poste-01",
+                "asset": {"asset_id": "poste-01", "criticality": 1},
+                "indicators": {"srcip": "41.202.1.1"},
+            },
+        )
+        platform.ingest_and_respond(
+            "generic_json",
+            {
+                "category": "malware",
+                "severity": "critical",
+                "confidence": 0.9,
+                "asset": {"asset_id": "srv-01", "criticality": 5},
+                "indicators": {"file_path": "/tmp/x"},
+            },
+        )
         scores = [e.risk_score for e in platform.portfolio.list()]
         assert scores == sorted(scores, reverse=True)
 
@@ -228,8 +277,9 @@ class TestCR11_RollbackAutonome:
 
     def test_annulation_automatique(self, platform, probe, bruteforce_payload):
         platform.ingest_and_respond("wazuh", bruteforce_payload)
-        probe.set(HealthSnapshot(target="srv-web-01", reachable=False,
-                                 error_rate=0.95, throughput=0))
+        probe.set(
+            HealthSnapshot(target="srv-web-01", reachable=False, error_rate=0.95, throughput=0)
+        )
 
         report = platform.engine.run_control_loop()
 
@@ -251,13 +301,20 @@ class TestCR12_CoupeCircuit:
 
     def test_suspension_automatique_sur_emballement(self, platform, probe):
         for i in range(3):
-            platform.ingest_and_respond("generic_json", {
-                "category": "bruteforce", "severity": "high", "confidence": 0.8,
-                "asset_id": "srv-web-01", "indicators": {"srcip": f"41.202.1.{i}"},
-                "occurred_at": f"2026-08-24T1{i}:00:00Z",
-            })
-        probe.set(HealthSnapshot(target="srv-web-01", reachable=False,
-                                 error_rate=0.95, throughput=0))
+            platform.ingest_and_respond(
+                "generic_json",
+                {
+                    "category": "bruteforce",
+                    "severity": "high",
+                    "confidence": 0.8,
+                    "asset_id": "srv-web-01",
+                    "indicators": {"srcip": f"41.202.1.{i}"},
+                    "occurred_at": f"2026-08-24T1{i}:00:00Z",
+                },
+            )
+        probe.set(
+            HealthSnapshot(target="srv-web-01", reachable=False, error_rate=0.95, throughput=0)
+        )
         platform.engine.run_control_loop()
 
         assert not platform.breaker.status().autonomy_active
@@ -271,8 +328,9 @@ class TestCR13_JournalImmuable:
 
     def test_chaine_complete_et_verifiable(self, platform, bruteforce_payload):
         result = platform.ingest_and_respond("wazuh", bruteforce_payload)
-        types = [e.event_type
-                 for e in platform.ledger.incident_timeline(result.incident.incident_id)]
+        types = [
+            e.event_type for e in platform.ledger.incident_timeline(result.incident.incident_id)
+        ]
 
         assert types[0] == "event.ingested"
         assert {"context.enriched", "decision.made", "action.executed"} <= set(types)
@@ -281,9 +339,7 @@ class TestCR13_JournalImmuable:
     def test_alteration_detectee(self, platform, bruteforce_payload):
         platform.ingest_and_respond("wazuh", bruteforce_payload)
         platform.connection.execute("DROP TRIGGER audit_log_no_update")
-        platform.connection.execute(
-            "UPDATE audit_log SET payload = '{}' WHERE seq = 2"
-        )
+        platform.connection.execute("UPDATE audit_log SET payload = '{}' WHERE seq = 2")
         assert not platform.ledger.verify_chain().valid
 
 
@@ -303,8 +359,11 @@ class TestCR14_NonRegressionSecuritaire:
         assert platform.registry.require("firewall").is_applied("block_ip", "41.202.1.9")
 
         # 2. Le confinement s'avere errone : le service legitime tombe.
-        probe.set(HealthSnapshot(target="srv-web-01", reachable=False,
-                                 latency_ms=9000, error_rate=1.0, throughput=0))
+        probe.set(
+            HealthSnapshot(
+                target="srv-web-01", reachable=False, latency_ms=9000, error_rate=1.0, throughput=0
+            )
+        )
 
         # 3. La boucle de controle constate et annule, seule.
         debut = time.monotonic()

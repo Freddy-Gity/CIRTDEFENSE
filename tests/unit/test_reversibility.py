@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from cirtdefense.domain.enums import Reversibility
 from cirtdefense.orchestration.reversibility import (
     CatalogEntry,
@@ -57,8 +58,10 @@ class TestMetadonnees:
 class TestGestionParAdministrateur:
     def test_ajout_et_retrait(self, catalog):
         entry = CatalogEntry(
-            verb="custom_block", actuator="firewall",
-            reversibility=Reversibility.REVERSIBLE, rollback_verb="custom_unblock",
+            verb="custom_block",
+            actuator="firewall",
+            reversibility=Reversibility.REVERSIBLE,
+            rollback_verb="custom_unblock",
             description="test",
         )
         catalog.add(entry)

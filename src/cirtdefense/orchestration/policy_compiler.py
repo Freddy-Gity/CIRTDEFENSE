@@ -79,14 +79,26 @@ VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
 }
 
 DENY_MARKERS = (
-    "ne jamais", "jamais", "ne pas", "interdire", "interdit", "refuser", "refus",
-    "aucun", "aucune", "proscrire", "exclure", "empecher",
+    "ne jamais",
+    "jamais",
+    "ne pas",
+    "interdire",
+    "interdit",
+    "refuser",
+    "refus",
+    "aucun",
+    "aucune",
+    "proscrire",
+    "exclure",
+    "empecher",
 )
 ALLOW_MARKERS = ("autoriser", "permettre", "toujours autoriser", "accepter")
 
 _CIDR = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}/\d{1,2}\b")
 _IP = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
-_CRITICALITY = re.compile(r"criticit[e]?\s*(?:de\s*)?(?:superieure?\s*ou\s*egale\s*a\s*|>=\s*|=\s*)?(\d)")
+_CRITICALITY = re.compile(
+    r"criticit[e]?\s*(?:de\s*)?(?:superieure?\s*ou\s*egale\s*a\s*|>=\s*|=\s*)?(\d)"
+)
 _BLAST = re.compile(r"(?:rayon|impact|portee)[^\d]{0,30}(\d+)")
 _HOURS = re.compile(r"entre\s*(\d{1,2})\s*h(?:eures?)?\s*(?:et|a)\s*(\d{1,2})\s*h(?:eures?)?")
 _ZONE = re.compile(r"zone\s+([a-z0-9_\-]+)")
@@ -119,7 +131,8 @@ class PolicyCompiler:
             if rule is None:
                 unparsed.append(sentence)
                 log_with(
-                    logger, logging.WARNING,
+                    logger,
+                    logging.WARNING,
                     "phrase de politique non compilee : elle ne sera pas appliquee",
                     sentence=sentence,
                 )
@@ -201,8 +214,7 @@ class PolicyCompiler:
         constraints: list[Constraint] = []
 
         verbs = [
-            verb for verb, synonyms in VERB_SYNONYMS.items()
-            if any(s in folded for s in synonyms)
+            verb for verb, synonyms in VERB_SYNONYMS.items() if any(s in folded for s in synonyms)
         ]
         if len(verbs) == 1:
             constraints.append(Constraint("action.verb", "eq", verbs[0]))
@@ -214,7 +226,11 @@ class PolicyCompiler:
             constraints.append(Constraint("action.target", "matches", _cidr_to_regex(cidr.group())))
         elif "interne" in folded or "prive" in folded:
             constraints.append(
-                Constraint("action.target", "matches", r"^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)")
+                Constraint(
+                    "action.target",
+                    "matches",
+                    r"^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)",
+                )
             )
         else:
             ip = _IP.search(folded)
@@ -223,9 +239,7 @@ class PolicyCompiler:
 
         criticality = _CRITICALITY.search(folded)
         if criticality:
-            constraints.append(
-                Constraint("asset.criticality", "gte", int(criticality.group(1)))
-            )
+            constraints.append(Constraint("asset.criticality", "gte", int(criticality.group(1))))
 
         blast = _BLAST.search(folded)
         if blast:

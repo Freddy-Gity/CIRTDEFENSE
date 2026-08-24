@@ -118,9 +118,7 @@ def _dispatch(args: argparse.Namespace, platform: Any) -> int:
                 case "trip":
                     _print(platform.breaker.trip(args.reason, actor="cli:admin").to_dict())
                 case "reset":
-                    _print(
-                        platform.breaker.reset(actor="cli:admin", reason=args.reason).to_dict()
-                    )
+                    _print(platform.breaker.reset(actor="cli:admin", reason=args.reason).to_dict())
     return 0
 
 

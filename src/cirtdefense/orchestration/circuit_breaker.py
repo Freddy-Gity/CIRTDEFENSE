@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from ..audit.ledger import AuditLedger
@@ -40,7 +40,7 @@ from ..persistence.repositories import ActionRepository, BreakerRepository
 logger = logging.getLogger(__name__)
 
 
-class BreakerState(str, Enum):
+class BreakerState(StrEnum):
     CLOSED = "closed"
     """Autonomie active : les actions partent sans validation prealable."""
     OPEN = "open"
@@ -147,9 +147,13 @@ class CircuitBreaker:
             },
             actor=actor,
         )
-        log_with(logger, logging.CRITICAL,
-                 "COUPE-CIRCUIT OUVERT : execution autonome suspendue",
-                 reason=reason, actor=actor)
+        log_with(
+            logger,
+            logging.CRITICAL,
+            "COUPE-CIRCUIT OUVERT : execution autonome suspendue",
+            reason=reason,
+            actor=actor,
+        )
         return self.status()
 
     def reset(self, actor: str, reason: str = "") -> BreakerStatus:
@@ -157,11 +161,14 @@ class CircuitBreaker:
         readmet jamais tout seul, faute de pouvoir juger que la cause a
         disparu."""
         self._repository.write(BreakerState.CLOSED.value, reason or "rearmement manuel", actor)
-        self._ledger.record(
-            AuditEventType.BREAKER_RESET, {"reason": reason}, actor=actor
+        self._ledger.record(AuditEventType.BREAKER_RESET, {"reason": reason}, actor=actor)
+        log_with(
+            logger,
+            logging.WARNING,
+            "coupe-circuit referme : autonomie retablie",
+            actor=actor,
+            reason=reason,
         )
-        log_with(logger, logging.WARNING, "coupe-circuit referme : autonomie retablie",
-                 actor=actor, reason=reason)
         return self.status()
 
     def evaluate_auto_trip(self) -> BreakerStatus:

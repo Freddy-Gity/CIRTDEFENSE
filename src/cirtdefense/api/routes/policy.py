@@ -28,9 +28,7 @@ def history(platform: PlatformDep) -> dict:
 
 
 @router.post("/compile")
-def compile_policy(
-    request: PolicyCompileRequest, platform: PlatformDep, role: AdminDep
-) -> dict:
+def compile_policy(request: PolicyCompileRequest, platform: PlatformDep, role: AdminDep) -> dict:
     """Compile une politique en langage naturel en contraintes deterministes.
 
     La reponse expose explicitement les phrases **non compilees** : elles
@@ -87,8 +85,7 @@ def add_entry(request: CatalogEntryRequest, platform: PlatformDep, role: AdminDe
     except ValueError as exc:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            f"reversibilite invalide ; valeurs admises : "
-            f"{[r.value for r in Reversibility]}",
+            f"reversibilite invalide ; valeurs admises : {[r.value for r in Reversibility]}",
         ) from exc
 
     if reversibility is not Reversibility.IRREVERSIBLE and not request.rollback_verb:
@@ -110,9 +107,7 @@ def add_entry(request: CatalogEntryRequest, platform: PlatformDep, role: AdminDe
         max_rollback_seconds=request.max_rollback_seconds,
     )
     platform.catalog.add(entry)
-    platform.ledger.record(
-        "catalog.updated", entry.to_dict(), actor=f"human:{role.value}"
-    )
+    platform.ledger.record("catalog.updated", entry.to_dict(), actor=f"human:{role.value}")
     return entry.to_dict()
 
 

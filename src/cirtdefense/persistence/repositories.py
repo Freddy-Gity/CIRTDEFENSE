@@ -240,8 +240,7 @@ class ActionRepository:
 
     def status_counts_by_incident(self) -> dict[str, dict[str, int]]:
         rows = self._conn.execute(
-            "SELECT incident_id, status, COUNT(*) AS n FROM actions "
-            "GROUP BY incident_id, status"
+            "SELECT incident_id, status, COUNT(*) AS n FROM actions GROUP BY incident_id, status"
         ).fetchall()
         counts: dict[str, dict[str, int]] = {}
         for row in rows:
@@ -304,7 +303,9 @@ class PolicyRepository:
     def save(self, policy: ResponsePolicy, activate: bool = True) -> None:
         payload = json.dumps(policy.to_dict(), default=str)
         if activate:
-            self._conn.execute("UPDATE policies SET active = 0 WHERE policy_id = ?", (policy.policy_id,))
+            self._conn.execute(
+                "UPDATE policies SET active = 0 WHERE policy_id = ?", (policy.policy_id,)
+            )
         self._conn.execute(
             """INSERT OR REPLACE INTO policies
                (policy_id, version, checksum, compiled_at, author, active, payload)

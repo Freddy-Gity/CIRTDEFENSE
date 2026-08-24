@@ -26,9 +26,12 @@ class TestSeparationDesRoles:
         ).json()
         action_id = body["execution"]["results"][0]["action_id"]
 
-        assert client.post(
-            f"/api/v1/actions/{action_id}/rollback", json={"reason": "test"}
-        ).status_code == 403
+        assert (
+            client.post(
+                f"/api/v1/actions/{action_id}/rollback", json={"reason": "test"}
+            ).status_code
+            == 403
+        )
 
     def test_analyste_peut_annuler(self, client, analyst_headers, bruteforce_payload):
         body = client.post(
@@ -38,21 +41,29 @@ class TestSeparationDesRoles:
 
         response = client.post(
             f"/api/v1/actions/{action_id}/rollback",
-            json={"reason": "faux positif confirme"}, headers=analyst_headers,
+            json={"reason": "faux positif confirme"},
+            headers=analyst_headers,
         )
         assert response.status_code == 200
         assert response.json()["success"]
 
     def test_coupe_circuit_reserve_a_l_administrateur(self, client, analyst_headers):
-        assert client.post(
-            "/api/v1/admin/breaker/trip", json={"reason": "test"}, headers=analyst_headers
-        ).status_code == 403
+        assert (
+            client.post(
+                "/api/v1/admin/breaker/trip", json={"reason": "test"}, headers=analyst_headers
+            ).status_code
+            == 403
+        )
 
     def test_jeton_invalide_rejete(self, client):
-        assert client.post(
-            "/api/v1/admin/breaker/trip", json={"reason": "t"},
-            headers={"Authorization": "Bearer faux"},
-        ).status_code == 401
+        assert (
+            client.post(
+                "/api/v1/admin/breaker/trip",
+                json={"reason": "t"},
+                headers={"Authorization": "Bearer faux"},
+            ).status_code
+            == 401
+        )
 
 
 class TestAbsenceDeValidationPrealable:
@@ -72,7 +83,8 @@ class TestAbsenceDeValidationPrealable:
 class TestAdministration:
     def test_compilation_de_politique(self, client, admin_headers):
         response = client.post(
-            "/api/v1/policy/compile", headers=admin_headers,
+            "/api/v1/policy/compile",
+            headers=admin_headers,
             json={"text": "Ne jamais bloquer une adresse interne", "version": "2"},
         )
         body = response.json()
@@ -81,7 +93,8 @@ class TestAdministration:
 
     def test_les_consignes_non_compilees_sont_signalees(self, client, admin_headers):
         body = client.post(
-            "/api/v1/policy/compile", headers=admin_headers,
+            "/api/v1/policy/compile",
+            headers=admin_headers,
             json={"text": "Faites au mieux selon les circonstances"},
         ).json()
         assert body["unparsed_sentences"]
@@ -89,26 +102,37 @@ class TestAdministration:
 
     def test_entree_de_catalogue_reversible_exige_une_annulation(self, client, admin_headers):
         response = client.post(
-            "/api/v1/catalog", headers=admin_headers,
-            json={"verb": "x", "actuator": "firewall", "reversibility": "reversible",
-                  "description": "test"},
+            "/api/v1/catalog",
+            headers=admin_headers,
+            json={
+                "verb": "x",
+                "actuator": "firewall",
+                "reversibility": "reversible",
+                "description": "test",
+            },
         )
         assert response.status_code == 400
         assert "annulation" in response.json()["detail"]
 
     def test_cycle_du_coupe_circuit(self, client, admin_headers, bruteforce_payload):
-        assert client.post(
-            "/api/v1/admin/breaker/trip", json={"reason": "anomalie"}, headers=admin_headers
-        ).json()["state"] == "open"
+        assert (
+            client.post(
+                "/api/v1/admin/breaker/trip", json={"reason": "anomalie"}, headers=admin_headers
+            ).json()["state"]
+            == "open"
+        )
 
         body = client.post(
             "/api/v1/events", json={"source": "wazuh", "payload": bruteforce_payload}
         ).json()
         assert body["decision"]["outcome"] == "breaker_open"
 
-        assert client.post(
-            "/api/v1/admin/breaker/reset", json={"reason": "traite"}, headers=admin_headers
-        ).json()["state"] == "closed"
+        assert (
+            client.post(
+                "/api/v1/admin/breaker/reset", json={"reason": "traite"}, headers=admin_headers
+            ).json()["state"]
+            == "closed"
+        )
 
 
 class TestConsultation:

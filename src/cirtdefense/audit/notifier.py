@@ -29,9 +29,7 @@ class AnalystNotifier:
         self._actuator = notification_actuator
         self._recipient = default_recipient
 
-    def notify_actions(
-        self, incident: Incident, decision: Decision, report: Any
-    ) -> list[str]:
+    def notify_actions(self, incident: Incident, decision: Decision, report: Any) -> list[str]:
         if not report.results:
             return []
 
@@ -49,9 +47,13 @@ class AnalystNotifier:
             },
         )
         if not outcome.success:
-            log_with(logger, logging.ERROR,
-                     "la notification a posteriori a echoue : l'action reste executee",
-                     incident_id=incident.incident_id, error=outcome.message)
+            log_with(
+                logger,
+                logging.ERROR,
+                "la notification a posteriori a echoue : l'action reste executee",
+                incident_id=incident.incident_id,
+                error=outcome.message,
+            )
             return []
         return [outcome.rollback_token] if outcome.rollback_token else []
 
@@ -72,9 +74,12 @@ class AnalystNotifier:
                     f"Motif : {outcome.reason}\n"
                     f"Delai d'annulation : {outcome.latency_seconds:.1f} s "
                     f"({'dans' if outcome.within_bound else 'HORS'} le delai admis)\n"
-                    + ("" if outcome.success else
-                       "\nATTENTION : l'action reste appliquee. Une intervention "
-                       "manuelle sur l'equipement est necessaire.")
+                    + (
+                        ""
+                        if outcome.success
+                        else "\nATTENTION : l'action reste appliquee. Une intervention "
+                        "manuelle sur l'equipement est necessaire."
+                    )
                 ),
                 "incident_id": incident_id,
                 "action_id": outcome.action_id,
@@ -99,9 +104,10 @@ class AnalystNotifier:
         ]
 
         if decision.trace.context_sources:
-            lines.append("  Sources documentaires : " + ", ".join(
-                s.split("/")[-1] for s in decision.trace.context_sources
-            ))
+            lines.append(
+                "  Sources documentaires : "
+                + ", ".join(s.split("/")[-1] for s in decision.trace.context_sources)
+            )
 
         lines += ["", "ACTIONS EXECUTEES"]
         for result in report.results:
@@ -112,7 +118,9 @@ class AnalystNotifier:
             for skipped in decision.trace.rejected_actions:
                 lines.append(f"  - {skipped.get('action')} : {skipped.get('reason')}")
 
-        reversible = [r for r in report.results if r.status is ActionStatus.EXECUTED and r.is_reversible]
+        reversible = [
+            r for r in report.results if r.status is ActionStatus.EXECUTED and r.is_reversible
+        ]
         if reversible:
             lines += [
                 "",
@@ -121,9 +129,11 @@ class AnalystNotifier:
             ]
 
         irreversible_note = [
-            r for r in report.results
-            if r.status is ActionStatus.EXECUTED and r.spec and r.spec.reversibility.value
-            == "partially_reversible"
+            r
+            for r in report.results
+            if r.status is ActionStatus.EXECUTED
+            and r.spec
+            and r.spec.reversibility.value == "partially_reversible"
         ]
         if irreversible_note:
             lines += [
@@ -137,9 +147,15 @@ class AnalystNotifier:
     @staticmethod
     def _describe(result: ActionResult) -> str:
         spec = result.spec
-        head = f"[{result.status.value}] {spec.key if spec else '?'} -> {spec.target if spec else '?'}"
+        head = (
+            f"[{result.status.value}] {spec.key if spec else '?'} -> {spec.target if spec else '?'}"
+        )
         if result.status is ActionStatus.EXECUTED:
-            return f"{head} ({result.duration_ms} ms) — {spec.expected_effect if spec else ''}".rstrip(" —")
+            return (
+                f"{head} ({result.duration_ms} ms) — {spec.expected_effect if spec else ''}".rstrip(
+                    " —"
+                )
+            )
         return f"{head} — {result.error or 'sans detail'}"
 
     @staticmethod

@@ -9,13 +9,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from .base import Actuator, ActuationOutcome
+from .base import ActuationOutcome, Actuator
 from .simulation import SimulatedActuator
 
 VERBS: tuple[str, ...] = (
-    "isolate_host", "release_host",
-    "kill_process", "restart_process",
-    "quarantine_file", "restore_file",
+    "isolate_host",
+    "release_host",
+    "kill_process",
+    "restart_process",
+    "quarantine_file",
+    "restore_file",
 )
 
 

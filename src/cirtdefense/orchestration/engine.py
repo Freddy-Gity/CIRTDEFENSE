@@ -132,9 +132,14 @@ class OrchestrationEngine:
 
         result = OrchestrationResult(event=event, incident=incident, decision=decision)
         if not decision.is_actionable:
-            log_with(logger, logging.INFO, "aucune action autonome engagee",
-                     event_id=event.event_id, outcome=decision.outcome.value,
-                     rationale=decision.rationale)
+            log_with(
+                logger,
+                logging.INFO,
+                "aucune action autonome engagee",
+                event_id=event.event_id,
+                outcome=decision.outcome.value,
+                rationale=decision.rationale,
+            )
             self._incidents.save(incident)
             return result
 
@@ -176,9 +181,7 @@ class OrchestrationEngine:
             grounding_score=context.grounding.score if context.grounding else 0.0,
             context_sources=context.sources,
         )
-        decision = Decision(
-            incident_id=incident.incident_id, event_id=event.event_id, trace=trace
-        )
+        decision = Decision(incident_id=incident.incident_id, event_id=event.event_id, trace=trace)
 
         if not self._autonomy_enabled:
             decision.outcome = DecisionOutcome.POLICY_DENIED
@@ -219,10 +222,10 @@ class OrchestrationEngine:
             decision.outcome = (
                 DecisionOutcome.OUT_OF_CATALOG if plan.skipped else DecisionOutcome.NO_ACTION_NEEDED
             )
-            decision.rationale = (
-                "aucune action executable : "
-                + ("; ".join(s["reason"] for s in plan.skipped) if plan.skipped
-                   else "aucune regle de playbook ne correspond a cet evenement")
+            decision.rationale = "aucune action executable : " + (
+                "; ".join(s["reason"] for s in plan.skipped)
+                if plan.skipped
+                else "aucune regle de playbook ne correspond a cet evenement"
             )
             return decision
 
@@ -262,14 +265,16 @@ class OrchestrationEngine:
         verdicts: list[dict[str, Any]] = []
         for spec in specs:
             verdict = self._policy.evaluate(spec, context)
-            verdicts.append({
-                "action": spec.key,
-                "target": spec.target,
-                "allowed": verdict.allowed,
-                "rule_id": verdict.rule_id,
-                "rule_text": verdict.rule_text,
-                "reason": verdict.reason,
-            })
+            verdicts.append(
+                {
+                    "action": spec.key,
+                    "target": spec.target,
+                    "allowed": verdict.allowed,
+                    "rule_id": verdict.rule_id,
+                    "rule_text": verdict.rule_text,
+                    "reason": verdict.reason,
+                }
+            )
             if verdict.allowed:
                 allowed.append(spec)
         return allowed, verdicts
@@ -286,10 +291,13 @@ class OrchestrationEngine:
         for notification_id in sent:
             self._ledger.record(
                 AuditEventType.ANALYST_NOTIFIED,
-                {"notification_id": notification_id,
-                 "incident_id": incident.incident_id,
-                 "actions_executed": report.executed,
-                 "actions_failed": report.failed},
-                incident_id=incident.incident_id, decision_id=decision.decision_id,
+                {
+                    "notification_id": notification_id,
+                    "incident_id": incident.incident_id,
+                    "actions_executed": report.executed,
+                    "actions_failed": report.failed,
+                },
+                incident_id=incident.incident_id,
+                decision_id=decision.decision_id,
             )
         return sent

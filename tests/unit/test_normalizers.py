@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from cirtdefense.domain.enums import Severity, SourceKind
 from cirtdefense.ingestion import registry
 from cirtdefense.ingestion.normalizers.mapping import classify_category
@@ -24,12 +23,18 @@ class TestClassification:
 
 class TestWazuh:
     def test_normalisation_complete(self):
-        event = registry.get("wazuh")({
-            "timestamp": "2026-08-24T10:00:00Z",
-            "rule": {"level": 12, "description": "Multiple failed password", "groups": ["auth"]},
-            "agent": {"id": "003", "name": "srv-web-01", "ip": "10.0.0.5"},
-            "data": {"srcip": "41.202.1.9", "dstuser": "admin"},
-        })
+        event = registry.get("wazuh")(
+            {
+                "timestamp": "2026-08-24T10:00:00Z",
+                "rule": {
+                    "level": 12,
+                    "description": "Multiple failed password",
+                    "groups": ["auth"],
+                },
+                "agent": {"id": "003", "name": "srv-web-01", "ip": "10.0.0.5"},
+                "data": {"srcip": "41.202.1.9", "dstuser": "admin"},
+            }
+        )
         assert event.source is SourceKind.EDR
         assert event.category == "bruteforce"
         assert event.severity is Severity.CRITICAL
@@ -52,10 +57,12 @@ class TestSuricata:
 class TestSyslog:
     def test_extraction_du_compte_reel(self):
         """« for user root » doit rendre root, pas le mot « user »."""
-        event = registry.get("syslog")({
-            "line": "<131>1 2026-08-24T10:05:00Z fw-01 sshd 1 ID47 "
-                    "Failed password for user root from 41.202.1.9"
-        })
+        event = registry.get("syslog")(
+            {
+                "line": "<131>1 2026-08-24T10:05:00Z fw-01 sshd 1 ID47 "
+                "Failed password for user root from 41.202.1.9"
+            }
+        )
         assert event.asset.user == "root"
         assert event.indicators["srcip"] == "41.202.1.9"
 

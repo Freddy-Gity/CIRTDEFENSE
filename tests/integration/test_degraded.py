@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+
 from cirtdefense.degraded.queue import DegradedSpool, SpoolFullError
 
 
@@ -74,9 +75,7 @@ class TestFileDeSynchronisation:
 
         perime = item.to_dict()
         perime["queued_at"] = (datetime.now(UTC) - timedelta(days=2)).isoformat()
-        (tmp_path / "spool" / f"{item.item_id}.json").write_text(
-            __import__("json").dumps(perime)
-        )
+        (tmp_path / "spool" / f"{item.item_id}.json").write_text(__import__("json").dumps(perime))
 
         report = spool.replay(lambda source, payload: None)
         assert report.skipped_stale == 1

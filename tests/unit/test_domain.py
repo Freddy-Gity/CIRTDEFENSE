@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from cirtdefense.domain.action import ActionSpec
 from cirtdefense.domain.enums import Reversibility, Severity
 from cirtdefense.domain.events import Asset, DetectionEvent
@@ -23,7 +24,9 @@ class TestActionSpec:
         """Sans verbe d'annulation, EF-25 ne pourrait pas retirer l'action."""
         with pytest.raises(ValueError, match="rollback_verb"):
             ActionSpec(
-                verb="block_ip", actuator="firewall", target="1.2.3.4",
+                verb="block_ip",
+                actuator="firewall",
+                target="1.2.3.4",
                 reversibility=Reversibility.REVERSIBLE,
             )
 
@@ -59,7 +62,8 @@ class TestDetectionEvent:
 
     def test_aller_retour_serialisation(self):
         event = DetectionEvent(
-            category="c2", severity=Severity.HIGH,
+            category="c2",
+            severity=Severity.HIGH,
             asset=Asset(asset_id="srv-01", user="jdupont", criticality=5),
             indicators={"dest_ip": "185.1.1.1"},
             mitre_techniques=("T1071",),
@@ -84,23 +88,32 @@ class TestIncident:
 
     def test_gravite_prend_le_maximum_observe(self):
         incident = Incident.from_event(
-            DetectionEvent(category="bruteforce", severity=Severity.LOW,
-                           asset=Asset(asset_id="srv-01"))
+            DetectionEvent(
+                category="bruteforce", severity=Severity.LOW, asset=Asset(asset_id="srv-01")
+            )
         )
         incident.absorb(
-            DetectionEvent(category="bruteforce", severity=Severity.CRITICAL,
-                           asset=Asset(asset_id="srv-01"))
+            DetectionEvent(
+                category="bruteforce", severity=Severity.CRITICAL, asset=Asset(asset_id="srv-01")
+            )
         )
         assert incident.severity is Severity.CRITICAL
 
     def test_score_de_risque_croit_avec_l_enjeu(self):
         faible = Incident.from_event(
-            DetectionEvent(category="scan", severity=Severity.LOW,
-                           asset=Asset(asset_id="poste-01", criticality=1))
+            DetectionEvent(
+                category="scan",
+                severity=Severity.LOW,
+                asset=Asset(asset_id="poste-01", criticality=1),
+            )
         )
         fort = Incident.from_event(
-            DetectionEvent(category="malware", severity=Severity.CRITICAL, confidence=0.9,
-                           asset=Asset(asset_id="srv-01", criticality=5))
+            DetectionEvent(
+                category="malware",
+                severity=Severity.CRITICAL,
+                confidence=0.9,
+                asset=Asset(asset_id="srv-01", criticality=5),
+            )
         )
         assert fort.risk_score() > faible.risk_score()
 

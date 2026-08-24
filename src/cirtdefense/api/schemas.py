@@ -8,7 +8,9 @@ from pydantic import BaseModel, Field
 
 
 class IngestRequest(BaseModel):
-    source: str = Field(description="Normaliseur a utiliser : wazuh, suricata, syslog, generic_json")
+    source: str = Field(
+        description="Normaliseur a utiliser : wazuh, suricata, syslog, generic_json"
+    )
     payload: dict[str, Any] = Field(description="Charge brute telle que produite par la source")
 
 

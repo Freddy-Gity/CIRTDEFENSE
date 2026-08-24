@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from cirtdefense.domain.action import ActionSpec
 from cirtdefense.domain.enums import Reversibility
 from cirtdefense.orchestration.policy_compiler import PolicyCompiler
@@ -34,9 +35,13 @@ class TestReconnaissance:
 
     def test_seuil_de_criticite(self, compiler):
         policy = compiler.compile("Interdire l'isolement des machines de criticite 5").policy
-        action = _action(verb="isolate_host", actuator="edr", target="srv-01",
-                         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
-                         rollback_verb="release_host")
+        action = _action(
+            verb="isolate_host",
+            actuator="edr",
+            target="srv-01",
+            reversibility=Reversibility.PARTIALLY_REVERSIBLE,
+            rollback_verb="release_host",
+        )
         assert not policy.evaluate(action, {"asset.criticality": 5}).allowed
         assert policy.evaluate(action, {"asset.criticality": 2}).allowed
 
@@ -85,7 +90,9 @@ class TestGardeFouStructurel:
 class TestTracabilite:
     def test_empreinte_stable(self, compiler):
         texte = "Ne jamais bloquer une adresse interne"
-        assert compiler.compile(texte).policy.checksum() == compiler.compile(texte).policy.checksum()
+        assert (
+            compiler.compile(texte).policy.checksum() == compiler.compile(texte).policy.checksum()
+        )
 
     def test_empreinte_change_avec_la_politique(self, compiler):
         a = compiler.compile("Ne jamais bloquer une adresse interne").policy

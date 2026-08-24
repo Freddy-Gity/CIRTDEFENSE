@@ -124,9 +124,11 @@ class EnrichmentService:
 
         if not context.is_usable:
             log_with(
-                logger, logging.WARNING,
+                logger,
+                logging.WARNING,
                 "contexte non fonde : aucune action autonome ne sera engagee",
-                event_id=event.event_id, category=event.category,
+                event_id=event.event_id,
+                category=event.category,
                 reason=report.reason,
             )
         return context

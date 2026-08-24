@@ -5,10 +5,10 @@ font partie du contrat de tracabilite et ne doivent pas etre renommees sans
 une entree d'historique de version (CDCF 7.3).
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     """Gravite d'un evenement de detection, echelle normalisee de l'adaptateur."""
 
     INFO = "info"
@@ -51,7 +51,7 @@ _SEVERITY_RANK = {
 }
 
 
-class SourceKind(str, Enum):
+class SourceKind(StrEnum):
     """Origine d'un DetectionEvent (CDCF 3.2)."""
 
     UEBA = "ueba"
@@ -63,7 +63,7 @@ class SourceKind(str, Enum):
     REPLAY = "replay"
 
 
-class Reversibility(str, Enum):
+class Reversibility(StrEnum):
     """Catalogue de reversibilite (EF-14).
 
     En v3.0 cette metadonnee n'est plus un simple support de priorisation :
@@ -80,7 +80,7 @@ class Reversibility(str, Enum):
     """Aucun retour arriere automatique (effacement, reinitialisation materielle)."""
 
 
-class ActionStatus(str, Enum):
+class ActionStatus(StrEnum):
     PLANNED = "planned"
     BLOCKED_BY_POLICY = "blocked_by_policy"
     BLOCKED_BY_BREAKER = "blocked_by_breaker"
@@ -91,14 +91,14 @@ class ActionStatus(str, Enum):
     ROLLBACK_FAILED = "rollback_failed"
 
 
-class IncidentStatus(str, Enum):
+class IncidentStatus(StrEnum):
     OPEN = "open"
     CONTAINED = "contained"
     ROLLED_BACK = "rolled_back"
     CLOSED = "closed"
 
 
-class DecisionOutcome(str, Enum):
+class DecisionOutcome(StrEnum):
     """Issue du moteur d'orchestration pour un evenement donne."""
 
     AUTONOMOUS_EXECUTION = "autonomous_execution"
@@ -109,7 +109,7 @@ class DecisionOutcome(str, Enum):
     OUT_OF_CATALOG = "out_of_catalog"
 
 
-class AuditEventType(str, Enum):
+class AuditEventType(StrEnum):
     EVENT_INGESTED = "event.ingested"
     CONTEXT_ENRICHED = "context.enriched"
     DECISION_MADE = "decision.made"

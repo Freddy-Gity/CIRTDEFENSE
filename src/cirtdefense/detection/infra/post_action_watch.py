@@ -100,9 +100,11 @@ class PostActionWatcher:
             # l'action. On s'abstient plutot que d'annuler a tort un
             # confinement qui protege peut-etre la cible.
             log_with(
-                logger, logging.WARNING,
+                logger,
+                logging.WARNING,
                 "verdict post-action impossible : aucune mesure de reference",
-                action_id=action_id, target=target,
+                action_id=action_id,
+                target=target,
             )
             return WatchVerdict(
                 target=target or "?",
@@ -114,10 +116,13 @@ class PostActionWatcher:
         watched = before.target
         if target is not None and target != watched:
             log_with(
-                logger, logging.WARNING,
+                logger,
+                logging.WARNING,
                 "cible d'evaluation differente de la cible de reference : "
                 "la cible de reference fait foi",
-                action_id=action_id, requested=target, watched=watched,
+                action_id=action_id,
+                requested=target,
+                watched=watched,
             )
         after = self._probe.measure(watched)
         reasons = self._compare(before, after)
@@ -131,9 +136,12 @@ class PostActionWatcher:
         )
         if verdict.degraded:
             log_with(
-                logger, logging.ERROR,
+                logger,
+                logging.ERROR,
                 "degradation imputee a une action autonome",
-                action_id=action_id, target=watched, reasons=reasons,
+                action_id=action_id,
+                target=watched,
+                reasons=reasons,
             )
         return verdict
 
@@ -148,7 +156,10 @@ class PostActionWatcher:
         if t.reachability_loss_is_fatal and before.reachable and not after.reachable:
             reasons.append("la cible etait joignable avant l'action et ne l'est plus")
 
-        if before.latency_ms > 0 and after.latency_ms > before.latency_ms * t.latency_increase_factor:
+        if (
+            before.latency_ms > 0
+            and after.latency_ms > before.latency_ms * t.latency_increase_factor
+        ):
             reasons.append(
                 f"latence multipliee par {after.latency_ms / before.latency_ms:.1f} "
                 f"({before.latency_ms:.0f} ms -> {after.latency_ms:.0f} ms)"

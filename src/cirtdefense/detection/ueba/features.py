@@ -34,7 +34,9 @@ class BehaviourFeatures:
             "hour_spread": float(len(self.distinct_hours)),
             "ip_spread": float(len(self.distinct_sources_ips)),
             "category_spread": float(len(self.distinct_categories)),
-            "off_hours_ratio": (self.off_hours_count / self.event_count) if self.event_count else 0.0,
+            "off_hours_ratio": (self.off_hours_count / self.event_count)
+            if self.event_count
+            else 0.0,
             "failed_auth": float(self.failed_auth_count),
             "volume_bytes": float(self.volume_bytes),
         }

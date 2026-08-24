@@ -10,6 +10,6 @@ proprietes sont exigees de toute implantation :
 Sans ces deux proprietes, la boucle EF-25 ne peut rien garantir.
 """
 
-from .base import Actuator, ActuatorError, ActuatorRegistry, ActuationOutcome
+from .base import ActuationOutcome, Actuator, ActuatorError, ActuatorRegistry
 
 __all__ = ["Actuator", "ActuatorError", "ActuatorRegistry", "ActuationOutcome"]

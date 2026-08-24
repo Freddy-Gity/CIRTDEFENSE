@@ -108,7 +108,9 @@ class LexicalIndex:
                 )
                 score += idf * (frequency * (self.K1 + 1)) / denominator
             if score > 0:
-                hits.append(SearchHit(document=document, score=score, matched_terms=sorted(matched)))
+                hits.append(
+                    SearchHit(document=document, score=score, matched_terms=sorted(matched))
+                )
         hits.sort(key=lambda h: (-h.score, h.document.doc_id))
         return hits[:top_k]
 
@@ -163,7 +165,8 @@ class LexicalIndex:
         garde EF-04 d'une telle coincidence la rendrait ininterpretable.
         """
         return [
-            d for d in self._documents.values()
+            d
+            for d in self._documents.values()
             if category in d.metadata.get("categories", "").split()
         ]
 

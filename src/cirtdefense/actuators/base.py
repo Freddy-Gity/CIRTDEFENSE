@@ -47,7 +47,9 @@ class Actuator(ABC):
         """Applique le verbe. Doit etre idempotent."""
 
     @abstractmethod
-    def rollback(self, verb: str, target: str, token: str, parameters: dict[str, Any]) -> ActuationOutcome:
+    def rollback(
+        self, verb: str, target: str, token: str, parameters: dict[str, Any]
+    ) -> ActuationOutcome:
         """Annule une execution identifiee par son jeton."""
 
     def health(self) -> bool:
@@ -69,8 +71,13 @@ class ActuatorRegistry:
 
     def register(self, actuator: Actuator) -> None:
         self._actuators[actuator.name] = actuator
-        log_with(logger, logging.INFO, "actuateur enregistre",
-                 actuator=actuator.name, verbs=list(actuator.supported_verbs))
+        log_with(
+            logger,
+            logging.INFO,
+            "actuateur enregistre",
+            actuator=actuator.name,
+            verbs=list(actuator.supported_verbs),
+        )
 
     def get(self, name: str) -> Actuator | None:
         return self._actuators.get(name)

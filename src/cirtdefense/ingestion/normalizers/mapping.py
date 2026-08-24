@@ -9,12 +9,23 @@ from __future__ import annotations
 from ...domain.enums import Severity
 
 CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "bruteforce": ("brute force", "bruteforce", "authentication failure", "failed password",
-                   "multiple failed", "password spray"),
+    "bruteforce": (
+        "brute force",
+        "bruteforce",
+        "authentication failure",
+        "failed password",
+        "multiple failed",
+        "password spray",
+    ),
     "malware": ("malware", "trojan", "ransomware", "virus", "backdoor", "cryptolocker"),
     "exfiltration": ("exfiltration", "data transfer", "large upload", "dns tunnel"),
-    "lateral_movement": ("lateral movement", "psexec", "smb admin", "pass the hash",
-                         "remote service creation"),
+    "lateral_movement": (
+        "lateral movement",
+        "psexec",
+        "smb admin",
+        "pass the hash",
+        "remote service creation",
+    ),
     "privilege_escalation": ("privilege escalation", "sudo", "uac bypass", "token manipulation"),
     "c2": ("command and control", "c2", "beacon", "callback"),
     "web_attack": ("sql injection", "sqli", "xss", "path traversal", "web shell"),
@@ -24,20 +35,41 @@ CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
 }
 
 SEVERITY_BY_LEVEL: dict[int, Severity] = {
-    0: Severity.INFO, 1: Severity.INFO, 2: Severity.INFO, 3: Severity.LOW,
-    4: Severity.LOW, 5: Severity.MEDIUM, 6: Severity.MEDIUM, 7: Severity.MEDIUM,
-    8: Severity.HIGH, 9: Severity.HIGH, 10: Severity.HIGH, 11: Severity.HIGH,
-    12: Severity.CRITICAL, 13: Severity.CRITICAL, 14: Severity.CRITICAL,
+    0: Severity.INFO,
+    1: Severity.INFO,
+    2: Severity.INFO,
+    3: Severity.LOW,
+    4: Severity.LOW,
+    5: Severity.MEDIUM,
+    6: Severity.MEDIUM,
+    7: Severity.MEDIUM,
+    8: Severity.HIGH,
+    9: Severity.HIGH,
+    10: Severity.HIGH,
+    11: Severity.HIGH,
+    12: Severity.CRITICAL,
+    13: Severity.CRITICAL,
+    14: Severity.CRITICAL,
     15: Severity.CRITICAL,
 }
 
 SEVERITY_ALIASES: dict[str, Severity] = {
-    "informational": Severity.INFO, "info": Severity.INFO, "notice": Severity.INFO,
-    "low": Severity.LOW, "minor": Severity.LOW, "warning": Severity.LOW,
-    "medium": Severity.MEDIUM, "moderate": Severity.MEDIUM, "average": Severity.MEDIUM,
-    "high": Severity.HIGH, "major": Severity.HIGH, "error": Severity.HIGH,
-    "critical": Severity.CRITICAL, "severe": Severity.CRITICAL,
-    "emergency": Severity.CRITICAL, "alert": Severity.CRITICAL,
+    "informational": Severity.INFO,
+    "info": Severity.INFO,
+    "notice": Severity.INFO,
+    "low": Severity.LOW,
+    "minor": Severity.LOW,
+    "warning": Severity.LOW,
+    "medium": Severity.MEDIUM,
+    "moderate": Severity.MEDIUM,
+    "average": Severity.MEDIUM,
+    "high": Severity.HIGH,
+    "major": Severity.HIGH,
+    "error": Severity.HIGH,
+    "critical": Severity.CRITICAL,
+    "severe": Severity.CRITICAL,
+    "emergency": Severity.CRITICAL,
+    "alert": Severity.CRITICAL,
 }
 
 
@@ -62,7 +94,9 @@ def classify_category(*texts: str) -> str:
     return best[1] if best else "unknown"
 
 
-def severity_from_level(level: int | float | str | None, default: Severity = Severity.MEDIUM) -> Severity:
+def severity_from_level(
+    level: int | float | str | None, default: Severity = Severity.MEDIUM
+) -> Severity:
     if level is None:
         return default
     if isinstance(level, str):

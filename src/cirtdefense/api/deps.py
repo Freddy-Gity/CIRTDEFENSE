@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, status
@@ -25,7 +25,7 @@ def set_platform(platform: Platform | None) -> None:
     _platform = platform
 
 
-class Role(str, Enum):
+class Role(StrEnum):
     ANALYST = "analyst"
     ADMIN = "admin"
     VIEWER = "viewer"

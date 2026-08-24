@@ -28,8 +28,12 @@ def probe() -> StaticProbe:
     p = StaticProbe()
     p.set(
         HealthSnapshot(
-            target="srv-web-01", reachable=True, latency_ms=100,
-            error_rate=0.01, throughput=500, active_sessions=20,
+            target="srv-web-01",
+            reachable=True,
+            latency_ms=100,
+            error_rate=0.01,
+            throughput=500,
+            active_sessions=20,
         )
     )
     return p

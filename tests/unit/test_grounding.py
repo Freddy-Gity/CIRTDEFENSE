@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import pytest
+
+from cirtdefense.config import get_settings
 from cirtdefense.domain.events import Asset, DetectionEvent
 from cirtdefense.enrichment.rag import EnrichmentService
-from cirtdefense.config import get_settings
 
 
 @pytest.fixture(scope="module")
@@ -14,8 +15,16 @@ def service() -> EnrichmentService:
 
 
 CATEGORIES_DOCUMENTEES = [
-    "bruteforce", "c2", "malware", "exfiltration", "lateral_movement",
-    "web_attack", "scan", "dos", "privilege_escalation", "behaviour_anomaly",
+    "bruteforce",
+    "c2",
+    "malware",
+    "exfiltration",
+    "lateral_movement",
+    "web_attack",
+    "scan",
+    "dos",
+    "privilege_escalation",
+    "behaviour_anomaly",
     "infrastructure_degradation",
 ]
 

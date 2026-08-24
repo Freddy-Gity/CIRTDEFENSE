@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from .base import Actuator, ActuationOutcome
+from .base import ActuationOutcome, Actuator
 from .simulation import SimulatedActuator
 
 VERBS: tuple[str, ...] = (
-    "throttle_egress", "clear_egress_throttle",
-    "move_to_vlan", "restore_vlan",
+    "throttle_egress",
+    "clear_egress_throttle",
+    "move_to_vlan",
+    "restore_vlan",
 )
 
 

@@ -128,8 +128,7 @@ class GroundingGuard:
     ) -> ClaimCheck:
         terms = set(tokenize(statement))
         discriminating = sorted(
-            t for t in terms
-            if corpus is None or corpus.ubiquity(t) <= self._ubiquity_limit
+            t for t in terms if corpus is None or corpus.ubiquity(t) <= self._ubiquity_limit
         )
         if not discriminating:
             return ClaimCheck(
@@ -152,7 +151,9 @@ class GroundingGuard:
         )
 
     @staticmethod
-    def _explain(verifiable: list[ClaimCheck], unsupported: list[ClaimCheck], grounded: bool) -> str:
+    def _explain(
+        verifiable: list[ClaimCheck], unsupported: list[ClaimCheck], grounded: bool
+    ) -> str:
         if grounded:
             return "toutes les affirmations verifiables sont couvertes par au moins une source"
         if not verifiable:
@@ -160,7 +161,10 @@ class GroundingGuard:
         missing = ", ".join(
             t for c in unsupported for t in c.discriminating_terms if t not in c.found_terms
         )
-        return f"{len(unsupported)} affirmation(s) sans appui documentaire (termes absents : {missing})"
+        return (
+            f"{len(unsupported)} affirmation(s) sans appui documentaire "
+            f"(termes absents : {missing})"
+        )
 
     def check_score(self, hits: list[SearchHit], normalizer: float = 6.0) -> float:
         """Score de pertinence brut de la recherche, normalise sur [0, 1].

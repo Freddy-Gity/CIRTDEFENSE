@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from .base import Actuator, ActuationOutcome
+from .base import ActuationOutcome, Actuator
 
 
 @dataclass(slots=True)
@@ -50,9 +50,7 @@ class SimulatedActuator(Actuator):
 
     def execute(self, verb: str, target: str, parameters: dict[str, Any]) -> ActuationOutcome:
         if verb in self.failure_verbs:
-            return ActuationOutcome(
-                success=False, message=f"echec simule de '{verb}' sur {target}"
-            )
+            return ActuationOutcome(success=False, message=f"echec simule de '{verb}' sur {target}")
 
         key = f"{verb}:{target}"
         existing_token = self._by_key.get(key)
@@ -92,15 +90,15 @@ class SimulatedActuator(Actuator):
 
         state = self._state.get(token)
         if state is None:
-            return ActuationOutcome(
-                success=False, message=f"jeton d'annulation inconnu : {token}"
-            )
+            return ActuationOutcome(success=False, message=f"jeton d'annulation inconnu : {token}")
         if state.rolled_back_at is not None:
             # Idempotence de l'annulation : la boucle EF-25 et un rollback
             # manuel de l'analyste peuvent viser la meme action.
             return ActuationOutcome(
-                success=True, already_applied=True,
-                message="action deja annulee", details={"token": token},
+                success=True,
+                already_applied=True,
+                message="action deja annulee",
+                details={"token": token},
             )
         state.rolled_back_at = datetime.now(UTC)
         self._by_key.pop(f"{state.verb}:{state.target}", None)

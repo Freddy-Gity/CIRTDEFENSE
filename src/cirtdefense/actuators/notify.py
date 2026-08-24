@@ -13,7 +13,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from .base import Actuator, ActuationOutcome
+from .base import ActuationOutcome, Actuator
 
 VERBS: tuple[str, ...] = ("notify", "retract_notification")
 
@@ -75,7 +75,8 @@ class NotificationActuator(Actuator):
         if self._repository is not None:
             self._repository.save(payload)
         return ActuationOutcome(
-            success=True, details={"notification_id": token},
+            success=True,
+            details={"notification_id": token},
             message="notification marquee comme retiree",
         )
 

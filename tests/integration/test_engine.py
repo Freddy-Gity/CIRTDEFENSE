@@ -12,9 +12,7 @@ class TestExecutionAutonome:
 
         assert result.decision.outcome is DecisionOutcome.AUTONOMOUS_EXECUTION
         assert result.execution.executed >= 1
-        assert all(
-            r.status is ActionStatus.EXECUTED for r in result.execution.results
-        )
+        assert all(r.status is ActionStatus.EXECUTED for r in result.execution.results)
 
     def test_effet_reel_sur_l_actuateur(self, platform, bruteforce_payload):
         platform.ingest_and_respond("wazuh", bruteforce_payload)
@@ -37,12 +35,15 @@ class TestExecutionAutonome:
 class TestRefusDAgir:
     def test_menace_non_documentee_bloque_l_action(self, platform):
         """EF-04 : la limite assumee du perimetre autonome."""
-        result = platform.ingest_and_respond("generic_json", {
-            "category": "menace_totalement_inconnue",
-            "severity": "critical",
-            "asset_id": "srv-01",
-            "title": "signal opaque",
-        })
+        result = platform.ingest_and_respond(
+            "generic_json",
+            {
+                "category": "menace_totalement_inconnue",
+                "severity": "critical",
+                "asset_id": "srv-01",
+                "title": "signal opaque",
+            },
+        )
         assert result.decision.outcome is DecisionOutcome.NO_GROUNDED_CONTEXT
         assert result.execution is None
 
@@ -66,10 +67,15 @@ class TestRefusDAgir:
         muted = replace(settings, autonomy=replace(settings.autonomy, enabled=False))
         platform = build_platform(muted, probe=probe)
         try:
-            result = platform.ingest_and_respond("generic_json", {
-                "category": "bruteforce", "severity": "high", "asset_id": "srv-01",
-                "indicators": {"srcip": "41.202.1.9"},
-            })
+            result = platform.ingest_and_respond(
+                "generic_json",
+                {
+                    "category": "bruteforce",
+                    "severity": "high",
+                    "asset_id": "srv-01",
+                    "indicators": {"srcip": "41.202.1.9"},
+                },
+            )
             assert result.execution is None
             assert platform.ledger.query(event_type="decision.made")
         finally:
@@ -79,7 +85,9 @@ class TestRefusDAgir:
 class TestTracabilite:
     def test_chaque_etape_est_journalisee(self, platform, bruteforce_payload):
         result = platform.ingest_and_respond("wazuh", bruteforce_payload)
-        types = [e.event_type for e in platform.ledger.incident_timeline(result.incident.incident_id)]
+        types = [
+            e.event_type for e in platform.ledger.incident_timeline(result.incident.incident_id)
+        ]
 
         assert "event.ingested" in types
         assert "context.enriched" in types
@@ -107,10 +115,16 @@ class TestGraduationDeLaReponse:
     def test_source_interne_traitee_avec_moins_de_severite(self, platform):
         """Bloquer une source interne coupe un usage legitime plus souvent
         qu'il n'arrete un attaquant."""
-        result = platform.ingest_and_respond("generic_json", {
-            "category": "bruteforce", "severity": "medium", "confidence": 0.8,
-            "asset_id": "srv-01", "indicators": {"srcip": "10.0.0.42"},
-        })
+        result = platform.ingest_and_respond(
+            "generic_json",
+            {
+                "category": "bruteforce",
+                "severity": "medium",
+                "confidence": 0.8,
+                "asset_id": "srv-01",
+                "indicators": {"srcip": "10.0.0.42"},
+            },
+        )
         verbes = [a.verb for a in result.decision.actions]
         assert "block_ip" not in verbes
         assert "rate_limit_ip" in verbes
@@ -118,9 +132,14 @@ class TestGraduationDeLaReponse:
     def test_degradation_infra_ne_declenche_aucune_correction(self, platform):
         """Une panne dont la cause n'est pas etablie comme malveillante ne
         justifie pas d'agir : le risque d'aggraver depasse le benefice."""
-        result = platform.ingest_and_respond("generic_json", {
-            "category": "infrastructure_degradation", "severity": "high",
-            "asset_id": "srv-web-01", "title": "latence excessive",
-        })
+        result = platform.ingest_and_respond(
+            "generic_json",
+            {
+                "category": "infrastructure_degradation",
+                "severity": "high",
+                "asset_id": "srv-web-01",
+                "title": "latence excessive",
+            },
+        )
         verbes = {a.verb for a in result.decision.actions}
         assert verbes <= {"notify"}

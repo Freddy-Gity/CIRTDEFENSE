@@ -19,9 +19,14 @@ _RFC3164 = re.compile(
 )
 
 _SEVERITY_BY_SYSLOG = {
-    0: Severity.CRITICAL, 1: Severity.CRITICAL, 2: Severity.CRITICAL,
-    3: Severity.HIGH, 4: Severity.MEDIUM, 5: Severity.LOW,
-    6: Severity.INFO, 7: Severity.INFO,
+    0: Severity.CRITICAL,
+    1: Severity.CRITICAL,
+    2: Severity.CRITICAL,
+    3: Severity.HIGH,
+    4: Severity.MEDIUM,
+    5: Severity.LOW,
+    6: Severity.INFO,
+    7: Severity.INFO,
 }
 _IP = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 # `for user root` doit rendre "root" et non "user" : la forme longue passe en premier.

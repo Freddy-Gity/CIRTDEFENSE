@@ -109,20 +109,22 @@ class Planner:
         playbook = self._playbooks.get(event.category)
         if playbook is None:
             log_with(
-                logger, logging.WARNING,
+                logger,
+                logging.WARNING,
                 "aucun playbook pour cette categorie : aucune action planifiee",
-                category=event.category, event_id=event.event_id,
+                category=event.category,
+                event_id=event.event_id,
             )
             return PlanningResult(
-                skipped=[{
-                    "action": "-",
-                    "reason": f"aucun playbook ne couvre la categorie '{event.category}'",
-                }]
+                skipped=[
+                    {
+                        "action": "-",
+                        "reason": f"aucun playbook ne couvre la categorie '{event.category}'",
+                    }
+                ]
             )
 
-        result = PlanningResult(
-            playbook_id=playbook.playbook_id, playbook_version=playbook.version
-        )
+        result = PlanningResult(playbook_id=playbook.playbook_id, playbook_version=playbook.version)
         for rule in playbook.rules:
             rule_id = str(rule.get("id", "?"))
             if not self._rule_matches(rule.get("when") or {}, event):
@@ -204,33 +206,41 @@ class Planner:
         # Condition supplementaire portee par l'action elle-meme.
         threshold = action.get("when_severity_min")
         if threshold and not (event.severity >= Severity(threshold)):
-            result.skipped.append({
-                "action": label,
-                "reason": f"gravite {event.severity.value} inferieure au seuil {threshold}",
-            })
+            result.skipped.append(
+                {
+                    "action": label,
+                    "reason": f"gravite {event.severity.value} inferieure au seuil {threshold}",
+                }
+            )
             return
 
         target = self._resolve(str(action.get("target", "")), event)
         if not target:
-            result.skipped.append({
-                "action": label,
-                "reason": f"cible non resolue depuis '{action.get('target')}' "
-                          "(indicateur absent de l'evenement)",
-            })
+            result.skipped.append(
+                {
+                    "action": label,
+                    "reason": f"cible non resolue depuis '{action.get('target')}' "
+                    "(indicateur absent de l'evenement)",
+                }
+            )
             return
 
         entry = self._catalog.get(actuator, verb)
         if entry is None:
-            result.skipped.append({
-                "action": label,
-                "reason": "action absente du catalogue de reversibilite",
-            })
+            result.skipped.append(
+                {
+                    "action": label,
+                    "reason": "action absente du catalogue de reversibilite",
+                }
+            )
             return
         if not entry.autonomously_executable:
-            result.skipped.append({
-                "action": label,
-                "reason": f"action {entry.reversibility.value} : hors du perimetre autonome",
-            })
+            result.skipped.append(
+                {
+                    "action": label,
+                    "reason": f"action {entry.reversibility.value} : hors du perimetre autonome",
+                }
+            )
             return
 
         parameters = {

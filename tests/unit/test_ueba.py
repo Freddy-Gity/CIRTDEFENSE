@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+
 from cirtdefense.detection.ueba.baseline import BaselineStore, RunningStat
 from cirtdefense.detection.ueba.scorer import UebaScorer
 from cirtdefense.domain.events import Asset, DetectionEvent

@@ -38,9 +38,7 @@ class ServiceThresholds:
                 f"taux d'erreur {snapshot.error_rate:.1%} > seuil {self.max_error_rate:.1%}"
             )
         if self.min_throughput and snapshot.throughput < self.min_throughput:
-            problems.append(
-                f"debit {snapshot.throughput:.1f} < seuil {self.min_throughput:.1f}"
-            )
+            problems.append(f"debit {snapshot.throughput:.1f} < seuil {self.min_throughput:.1f}")
         return problems
 
 

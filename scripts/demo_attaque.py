@@ -46,21 +46,34 @@ def ligne(cle: str, valeur: object) -> None:
 def main() -> int:
     global PAUSE
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pas-a-pas", action="store_true",
-                        help="marquer une pause entre chaque etape")
+    parser.add_argument(
+        "--pas-a-pas", action="store_true", help="marquer une pause entre chaque etape"
+    )
     PAUSE = parser.parse_args().pas_a_pas
 
     tmp = Path(tempfile.mkdtemp(prefix="cirtdemo-"))
     settings = Settings(
-        env="demo", db_path=tmp / "demo.db", degraded_spool=tmp / "spool",
+        env="demo",
+        db_path=tmp / "demo.db",
+        degraded_spool=tmp / "spool",
         autonomy=AutonomySettings(
-            enabled=True, actuation_mode="simulation",
-            circuit_breaker_enabled=True, breaker_rollback_threshold=3,
+            enabled=True,
+            actuation_mode="simulation",
+            circuit_breaker_enabled=True,
+            breaker_rollback_threshold=3,
         ),
     )
     probe = StaticProbe()
-    probe.set(HealthSnapshot(target="srv-web-01", reachable=True, latency_ms=95,
-                             error_rate=0.01, throughput=480, active_sessions=37))
+    probe.set(
+        HealthSnapshot(
+            target="srv-web-01",
+            reachable=True,
+            latency_ms=95,
+            error_rate=0.01,
+            throughput=480,
+            active_sessions=37,
+        )
+    )
     platform = build_platform(settings, probe=probe)
 
     try:
@@ -78,8 +91,11 @@ def etape_1(platform) -> None:
     titre("1", "Attaque detectee — reponse executee SANS validation humaine")
     alerte = {
         "timestamp": "2026-08-24T10:00:00Z",
-        "rule": {"level": 10, "description": "Multiple failed password attempts",
-                 "groups": ["authentication_failed"]},
+        "rule": {
+            "level": 10,
+            "description": "Multiple failed password attempts",
+            "groups": ["authentication_failed"],
+        },
         "agent": {"id": "srv-web-01", "name": "srv-web-01", "ip": "10.0.0.5"},
         "data": {"srcip": "41.202.1.9", "dstuser": "jdupont"},
     }
@@ -98,17 +114,24 @@ def etape_1(platform) -> None:
         ligne(f"  {r.spec.key}", f"{r.spec.target}  [{r.status.value}]")
         ligne("    reversibilite", r.spec.reversibility.value)
     print(f"\n  Motif : {result.decision.rationale}")
-    print(f"  Sources : {', '.join(s.split('/')[-1] for s in result.decision.trace.context_sources)}")
+    print(
+        f"  Sources : {', '.join(s.split('/')[-1] for s in result.decision.trace.context_sources)}"
+    )
     print("\n  \033[2mAucun humain n'est intervenu entre la detection et l'action.\033[0m")
 
 
 def etape_2(platform) -> None:
     titre("2", "Menace inconnue — le systeme REFUSE d'agir (limite assumee)")
-    result = platform.ingest_and_respond("generic_json", {
-        "category": "vecteur_inedit_non_repertorie",
-        "severity": "critical", "confidence": 0.95,
-        "asset_id": "srv-db-01", "title": "signal jamais observe",
-    })
+    result = platform.ingest_and_respond(
+        "generic_json",
+        {
+            "category": "vecteur_inedit_non_repertorie",
+            "severity": "critical",
+            "confidence": 0.95,
+            "asset_id": "srv-db-01",
+            "title": "signal jamais observe",
+        },
+    )
     ligne("Decision", result.decision.outcome.value)
     ligne("Actions executees", 0)
     print(f"\n  Motif : {result.decision.rationale}")
@@ -119,8 +142,11 @@ def etape_2(platform) -> None:
 def etape_3(platform, probe) -> None:
     titre("3", "Le confinement etait errone — annulation AUTONOME (EF-25)")
     print("  La surveillance constate que srv-web-01 est tombe apres notre action.\n")
-    probe.set(HealthSnapshot(target="srv-web-01", reachable=False, latency_ms=9000,
-                             error_rate=1.0, throughput=0))
+    probe.set(
+        HealthSnapshot(
+            target="srv-web-01", reachable=False, latency_ms=9000, error_rate=1.0, throughput=0
+        )
+    )
 
     debut = time.monotonic()
     report = platform.engine.run_control_loop()
@@ -133,8 +159,11 @@ def etape_3(platform, probe) -> None:
     ligne("Delai maximal admis", f"{platform.settings.autonomy.rollback_max_latency_seconds} s")
     print()
     for o in report.outcomes:
-        ligne(f"  {o.action_id[:16]}", f"{o.latency_seconds * 1000:.0f} ms — "
-                                       f"delai {'respecte' if o.within_bound else 'DEPASSE'}")
+        ligne(
+            f"  {o.action_id[:16]}",
+            f"{o.latency_seconds * 1000:.0f} ms — "
+            f"delai {'respecte' if o.within_bound else 'DEPASSE'}",
+        )
     if report.outcomes:
         print(f"\n  Motif : {report.outcomes[0].reason}")
 
@@ -147,29 +176,44 @@ def etape_3(platform, probe) -> None:
 def etape_4(platform, probe) -> None:
     titre("4", "Emballement — le COUPE-CIRCUIT s'ouvre seul (EF-26)")
     print("  Trois nouvelles actions, toutes suivies d'une degradation.\n")
-    probe.set(HealthSnapshot(target="srv-app-02", reachable=True, latency_ms=100,
-                             error_rate=0.0, throughput=300))
+    probe.set(
+        HealthSnapshot(
+            target="srv-app-02", reachable=True, latency_ms=100, error_rate=0.0, throughput=300
+        )
+    )
     for i in range(3):
-        platform.ingest_and_respond("generic_json", {
-            "category": "bruteforce", "severity": "high", "confidence": 0.8,
-            "asset": {"asset_id": "srv-app-02", "criticality": 3},
-            "indicators": {"srcip": f"41.202.9.{i}"},
-            "occurred_at": f"2026-08-24T1{i}:30:00Z",
-        })
+        platform.ingest_and_respond(
+            "generic_json",
+            {
+                "category": "bruteforce",
+                "severity": "high",
+                "confidence": 0.8,
+                "asset": {"asset_id": "srv-app-02", "criticality": 3},
+                "indicators": {"srcip": f"41.202.9.{i}"},
+                "occurred_at": f"2026-08-24T1{i}:30:00Z",
+            },
+        )
     probe.set(HealthSnapshot(target="srv-app-02", reachable=False, error_rate=1.0, throughput=0))
     platform.engine.run_control_loop()
 
     status = platform.breaker.status()
     ligne("Etat du coupe-circuit", status.state.value.upper())
-    ligne("Annulations dans la fenetre", f"{status.rollbacks_in_window} / {status.rollback_threshold}")
+    ligne(
+        "Annulations dans la fenetre", f"{status.rollbacks_in_window} / {status.rollback_threshold}"
+    )
     print(f"\n  Motif : {status.reason}")
 
     print("\n  Un nouvel evenement arrive pendant la coupure :")
-    result = platform.ingest_and_respond("generic_json", {
-        "category": "malware", "severity": "critical", "confidence": 0.9,
-        "asset": {"asset_id": "srv-x", "criticality": 3},
-        "indicators": {"file_path": "/tmp/mal"},
-    })
+    result = platform.ingest_and_respond(
+        "generic_json",
+        {
+            "category": "malware",
+            "severity": "critical",
+            "confidence": 0.9,
+            "asset": {"asset_id": "srv-x", "criticality": 3},
+            "indicators": {"file_path": "/tmp/mal"},
+        },
+    )
     ligne("  Decision", result.decision.outcome.value)
     ligne("  Actions executees", 0)
     print("\n  \033[2mLe systeme s'est arrete lui-meme. Seul l'administrateur rearme :\033[0m")

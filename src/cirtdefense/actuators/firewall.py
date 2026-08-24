@@ -10,13 +10,16 @@ from __future__ import annotations
 import ipaddress
 from typing import Any
 
-from .base import Actuator, ActuationOutcome
+from .base import ActuationOutcome, Actuator
 from .simulation import SimulatedActuator
 
 VERBS: tuple[str, ...] = (
-    "block_ip", "unblock_ip",
-    "rate_limit_ip", "clear_rate_limit",
-    "block_domain", "unblock_domain",
+    "block_ip",
+    "unblock_ip",
+    "rate_limit_ip",
+    "clear_rate_limit",
+    "block_domain",
+    "unblock_domain",
 )
 
 PRIVATE_RANGES = ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8")

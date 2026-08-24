@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from cirtdefense.audit.ledger import GENESIS_HASH, AuditLedger
 from cirtdefense.persistence.db import connect, init_schema
 

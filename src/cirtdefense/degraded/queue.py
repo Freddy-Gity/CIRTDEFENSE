@@ -95,8 +95,13 @@ class DegradedSpool:
             queued_at=datetime.now(UTC),
         )
         self._path(item.item_id).write_text(json.dumps(item.to_dict(), default=str))
-        log_with(logger, logging.INFO, "evenement mis en file (mode degrade)",
-                 item_id=item.item_id, source=source)
+        log_with(
+            logger,
+            logging.INFO,
+            "evenement mis en file (mode degrade)",
+            item_id=item.item_id,
+            source=source,
+        )
         return item
 
     def items(self) -> list[SpoolItem]:
@@ -105,8 +110,13 @@ class DegradedSpool:
             try:
                 result.append(SpoolItem.from_dict(json.loads(path.read_text())))
             except (json.JSONDecodeError, KeyError) as exc:
-                log_with(logger, logging.ERROR, "element de file illisible, ignore",
-                         path=str(path), error=str(exc))
+                log_with(
+                    logger,
+                    logging.ERROR,
+                    "element de file illisible, ignore",
+                    path=str(path),
+                    error=str(exc),
+                )
         return sorted(result, key=lambda i: i.queued_at)
 
     def size(self) -> int:
@@ -128,9 +138,13 @@ class DegradedSpool:
                 report.skipped_stale += 1
                 if drop_stale:
                     self.remove(item.item_id)
-                log_with(logger, logging.WARNING,
-                         "evenement trop ancien : rejeu abandonne",
-                         item_id=item.item_id, queued_at=item.queued_at.isoformat())
+                log_with(
+                    logger,
+                    logging.WARNING,
+                    "evenement trop ancien : rejeu abandonne",
+                    item_id=item.item_id,
+                    queued_at=item.queued_at.isoformat(),
+                )
                 continue
             try:
                 handler(item.source, item.payload)

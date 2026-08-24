@@ -8,8 +8,9 @@ from cirtdefense.domain.enums import ActionStatus, DecisionOutcome
 
 def _degrader(probe, cible="srv-web-01"):
     probe.set(
-        HealthSnapshot(target=cible, reachable=False, latency_ms=5000,
-                       error_rate=0.95, throughput=0)
+        HealthSnapshot(
+            target=cible, reachable=False, latency_ms=5000, error_rate=0.95, throughput=0
+        )
     )
 
 
@@ -98,11 +99,17 @@ class TestCoupeCircuit:
     ):
         """La voie qui protege reellement : personne n'est devant l'ecran."""
         for i in range(3):
-            platform.ingest_and_respond("generic_json", {
-                "category": "bruteforce", "severity": "high", "confidence": 0.8,
-                "asset_id": "srv-web-01", "indicators": {"srcip": f"41.202.1.{i}"},
-                "occurred_at": f"2026-08-24T1{i}:00:00Z",
-            })
+            platform.ingest_and_respond(
+                "generic_json",
+                {
+                    "category": "bruteforce",
+                    "severity": "high",
+                    "confidence": 0.8,
+                    "asset_id": "srv-web-01",
+                    "indicators": {"srcip": f"41.202.1.{i}"},
+                    "occurred_at": f"2026-08-24T1{i}:00:00Z",
+                },
+            )
         _degrader(probe)
         platform.engine.run_control_loop()
 
@@ -110,7 +117,9 @@ class TestCoupeCircuit:
 
     def test_le_systeme_ne_se_rearme_jamais_seul(self, platform, probe, bruteforce_payload):
         platform.breaker.trip("emballement", actor="system:breaker")
-        probe.set(HealthSnapshot(target="srv-web-01", reachable=True, latency_ms=50, throughput=500))
+        probe.set(
+            HealthSnapshot(target="srv-web-01", reachable=True, latency_ms=50, throughput=500)
+        )
         platform.engine.run_control_loop()
 
         assert not platform.breaker.status().autonomy_active

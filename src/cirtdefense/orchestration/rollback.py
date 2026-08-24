@@ -152,8 +152,11 @@ class RollbackService:
         if result.status is ActionStatus.ROLLED_BACK:
             # Idempotence : la boucle et l'analyste peuvent viser la meme action.
             return RollbackOutcome(
-                action_id=result.action_id, success=True,
-                reason="action deja annulee", actor=actor, detail="aucune operation necessaire",
+                action_id=result.action_id,
+                success=True,
+                reason="action deja annulee",
+                actor=actor,
+                detail="aucune operation necessaire",
             )
         if result.status is not ActionStatus.EXECUTED:
             return self._refuse(
@@ -172,9 +175,15 @@ class RollbackService:
 
         self._ledger.record(
             audit_type,
-            {"action_id": result.action_id, "reason": reason,
-             "verb": result.spec.verb, "target": result.spec.target},
-            actor=actor, incident_id=result.incident_id, action_id=result.action_id,
+            {
+                "action_id": result.action_id,
+                "reason": reason,
+                "verb": result.spec.verb,
+                "target": result.spec.target,
+            },
+            actor=actor,
+            incident_id=result.incident_id,
+            action_id=result.action_id,
         )
 
         actuator = self._registry.require(result.spec.actuator)
@@ -186,7 +195,9 @@ class RollbackService:
                 result.spec.parameters,
             )
         except Exception as exc:  # noqa: BLE001
-            return self._fail(result, f"exception pendant l'annulation : {exc}", actor, started, bound)
+            return self._fail(
+                result, f"exception pendant l'annulation : {exc}", actor, started, bound
+            )
 
         latency = (datetime.now(UTC) - started).total_seconds()
         if not outcome.success:
@@ -210,21 +221,39 @@ class RollbackService:
                 "within_bound": within_bound,
                 "detail": outcome.message,
             },
-            actor=actor, incident_id=result.incident_id, action_id=result.action_id,
+            actor=actor,
+            incident_id=result.incident_id,
+            action_id=result.action_id,
         )
         self._watcher.release(result.action_id)
 
         if not within_bound:
-            log_with(logger, logging.ERROR,
-                     "annulation reussie mais hors du delai admis",
-                     action_id=result.action_id, latency=latency, bound=bound)
+            log_with(
+                logger,
+                logging.ERROR,
+                "annulation reussie mais hors du delai admis",
+                action_id=result.action_id,
+                latency=latency,
+                bound=bound,
+            )
         else:
-            log_with(logger, logging.WARNING, "action autonome annulee",
-                     action_id=result.action_id, actor=actor, latency=latency)
+            log_with(
+                logger,
+                logging.WARNING,
+                "action autonome annulee",
+                action_id=result.action_id,
+                actor=actor,
+                latency=latency,
+            )
 
         return RollbackOutcome(
-            action_id=result.action_id, success=True, reason=reason, actor=actor,
-            latency_seconds=latency, within_bound=within_bound, detail=outcome.message,
+            action_id=result.action_id,
+            success=True,
+            reason=reason,
+            actor=actor,
+            latency_seconds=latency,
+            within_bound=within_bound,
+            detail=outcome.message,
         )
 
     def rollback_by_id(self, action_id: str, reason: str, actor: str) -> RollbackOutcome:
@@ -232,8 +261,10 @@ class RollbackService:
         result = self._actions.get(action_id)
         if result is None:
             return RollbackOutcome(
-                action_id=action_id, success=False,
-                reason=f"action '{action_id}' inconnue", actor=actor,
+                action_id=action_id,
+                success=False,
+                reason=f"action '{action_id}' inconnue",
+                actor=actor,
             )
         return self.rollback(result, reason, actor, AuditEventType.MANUAL_ROLLBACK)
 
@@ -241,9 +272,8 @@ class RollbackService:
 
     @staticmethod
     def _format_reason(verdict: WatchVerdict) -> str:
-        return (
-            f"degradation constatee sur {verdict.target} apres l'action : "
-            + " ; ".join(verdict.reasons)
+        return f"degradation constatee sur {verdict.target} apres l'action : " + " ; ".join(
+            verdict.reasons
         )
 
     def _refresh_incident_status(self, incident_id: str) -> None:
@@ -260,15 +290,20 @@ class RollbackService:
             self._incidents.save(incident)
 
     def _refuse(self, result: ActionResult, reason: str, actor: str) -> RollbackOutcome:
-        log_with(logger, logging.WARNING, "annulation refusee",
-                 action_id=result.action_id, reason=reason)
+        log_with(
+            logger, logging.WARNING, "annulation refusee", action_id=result.action_id, reason=reason
+        )
         return RollbackOutcome(
             action_id=result.action_id, success=False, reason=reason, actor=actor
         )
 
     def _fail(
-        self, result: ActionResult, message: str, actor: str,
-        started: datetime, bound: int,
+        self,
+        result: ActionResult,
+        message: str,
+        actor: str,
+        started: datetime,
+        bound: int,
     ) -> RollbackOutcome:
         """Echec d'annulation : l'etat le plus grave que le systeme puisse
         atteindre, puisqu'une action reste appliquee sans moyen de la retirer."""
@@ -279,14 +314,28 @@ class RollbackService:
         self._actions.save(result)
         self._ledger.record(
             AuditEventType.ROLLBACK_FAILED,
-            {"action_id": result.action_id, "error": message,
-             "latency_seconds": round(latency, 3), "max_allowed_seconds": bound},
-            actor=actor, incident_id=result.incident_id, action_id=result.action_id,
+            {
+                "action_id": result.action_id,
+                "error": message,
+                "latency_seconds": round(latency, 3),
+                "max_allowed_seconds": bound,
+            },
+            actor=actor,
+            incident_id=result.incident_id,
+            action_id=result.action_id,
         )
-        log_with(logger, logging.CRITICAL,
-                 "ECHEC D'ANNULATION : une action reste appliquee sans retour arriere",
-                 action_id=result.action_id, error=message)
+        log_with(
+            logger,
+            logging.CRITICAL,
+            "ECHEC D'ANNULATION : une action reste appliquee sans retour arriere",
+            action_id=result.action_id,
+            error=message,
+        )
         return RollbackOutcome(
-            action_id=result.action_id, success=False, reason=message, actor=actor,
-            latency_seconds=latency, within_bound=latency <= bound,
+            action_id=result.action_id,
+            success=False,
+            reason=message,
+            actor=actor,
+            latency_seconds=latency,
+            within_bound=latency <= bound,
         )

@@ -9,13 +9,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from .base import Actuator, ActuationOutcome
+from .base import ActuationOutcome, Actuator
 from .simulation import SimulatedActuator
 
 VERBS: tuple[str, ...] = (
-    "disable_account", "enable_account",
-    "revoke_sessions", "noop_restore_sessions",
-    "force_password_reset", "cancel_password_reset",
+    "disable_account",
+    "enable_account",
+    "revoke_sessions",
+    "noop_restore_sessions",
+    "force_password_reset",
+    "cancel_password_reset",
 )
 
 PROTECTED_ACCOUNTS = frozenset({"administrator", "root", "admin", "krbtgt", "svc-backup"})

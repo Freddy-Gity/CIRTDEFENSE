@@ -65,11 +65,16 @@ class IngestionAdapter:
         # actions sur la meme cible.
         if self._events.exists_fingerprint(fingerprint):
             log_with(
-                logger, logging.INFO, "evenement duplique ignore",
-                fingerprint=fingerprint, source=source,
+                logger,
+                logging.INFO,
+                "evenement duplique ignore",
+                fingerprint=fingerprint,
+                source=source,
             )
             return IngestionResult(
-                event=event, incident=None, duplicate=True,
+                event=event,
+                incident=None,
+                duplicate=True,
                 reason="empreinte deja connue (deduplication EF-19)",
             )
 

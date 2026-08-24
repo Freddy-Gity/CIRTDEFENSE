@@ -14,8 +14,9 @@ class TestIndicateurs:
         platform.ingest_and_respond("wazuh", bruteforce_payload)
         assert platform.portfolio.statistics()["actions_rolled_back"] == 0
 
-        probe.set(HealthSnapshot(target="srv-web-01", reachable=False,
-                                 error_rate=1.0, throughput=0))
+        probe.set(
+            HealthSnapshot(target="srv-web-01", reachable=False, error_rate=1.0, throughput=0)
+        )
         report = platform.engine.run_control_loop()
 
         stats = platform.portfolio.statistics()
@@ -25,8 +26,9 @@ class TestIndicateurs:
 
     def test_compteurs_par_incident_a_jour(self, platform, probe, bruteforce_payload):
         platform.ingest_and_respond("wazuh", bruteforce_payload)
-        probe.set(HealthSnapshot(target="srv-web-01", reachable=False,
-                                 error_rate=1.0, throughput=0))
+        probe.set(
+            HealthSnapshot(target="srv-web-01", reachable=False, error_rate=1.0, throughput=0)
+        )
         platform.engine.run_control_loop()
 
         entree = platform.portfolio.list()[0]
@@ -41,8 +43,9 @@ class TestIndicateurs:
         result = platform.ingest_and_respond("wazuh", bruteforce_payload)
         assert platform.incidents.get(result.incident.incident_id).status.value == "contained"
 
-        probe.set(HealthSnapshot(target="srv-web-01", reachable=False,
-                                 error_rate=1.0, throughput=0))
+        probe.set(
+            HealthSnapshot(target="srv-web-01", reachable=False, error_rate=1.0, throughput=0)
+        )
         platform.engine.run_control_loop()
 
         assert platform.incidents.get(result.incident.incident_id).status.value == "rolled_back"
@@ -59,15 +62,24 @@ class TestIndicateurs:
 
 class TestPriorisation:
     def test_ordre_decroissant_par_enjeu(self, platform):
-        platform.ingest_and_respond("generic_json", {
-            "category": "scan", "severity": "low",
-            "asset": {"asset_id": "poste-01", "criticality": 1},
-            "indicators": {"srcip": "41.202.1.1"},
-        })
-        platform.ingest_and_respond("generic_json", {
-            "category": "malware", "severity": "critical", "confidence": 0.9,
-            "asset": {"asset_id": "srv-01", "criticality": 5},
-            "indicators": {"file_path": "/tmp/x"},
-        })
+        platform.ingest_and_respond(
+            "generic_json",
+            {
+                "category": "scan",
+                "severity": "low",
+                "asset": {"asset_id": "poste-01", "criticality": 1},
+                "indicators": {"srcip": "41.202.1.1"},
+            },
+        )
+        platform.ingest_and_respond(
+            "generic_json",
+            {
+                "category": "malware",
+                "severity": "critical",
+                "confidence": 0.9,
+                "asset": {"asset_id": "srv-01", "criticality": 5},
+                "indicators": {"file_path": "/tmp/x"},
+            },
+        )
         scores = [e.risk_score for e in platform.portfolio.list()]
         assert scores == sorted(scores, reverse=True)

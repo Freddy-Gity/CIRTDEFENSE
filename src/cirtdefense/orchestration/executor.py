@@ -88,10 +88,17 @@ class Executor:
             self._ledger.record(
                 AuditEventType.ACTION_FAILED,
                 {**result.to_dict(), "blocked_reason": guard, "actuation_mode": self._mode},
-                incident_id=incident_id, decision_id=decision_id, action_id=result.action_id,
+                incident_id=incident_id,
+                decision_id=decision_id,
+                action_id=result.action_id,
             )
-            log_with(logger, logging.ERROR, "action refusee avant execution",
-                     action=spec.key, reason=guard)
+            log_with(
+                logger,
+                logging.ERROR,
+                "action refusee avant execution",
+                action=spec.key,
+                reason=guard,
+            )
             return result
 
         # (1) Reference AVANT l'action : condition de possibilite d'EF-25.
@@ -105,8 +112,14 @@ class Executor:
             outcome = actuator.execute(spec.verb, spec.target, spec.parameters)
         except Exception as exc:  # noqa: BLE001
             result.mark_failed(f"exception de l'actuateur : {exc}")
-            log_with(logger, logging.ERROR, "exception pendant l'execution",
-                     action=spec.key, target=spec.target, error=str(exc))
+            log_with(
+                logger,
+                logging.ERROR,
+                "exception pendant l'execution",
+                action=spec.key,
+                target=spec.target,
+                error=str(exc),
+            )
         else:
             if outcome.success:
                 result.mark_executed(
@@ -127,16 +140,29 @@ class Executor:
             AuditEventType.ACTION_EXECUTED
             if result.status is ActionStatus.EXECUTED
             else AuditEventType.ACTION_FAILED,
-            {**result.to_dict(), "actuation_mode": self._mode,
-             "expected_effect": spec.expected_effect},
-            incident_id=incident_id, decision_id=decision_id, action_id=result.action_id,
+            {
+                **result.to_dict(),
+                "actuation_mode": self._mode,
+                "expected_effect": spec.expected_effect,
+            },
+            incident_id=incident_id,
+            decision_id=decision_id,
+            action_id=result.action_id,
         )
 
         level = logging.INFO if result.status is ActionStatus.EXECUTED else logging.ERROR
-        log_with(logger, level, "action autonome executee" if result.status is ActionStatus.EXECUTED
-                 else "action autonome en echec",
-                 action=spec.key, target=spec.target, mode=self._mode,
-                 status=result.status.value, duration_ms=result.duration_ms)
+        log_with(
+            logger,
+            level,
+            "action autonome executee"
+            if result.status is ActionStatus.EXECUTED
+            else "action autonome en echec",
+            action=spec.key,
+            target=spec.target,
+            mode=self._mode,
+            status=result.status.value,
+            duration_ms=result.duration_ms,
+        )
         return result
 
     def execute_all(

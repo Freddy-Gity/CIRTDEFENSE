@@ -87,7 +87,9 @@ class Platform:
 
     # -- chaine nominale ----------------------------------------------------
 
-    def ingest_and_respond(self, source: str, payload: dict[str, Any]) -> OrchestrationResult | None:
+    def ingest_and_respond(
+        self, source: str, payload: dict[str, Any]
+    ) -> OrchestrationResult | None:
         """Point d'entree unique : de la charge brute a l'action executee.
 
         En mode degrade, l'evenement est mis en file et rien n'est execute :
@@ -183,15 +185,20 @@ def build_platform(
     watcher = PostActionWatcher(health_probe)
     monitor = InfrastructureMonitor(health_probe)
 
-    executor = Executor(
-        registry, actions, ledger, watcher, catalog, actuation_mode=mode
-    )
+    executor = Executor(registry, actions, ledger, watcher, catalog, actuation_mode=mode)
     rollback = RollbackService(
-        registry, actions, ledger, watcher, catalog, incidents,
+        registry,
+        actions,
+        ledger,
+        watcher,
+        catalog,
+        incidents,
         max_latency_seconds=settings.autonomy.rollback_max_latency_seconds,
     )
     breaker = CircuitBreaker(
-        BreakerRepository(connection), actions, ledger,
+        BreakerRepository(connection),
+        actions,
+        ledger,
         enabled=settings.autonomy.circuit_breaker_enabled,
         rollback_threshold=settings.autonomy.breaker_rollback_threshold,
         failure_threshold=settings.autonomy.breaker_error_threshold,
@@ -249,7 +256,9 @@ def build_platform(
     )
 
     log_with(
-        logger, logging.INFO, "plateforme demarree",
+        logger,
+        logging.INFO,
+        "plateforme demarree",
         autonomy_enabled=settings.autonomy.enabled,
         actuation_mode=mode,
         circuit_breaker=settings.autonomy.circuit_breaker_enabled,
@@ -273,7 +282,8 @@ def _load_or_compile_policy(
         repository.save(report.policy)
         if report.unparsed_sentences:
             log_with(
-                logger, logging.WARNING,
+                logger,
+                logging.WARNING,
                 "des consignes de politique n'ont pas ete compilees et resteront sans effet",
                 unparsed=report.unparsed_sentences,
             )
@@ -281,8 +291,13 @@ def _load_or_compile_policy(
 
     stored = repository.active()
     if stored:
-        log_with(logger, logging.INFO, "politique active rechargee depuis la base",
-                 version=stored.get("version"), checksum=stored.get("checksum"))
+        log_with(
+            logger,
+            logging.INFO,
+            "politique active rechargee depuis la base",
+            version=stored.get("version"),
+            checksum=stored.get("checksum"),
+        )
 
     return ResponsePolicy(
         policy_id="default",
