@@ -1,14 +1,19 @@
-id: pb-bruteforce
-version: "1.0"
+id: pb-a4-bruteforce
+version: "2.0"
 category: bruteforce
+attack_code: A4
 description: >
-  Reponse aux attaques par force brute et pulverisation de mots de passe.
-  La progression suit celle de la fiche de connaissance bruteforce.md.
+  A4 — Force brute et credential stuffing. Les trois actions prescrites par le
+  catalogue s'appliquent : verrouiller le compte cible, bloquer la source,
+  exiger un second facteur a la reprise.
+
+  Le verrouillage est prefere a la desactivation : il expire de lui-meme et
+  gene moins l'utilisateur legitime, ce que le catalogue signale comme l'effet
+  residuel a assumer sur cette ligne.
 rules:
-  - id: BF-01
-    label: Source externe identifiee, attaque en cours
+  - id: A4-01
+    label: Blocage de la source externe
     when:
-      severity_min: medium
       confidence_min: 0.5
       indicators_present: [srcip]
       target_not_private: srcip
@@ -18,11 +23,32 @@ rules:
         target: "{indicators.srcip}"
         parameters:
           duration_minutes: 120
-          reason: "force brute sur authentification"
+          reason: "echecs d'authentification en rafale"
         expected_effect: "Les tentatives depuis cette adresse cessent."
 
-  - id: BF-02
-    label: Compte cible identifie et gravite elevee
+  - id: A4-02
+    label: Verrouillage du compte cible et second facteur exige
+    when:
+      user_present: true
+    actions:
+      - verb: lock_account
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          duration_minutes: 60
+          reason: "compte cible par une attaque par force brute"
+        expected_effect: >
+          Le compte est verrouille temporairement ; le verrouillage expire de
+          lui-meme, contrairement a une desactivation.
+
+      - verb: force_mfa
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          reason: "verification d'identite exigee a la reprise"
+
+  - id: A4-03
+    label: Succes apres la rafale — sessions presumees compromises
     when:
       severity_min: high
       user_present: true
@@ -31,10 +57,9 @@ rules:
         actuator: iam
         target: "{asset.user}"
         parameters:
-          reason: "authentification forcee sur ce compte"
-        expected_effect: "Les sessions ouvertes du compte sont invalidees."
+          reason: "authentification reussie apres une serie d'echecs"
 
-  - id: BF-03
+  - id: A4-04
     label: Source interne — limitation plutot que blocage
     when:
       indicators_present: [srcip]
@@ -46,5 +71,5 @@ rules:
         parameters:
           requests_per_minute: 10
         expected_effect: >
-          Le rythme des tentatives devient inexploitable sans couper
-          un usage interne potentiellement legitime.
+          Le rythme des tentatives devient inexploitable sans couper un usage
+          interne potentiellement legitime.

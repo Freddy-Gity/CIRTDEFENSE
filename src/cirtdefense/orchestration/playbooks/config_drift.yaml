@@ -1,0 +1,40 @@
+id: pb-d4-derive-configuration
+version: "1.0"
+category: config_drift
+attack_code: D4
+description: >
+  D4 — Derive de configuration. La restauration automatique n'est admise que
+  si le delta est mineur : au-dela, restaurer une reference obsolete
+  ecraserait un changement legitime recent.
+rules:
+  - id: D4-01
+    label: Restauration si la derive est mineure
+    when:
+      indicators_present: [delta_count]
+    actions:
+      - verb: restore_baseline
+        actuator: config
+        target: "{asset.asset_id}"
+        parameters:
+          delta_count: "{indicators.delta_count}"
+          reason: "ecart a la configuration de reference"
+        expected_effect: >
+          La configuration de reference est retablie. L'actuateur refuse
+          au-dela du seuil qui definit une derive mineure.
+
+  - id: D4-02
+    label: Signalement systematique
+    when: {}
+    actions:
+      - verb: notify
+        actuator: notify
+        target: "equipe-exploitation"
+        parameters:
+          channel: ops
+          severity: low
+          subject: "D4 — Derive de configuration constatee"
+          body: >
+            Un ecart a ete constate avec la configuration de reference. La
+            restauration automatique n'est engagee que si le delta est mineur ;
+            au-dela, elle est refusee pour ne pas ecraser un changement
+            legitime recent.

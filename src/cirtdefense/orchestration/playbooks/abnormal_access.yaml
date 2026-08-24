@@ -1,0 +1,40 @@
+id: pb-c2-acces-hors-profil
+version: "1.0"
+category: abnormal_access
+attack_code: C2
+description: >
+  C2 — Acces a des ressources hors profil. Le catalogue est explicite : PAS de
+  revocation de compte, le risque de faux positif etant ici plus eleve
+  qu'ailleurs. Un utilisateur peut legitimement changer de perimetre metier.
+rules:
+  - id: C2-01
+    label: Blocage de l'acces en cours
+    when:
+      user_present: true
+      indicators_present: [resource]
+    actions:
+      - verb: block_resource_access
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          resource: "{indicators.resource}"
+          reason: "ressource jamais accedee par cette entite, hors perimetre metier"
+        expected_effect: >
+          L'acces en cours est interrompu sans toucher au compte lui-meme.
+
+  - id: C2-02
+    label: Signalement — aucune action sur le compte
+    when: {}
+    actions:
+      - verb: notify
+        actuator: notify
+        target: "analyste"
+        parameters:
+          channel: analyst
+          severity: low
+          subject: "C2 — Acces hors profil habituel"
+          body: >
+            Une entite a consulte une ressource hors de son perimetre habituel.
+            Le compte n'a PAS ete revoque : sur ce type d'anomalie le risque de
+            faux positif est eleve, et l'immobilisation d'un utilisateur
+            legitime couterait plus que l'acces constate.

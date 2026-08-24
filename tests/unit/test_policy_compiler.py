@@ -105,3 +105,36 @@ class TestTracabilite:
         phrase = "Ne jamais bloquer une adresse interne"
         verdict = compiler.compile(phrase).policy.evaluate(_action(target="10.0.0.5"), {})
         assert verdict.rule_text == phrase
+
+
+class TestCouvertureDuVocabulaire:
+    """Toute action executable doit etre exprimable dans une politique.
+
+    Un verbe absent du vocabulaire est une action que l'administrateur ne peut
+    pas interdire : le moteur pourrait l'executer sans qu'aucune consigne ne
+    puisse s'y opposer. C'est le genre d'ecart qui s'installe silencieusement
+    a chaque ajout d'actuateur.
+    """
+
+    def test_tout_verbe_autonome_est_exprimable(self):
+        from cirtdefense.orchestration.policy_compiler import VERB_SYNONYMS
+        from cirtdefense.orchestration.reversibility import ReversibilityCatalog
+
+        verbes = {e.verb for e in ReversibilityCatalog().autonomous_subset()}
+        manquants = sorted(verbes - set(VERB_SYNONYMS))
+        assert not manquants, (
+            f"verbes executables mais non interdictibles par politique : {manquants}"
+        )
+
+    def test_chaque_synonyme_est_reconnu(self, compiler):
+        """Un synonyme declare mais non reconnu par le compilateur serait un
+        piege : l'administrateur croirait sa consigne appliquee."""
+        from cirtdefense.orchestration.policy_compiler import VERB_SYNONYMS
+
+        non_reconnus = []
+        for verbe, synonymes in VERB_SYNONYMS.items():
+            for synonyme in synonymes:
+                report = compiler.compile(f"Ne jamais {synonyme} sur une adresse interne")
+                if not report.fully_compiled:
+                    non_reconnus.append((verbe, synonyme))
+        assert not non_reconnus, f"synonymes non compiles : {non_reconnus}"

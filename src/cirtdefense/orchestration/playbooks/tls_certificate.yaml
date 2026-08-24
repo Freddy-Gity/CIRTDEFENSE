@@ -1,0 +1,26 @@
+id: pb-d1-certificat-tls
+version: "1.0"
+category: tls_certificate
+attack_code: D1
+description: >
+  D1 — Certificat TLS expire ou faible. Le catalogue le classe explicitement
+  « sans action corrective directe possible » : le renouvellement depend d'une
+  autorite de certification externe. La plateforme constate, notifie et
+  produit le rapport — elle n'invente pas une action qu'elle ne peut pas tenir.
+rules:
+  - id: D1-01
+    label: Notification et rapport, sans action corrective
+    when: {}
+    actions:
+      - verb: notify
+        actuator: notify
+        target: "equipe-exploitation"
+        parameters:
+          channel: ops
+          severity: low
+          subject: "D1 — Certificat TLS a renouveler"
+          body: >
+            Un certificat expire ou trop faible a ete detecte. Aucune action
+            corrective automatique n'est possible : le renouvellement depend
+            d'une autorite de certification externe, hors du controle de la
+            plateforme. Constat preventif, pas une intrusion active.

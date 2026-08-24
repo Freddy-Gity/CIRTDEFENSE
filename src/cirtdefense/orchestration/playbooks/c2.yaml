@@ -1,10 +1,29 @@
-id: pb-c2
-version: "1.0"
+id: pb-a7-c2
+version: "2.0"
 category: c2
-description: Coupure du canal de commande et controle.
+attack_code: A7
+description: >
+  A7 — Canal de commande et controle. Le catalogue prescrit le sinkhole DNS
+  avant le blocage : le detournement coupe le canal tout en permettant
+  d'observer quels autres hotes tentent de le joindre, ce qui vaut mieux
+  qu'un blocage aveugle pour l'investigation qui suivra.
 rules:
-  - id: C2-01
-    label: Destination externe identifiee
+  - id: A7-01
+    label: Sinkhole du domaine de rappel
+    when:
+      indicators_present: [domain]
+    actions:
+      - verb: sinkhole_domain
+        actuator: dns
+        target: "{indicators.domain}"
+        parameters:
+          reason: "domaine de commande et controle"
+        expected_effect: >
+          La resolution est detournee vers une adresse controlee : le canal est
+          coupe et les hotes encore infectes se signalent d'eux-memes.
+
+  - id: A7-02
+    label: Blocage de la destination externe
     when:
       confidence_min: 0.5
       indicators_present: [dest_ip]
@@ -16,31 +35,16 @@ rules:
         parameters:
           direction: egress
           reason: "canal de commande et controle"
-        expected_effect: "Le canal sortant est coupe."
 
-  - id: C2-02
-    label: Domaine de rappel identifie
-    when:
-      indicators_present: [domain]
-    actions:
-      - verb: block_domain
-        actuator: firewall
-        target: "{indicators.domain}"
-        parameters:
-          reason: "domaine de rappel"
-
-  - id: C2-03
-    label: Canal etabli sur un actif non critique
+  - id: A7-03
+    label: Beaconing confirme — isolation de l'hote
     when:
       severity_min: high
-      asset_criticality_max: 3
+      asset_criticality_max: 4
     actions:
       - verb: isolate_host
         actuator: edr
         target: "{asset.asset_id}"
         parameters:
           keep_agent_channel: true
-          reason: "machine sous controle externe"
-        expected_effect: >
-          La machine ne peut plus servir de point de rebond ; l'agent
-          reste joignable pour lever la quarantaine.
+          reason: "beaconing confirme, machine sous controle externe"

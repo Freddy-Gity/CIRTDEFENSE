@@ -1,0 +1,32 @@
+id: pb-b3-rce
+version: "1.0"
+category: rce
+attack_code: B3
+description: >
+  B3 — Execution de code distante. Criticite maximale : l'attaquant execute
+  du code sur l'hote. Isolation immediate et arret du processus.
+rules:
+  - id: B3-01
+    label: Isolation reseau immediate
+    when: {}
+    actions:
+      - verb: isolate_host
+        actuator: edr
+        target: "{asset.asset_id}"
+        parameters:
+          keep_agent_channel: true
+          reason: "processus enfant inattendu lance par un service applicatif"
+        expected_effect: >
+          L'hote ne peut plus servir de point de rebond ; l'agent reste
+          joignable pour lever la quarantaine.
+
+  - id: B3-02
+    label: Arret du processus suspect
+    when:
+      indicators_present: [process]
+    actions:
+      - verb: kill_process
+        actuator: edr
+        target: "{indicators.process}"
+        parameters:
+          host: "{asset.asset_id}"

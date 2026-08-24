@@ -65,16 +65,99 @@ def _fold(text: str) -> str:
 
 # Vocabulaire reconnu : verbes metier vers verbes techniques.
 VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
-    "block_ip": ("bloquer", "blocage", "blocages", "bloque", "bloquant"),
-    "isolate_host": ("isoler", "isolement", "isole", "quarantaine reseau", "mise en quarantaine"),
-    "disable_account": ("desactiver", "desactivation", "desactive", "suspendre un compte"),
-    "revoke_sessions": ("revoquer", "revocation", "deconnecter", "invalider les sessions"),
-    "kill_process": ("tuer un processus", "arreter un processus", "terminer un processus"),
-    "quarantine_file": ("mettre en quarantaine un fichier", "quarantaine de fichier"),
+    # Reseau et pare-feu
+    "block_ip": (
+        "bloquer une adresse",
+        "bloquer l'adresse",
+        "bloquer",
+        "blocage",
+        "blocages",
+        "bloque",
+    ),
+    "rate_limit_ip": ("limiter le rythme", "limitation de rythme", "brider le rythme"),
+    "block_domain": ("bloquer un domaine", "blocage de domaine"),
     "throttle_egress": ("limiter le debit", "limitation de debit", "brider"),
-    "rate_limit_ip": ("limiter le rythme", "limitation de rythme"),
-    "move_to_vlan": ("basculer le vlan", "changer de vlan"),
+    "cut_egress_connection": (
+        "couper la connexion",
+        "coupure de connexion",
+        "couper une connexion",
+    ),
+    "block_lateral": ("bloquer les mouvements lateraux", "blocage lateral"),
+    "move_to_vlan": (
+        "basculer le vlan",
+        "changer de vlan",
+        "quarantaine reseau",
+        "mettre en quarantaine reseau",
+    ),
+    # Bordure / operateur
+    "enable_scrubbing": ("activer le nettoyage", "nettoyage de trafic", "scrubbing"),
+    "blackhole_ip": ("trou noir", "blackhole", "blackholing"),
+    "edge_rate_limit": ("limiter en bordure", "limitation en bordure"),
+    # Poste et serveur
+    "isolate_host": ("isoler", "isolement", "isole", "isoler un hote", "isoler une machine"),
+    "kill_process": ("tuer un processus", "arreter un processus", "terminer un processus"),
+    "quarantine_file": (
+        "mettre en quarantaine un fichier",
+        "quarantaine de fichier",
+        "quarantaine du fichier",
+    ),
+    # Comptes et acces
+    "disable_account": (
+        "desactiver un compte",
+        "desactivation de compte",
+        "desactiver",
+        "desactivation",
+    ),
+    "lock_account": (
+        "verrouiller",
+        "verrouillage",
+        "verrouiller un compte",
+        "suspendre un compte",
+        "suspension de compte",
+    ),
+    "revoke_sessions": (
+        "revoquer les sessions",
+        "revoquer de sessions",
+        "revocation de session",
+        "deconnecter",
+        "invalider les sessions",
+    ),
     "force_password_reset": ("forcer le renouvellement", "reinitialiser le mot de passe"),
+    "force_mfa": (
+        "forcer mfa",
+        "forcer le second facteur",
+        "authentification renforcee",
+        "forcage mfa",
+    ),
+    "revoke_token": ("revoquer un jeton", "revoquer le jeton", "revocation de jeton"),
+    "revoke_privilege": (
+        "revoquer un privilege",
+        "revoquer le privilege",
+        "revocation de privilege",
+        "retirer un privilege",
+    ),
+    "block_resource_access": ("bloquer l'acces", "blocage d'acces", "bloquer un acces"),
+    "restrict_export": ("restreindre l'export", "restriction d'export", "restreindre les droits"),
+    # Applicatif
+    "block_pattern": ("bloquer un motif", "blocage de motif", "regle waf"),
+    "block_request": ("bloquer la requete", "bloquer une requete", "blocage de requete"),
+    "rate_limit_rule": ("limiter le debit applicatif", "limitation applicative"),
+    "sanitize_field": ("sanitiser", "sanitisation", "filtrer un champ"),
+    # DNS
+    "sinkhole_domain": ("sinkhole", "detourner un domaine", "detournement de domaine"),
+    "block_resolution": ("bloquer la resolution", "blocage de resolution"),
+    # Infrastructure
+    "trigger_snapshot": ("declencher un instantane", "snapshot", "instantane de sauvegarde"),
+    "restart_service": ("redemarrer", "redemarrage", "redemarrer un service"),
+    "failover": ("basculer", "bascule", "basculer vers le secours"),
+    "close_idle_connections": ("fermer les connexions inactives", "fermeture des connexions"),
+    "close_port": ("fermer un port", "fermeture de port", "fermer le port"),
+    "restore_baseline": (
+        "restaurer la configuration",
+        "restauration de configuration",
+        "restaurer la reference",
+    ),
+    # Information
     "notify": ("notifier", "notification", "avertir", "prevenir"),
 }
 

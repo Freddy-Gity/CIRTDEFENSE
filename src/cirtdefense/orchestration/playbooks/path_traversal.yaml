@@ -1,0 +1,29 @@
+id: pb-b4-path-traversal
+version: "1.0"
+category: path_traversal
+attack_code: B4
+description: "B4 — Traversee de chemin / LFI / RFI."
+rules:
+  - id: B4-01
+    label: Blocage du motif de traversee
+    when:
+      indicators_present: [pattern]
+    actions:
+      - verb: block_pattern
+        actuator: waf
+        target: "{indicators.pattern}"
+        parameters:
+          rule_type: path_traversal
+        blast_radius: 3
+
+  - id: B4-02
+    label: Blocage du point d'entree vise
+    when:
+      indicators_present: [endpoint]
+      severity_min: high
+    actions:
+      - verb: block_request
+        actuator: waf
+        target: "{indicators.endpoint}"
+        parameters:
+          reason: "chemins hors racine applicative"

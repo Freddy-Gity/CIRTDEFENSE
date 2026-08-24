@@ -14,11 +14,17 @@ from dataclasses import dataclass
 from typing import Any
 
 from .actuators import ActuatorRegistry
+from .actuators import backup as backup_module
+from .actuators import configuration as config_module
+from .actuators import dns as dns_module
+from .actuators import edge as edge_module
 from .actuators import edr as edr_module
 from .actuators import firewall as firewall_module
 from .actuators import iam as iam_module
 from .actuators import network as network_module
 from .actuators import notify as notify_module
+from .actuators import service as service_module
+from .actuators import waf as waf_module
 from .audit.ledger import AuditLedger
 from .audit.notifier import AnalystNotifier
 from .config import Settings, get_settings
@@ -177,6 +183,12 @@ def build_platform(
     registry.register(edr_module.build(mode))
     registry.register(iam_module.build(mode))
     registry.register(network_module.build(mode))
+    registry.register(waf_module.build(mode))
+    registry.register(dns_module.build(mode))
+    registry.register(edge_module.build(mode))
+    registry.register(backup_module.build(mode))
+    registry.register(service_module.build(mode))
+    registry.register(config_module.build(mode))
     notification_actuator = notify_module.build(mode, notifications)
     registry.register(notification_actuator)
 

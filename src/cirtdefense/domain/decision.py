@@ -70,6 +70,8 @@ class Decision:
     trace: DecisionTrace = field(default_factory=DecisionTrace)
     rationale: str = ""
     decided_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    classification: dict[str, Any] = field(default_factory=dict)
+    """Qualification au catalogue CIRT : type, famille, criticite, dangerosite."""
 
     @property
     def is_actionable(self) -> bool:
@@ -83,6 +85,7 @@ class Decision:
             "outcome": self.outcome.value,
             "rationale": self.rationale,
             "decided_at": self.decided_at.isoformat(),
+            "classification": self.classification,
             "actions": [
                 {
                     "verb": a.verb,

@@ -12,6 +12,14 @@ VERBS: tuple[str, ...] = (
     "clear_egress_throttle",
     "move_to_vlan",
     "restore_vlan",
+    # Coupure d'une connexion sortante precise (A5) : plus chirurgical qu'une
+    # limitation de debit, qui laisse le transfert aboutir plus lentement.
+    "cut_egress_connection",
+    "restore_egress_connection",
+    # Blocage des protocoles de propagation laterale (A6) : SMB, RDP, WinRM.
+    # Distinct de l'isolement complet, qui coupe aussi le trafic legitime.
+    "block_lateral",
+    "unblock_lateral",
 )
 
 

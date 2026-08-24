@@ -1,0 +1,38 @@
+id: pb-c3-exfiltration-lente
+version: "1.0"
+category: slow_exfiltration
+attack_code: C3
+description: >
+  C3 — Exfiltration lente. Accumulation progressive, sous les seuils de
+  detection volumetrique. La reponse restreint l'export sans couper l'acces.
+rules:
+  - id: C3-01
+    label: Restriction des droits d'ecriture et d'export
+    when:
+      user_present: true
+    actions:
+      - verb: restrict_export
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          reason: "accumulation progressive de donnees dans un espace non habituel"
+        expected_effect: >
+          Le compte conserve son acces en lecture mais ne peut plus exporter :
+          l'accumulation cesse d'etre exploitable.
+
+  - id: C3-02
+    label: Signalement pour investigation
+    when: {}
+    actions:
+      - verb: notify
+        actuator: notify
+        target: "analyste"
+        parameters:
+          channel: analyst
+          severity: high
+          subject: "C3 — Exfiltration lente suspectee"
+          body: >
+            Une accumulation progressive de donnees a ete constatee dans un
+            espace non habituel. Les droits d'export du compte ont ete
+            temporairement restreints. Le volume deja accumule demande une
+            investigation : la restriction n'a pas d'effet retroactif.

@@ -1,32 +1,38 @@
-id: pb-privilege-escalation
-version: "1.0"
+id: pb-c1-elevation-privilege
+version: "2.0"
 category: privilege_escalation
-description: Reponse a une elevation de privileges.
+attack_code: C1
+description: >
+  C1 — Elevation de privilege anormale. Le catalogue prescrit exactement deux
+  gestes : revoquer le privilege accorde et retablir le role anterieur. Ils
+  sont couverts par une action unique et reversible, qui memorise le role
+  d'origine avant de le retirer.
 rules:
-  - id: PE-01
-    label: Compte identifie
+  - id: C1-01
+    label: Revocation du privilege et restauration du role anterieur
     when:
       user_present: true
+    actions:
+      - verb: revoke_privilege
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          privilege: "{indicators.privilege}"
+          previous_role: "{indicators.previous_role}"
+          reason: "changement de role hors processus habituel, sans ticket associe"
+        expected_effect: >
+          Le privilege accorde est retire et le role anterieur retabli.
+          L'action est reversible : le privilege peut etre rendu si le
+          changement s'avere legitime.
+
+  - id: C1-02
+    label: Sessions ouvertes sous le privilege obtenu
+    when:
+      user_present: true
+      severity_min: high
     actions:
       - verb: revoke_sessions
         actuator: iam
         target: "{asset.user}"
         parameters:
-          reason: "elevation de privileges"
-      - verb: force_password_reset
-        actuator: iam
-        target: "{asset.user}"
-        parameters:
-          reason: "identifiants presumes compromis"
-
-  - id: PE-02
-    label: Exploitation locale sur la machine
-    when:
-      severity_min: high
-    actions:
-      - verb: isolate_host
-        actuator: edr
-        target: "{asset.asset_id}"
-        parameters:
-          keep_agent_channel: true
-          reason: "exploitation d'une vulnerabilite locale"
+          reason: "sessions ouvertes avec un privilege obtenu hors processus"

@@ -19,6 +19,25 @@ VERBS: tuple[str, ...] = (
     "noop_restore_sessions",
     "force_password_reset",
     "cancel_password_reset",
+    # Verrouillage temporaire (A4) : distinct de la desactivation, il expire
+    # de lui-meme et gene moins l'utilisateur legitime.
+    "lock_account",
+    "unlock_account",
+    # Forcage MFA a la prochaine connexion (A4, C4)
+    "force_mfa",
+    "clear_mfa_requirement",
+    # Jeton d'API (B6)
+    "revoke_token",
+    "reissue_token",
+    # Privilege accorde hors processus (C1)
+    "revoke_privilege",
+    "restore_privilege",
+    # Acces a une ressource hors profil (C2)
+    "block_resource_access",
+    "restore_resource_access",
+    # Droits d'ecriture/export (C3)
+    "restrict_export",
+    "restore_export",
 )
 
 PROTECTED_ACCOUNTS = frozenset({"administrator", "root", "admin", "krbtgt", "svc-backup"})

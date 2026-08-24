@@ -1,0 +1,38 @@
+id: pb-d2-port-inattendu
+version: "1.0"
+category: unexpected_port
+attack_code: D2
+description: >
+  D2 — Port inattendu ouvert. Le catalogue conditionne la fermeture au fait
+  que le port soit sous controle de la plateforme ; sinon, alerte de derive.
+rules:
+  - id: D2-01
+    label: Fermeture du port si sous controle
+    when:
+      indicators_present: [port]
+      severity_min: medium
+    actions:
+      - verb: close_port
+        actuator: config
+        target: "{indicators.port}"
+        parameters:
+          host: "{asset.asset_id}"
+          reason: "port absent de la configuration attendue"
+        expected_effect: "Le port est ferme et peut etre rouvert."
+
+  - id: D2-02
+    label: Signalement de derive de configuration
+    when: {}
+    actions:
+      - verb: notify
+        actuator: notify
+        target: "equipe-exploitation"
+        parameters:
+          channel: ops
+          severity: medium
+          subject: "D2 — Port inattendu ouvert"
+          body: >
+            Un ecart a ete constate entre les ports observes et la
+            configuration attendue. Si le port n'est pas sous controle de la
+            plateforme, sa fermeture n'a pas ete engagee : il s'agit alors
+            d'une derive a traiter par l'equipe d'exploitation.

@@ -1,0 +1,76 @@
+id: pb-a6-ransomware
+version: "1.0"
+category: ransomware
+attack_code: A6
+description: >
+  A6 — Rancongiciel. Point de vigilance explicite du catalogue : la reponse
+  automatique reste l'isolation reseau, JAMAIS une remediation complete. Aucune
+  action irreversible (effacement, reinitialisation) n'est engagee, quelle que
+  soit la gravite constatee.
+rules:
+  - id: A6-01
+    label: Isolation reseau immediate de l'hote
+    when:
+      confidence_min: 0.5
+    actions:
+      - verb: move_to_vlan
+        actuator: network
+        target: "{asset.asset_id}"
+        parameters:
+          vlan: quarantine
+          previous_vlan: vlan-production
+          reason: "chiffrement de masse detecte"
+        expected_effect: "L'hote est place en VLAN de quarantaine."
+
+      - verb: block_lateral
+        actuator: network
+        target: "{asset.asset_id}"
+        parameters:
+          protocols: [smb, rdp, winrm]
+        expected_effect: >
+          Les protocoles de propagation sont coupes, sans isoler completement
+          l'hote de son agent de securite.
+
+  - id: A6-02
+    label: Instantane de sauvegarde si disponible
+    when:
+      severity_min: high
+    actions:
+      - verb: trigger_snapshot
+        actuator: backup
+        target: "{asset.asset_id}"
+        parameters:
+          reason: "preservation de l'etat avant progression du chiffrement"
+        expected_effect: >
+          L'etat courant est preserve. L'instantane n'est jamais supprime
+          automatiquement : il garde sa valeur de preuve.
+
+  - id: A6-03
+    label: Processus de chiffrement identifie
+    when:
+      indicators_present: [process]
+    actions:
+      - verb: kill_process
+        actuator: edr
+        target: "{indicators.process}"
+        parameters:
+          host: "{asset.asset_id}"
+        expected_effect: "Le chiffrement en cours est interrompu."
+
+  - id: A6-04
+    label: Alerte — la remediation reste humaine
+    when: {}
+    actions:
+      - verb: notify
+        actuator: notify
+        target: "analyste"
+        parameters:
+          channel: analyst
+          severity: critical
+          subject: "A6 — Rancongiciel confine, remediation a decider"
+          body: >
+            Un rancongiciel a ete confine par isolation reseau. La remediation
+            (restauration, reinstallation) n'est PAS engagee automatiquement :
+            elle est irreversible et releve d'une decision humaine apres
+            investigation. Les donnees deja chiffrees ne sont pas recouvrees
+            par l'isolation.

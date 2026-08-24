@@ -47,17 +47,44 @@ class TestRefusDAgir:
         assert result.decision.outcome is DecisionOutcome.NO_GROUNDED_CONTEXT
         assert result.execution is None
 
-    def test_politique_peut_refuser_une_action(self, platform, bruteforce_payload):
+    def test_politique_refusant_toutes_les_actions(self, platform, bruteforce_payload):
+        """Quand plus aucune action candidate ne passe, la decision est un
+        refus — jamais une mise en attente d'un humain."""
         from cirtdefense.orchestration.policy_compiler import PolicyCompiler
 
         report = PolicyCompiler().compile(
-            "Ne jamais bloquer une adresse. Ne jamais revoquer de sessions"
+            "Ne jamais bloquer une adresse. "
+            "Ne jamais revoquer de sessions. "
+            "Ne jamais verrouiller de compte. "
+            "Ne jamais forcer le second facteur. "
+            "Ne jamais notifier. "
+            "Ne jamais limiter le rythme"
         )
         platform.engine.set_policy(report.policy)
 
         result = platform.ingest_and_respond("wazuh", bruteforce_payload)
         assert result.decision.outcome is DecisionOutcome.POLICY_DENIED
         assert result.execution is None
+
+    def test_politique_appliquee_partiellement(self, platform, bruteforce_payload):
+        """Le cas courant : la politique retire certaines actions et laisse
+        passer les autres. Le refus doit etre trace action par action, sans
+        empecher la reponse restante de s'appliquer."""
+        from cirtdefense.orchestration.policy_compiler import PolicyCompiler
+
+        report = PolicyCompiler().compile("Ne jamais bloquer une adresse")
+        platform.engine.set_policy(report.policy)
+
+        result = platform.ingest_and_respond("wazuh", bruteforce_payload)
+        verbes = {a.verb for a in result.decision.actions}
+
+        assert result.decision.outcome is DecisionOutcome.AUTONOMOUS_EXECUTION
+        assert "block_ip" not in verbes, "l'action interdite a ete retenue"
+        assert verbes, "toutes les actions ont ete retirees alors qu'une seule etait interdite"
+
+        refus = [v for v in result.decision.trace.policy_verdicts if not v["allowed"]]
+        assert refus, "le refus n'apparait pas dans la trace de decision"
+        assert all(v["rule_text"] for v in refus), "le refus ne cite pas la consigne d'origine"
 
     def test_autonomie_desactivee_journalise_sans_agir(self, settings, probe):
         from dataclasses import replace

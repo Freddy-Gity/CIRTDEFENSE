@@ -39,6 +39,7 @@ from ..persistence.repositories import (
     IncidentRepository,
 )
 from .circuit_breaker import CircuitBreaker
+from .classifier import Classification, Classifier
 from .executor import ExecutionReport, Executor
 from .planner import Planner
 from .rollback import ControlLoopReport, RollbackService
@@ -88,6 +89,7 @@ class OrchestrationEngine:
         actions: ActionRepository,
         ledger: AuditLedger,
         notifier: Any = None,
+        classifier: Classifier | None = None,
         autonomy_enabled: bool = True,
     ) -> None:
         self._enrichment = enrichment
@@ -101,6 +103,7 @@ class OrchestrationEngine:
         self._actions = actions
         self._ledger = ledger
         self._notifier = notifier
+        self._classifier = classifier or Classifier()
         self._autonomy_enabled = autonomy_enabled
 
     def set_policy(self, policy: ResponsePolicy) -> None:
@@ -114,6 +117,13 @@ class OrchestrationEngine:
     # -- chaine principale --------------------------------------------------
 
     def handle(self, event: DetectionEvent, incident: Incident) -> OrchestrationResult:
+        # La classification precede l'enrichissement : elle qualifie ce qui est
+        # observe, independamment de ce que la base documentaire contient. Un
+        # type hors catalogue doit pouvoir etre qualifie « non catalogue »
+        # plutot que de rester sans qualification du tout.
+        classification = self._classifier.classify(event)
+        incident.apply_classification(classification)
+
         context = self._enrichment.enrich(event)
         self._ledger.record(
             AuditEventType.CONTEXT_ENRICHED,
@@ -121,7 +131,7 @@ class OrchestrationEngine:
             incident_id=incident.incident_id,
         )
 
-        decision = self._decide(event, incident, context)
+        decision = self._decide(event, incident, context, classification)
         self._decisions.save(decision)
         self._ledger.record(
             AuditEventType.DECISION_MADE,
@@ -175,13 +185,22 @@ class OrchestrationEngine:
     # -- decision -----------------------------------------------------------
 
     def _decide(
-        self, event: DetectionEvent, incident: Incident, context: EnrichedContext
+        self,
+        event: DetectionEvent,
+        incident: Incident,
+        context: EnrichedContext,
+        classification: Classification,
     ) -> Decision:
         trace = DecisionTrace(
             grounding_score=context.grounding.score if context.grounding else 0.0,
             context_sources=context.sources,
         )
-        decision = Decision(incident_id=incident.incident_id, event_id=event.event_id, trace=trace)
+        decision = Decision(
+            incident_id=incident.incident_id,
+            event_id=event.event_id,
+            trace=trace,
+            classification=classification.to_dict(),
+        )
 
         if not self._autonomy_enabled:
             decision.outcome = DecisionOutcome.POLICY_DENIED
@@ -243,8 +262,15 @@ class OrchestrationEngine:
 
         decision.outcome = DecisionOutcome.AUTONOMOUS_EXECUTION
         decision.actions = allowed
+        qualification = (
+            f"{classification.code} — {classification.label} "
+            f"[{classification.family_label_or_blank()}] ; "
+            f"criticite {classification.severity.value}, "
+            f"dangerosite {classification.dangerousness:.1f}/10 "
+            f"({classification.danger_band}), priorite {classification.priority.value}"
+        )
         decision.rationale = (
-            f"playbook {plan.playbook_id} v{plan.playbook_version}, "
+            f"{qualification}. Playbook {plan.playbook_id} v{plan.playbook_version}, "
             f"regles {', '.join(plan.matched_rules)} ; "
             f"{len(allowed)} action(s) autorisee(s) par la politique "
             f"{self._policy.policy_id} v{self._policy.version} "

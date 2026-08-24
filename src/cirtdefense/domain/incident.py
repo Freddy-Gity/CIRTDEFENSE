@@ -40,6 +40,16 @@ class Incident:
     site_id: str = "cirt-cm-01"
     labels: dict[str, Any] = field(default_factory=dict)
 
+    # Classification au catalogue CIRT (voir domain/taxonomy.py). Renseignee
+    # par le moteur des la premiere qualification de l'incident.
+    attack_code: str = ""
+    attack_label: str = ""
+    family: str = ""
+    family_label: str = ""
+    dangerousness: float = 0.0
+    priority: str = ""
+    priority_rank: int = 0
+
     @classmethod
     def from_event(cls, event: DetectionEvent) -> Incident:
         return cls(
@@ -76,24 +86,54 @@ class Incident:
     # -- Axe 4 : priorisation du portefeuille ------------------------------
 
     def risk_score(self, now: datetime | None = None) -> float:
-        """Score 0-100 combinant gravite, criticite, repetition et fraicheur.
+        """Score 0-100 arbitrant l'ordre de traitement (Axe 4).
 
         Volontairement deterministe et explicable : le decideur doit pouvoir
-        justifier l'ordre du portefeuille sans lire les poids du modele.
+        justifier l'ordre du portefeuille sans lire les poids d'un modele.
+
+        Six composantes, dont deux issues du catalogue CIRT quand l'incident a
+        ete classifie. La priorite du catalogue et la dangerosite y ont un
+        poids deliberement fort : c'est le document metier qui arbitre l'ordre,
+        pas la seule gravite remontee par la source.
         """
         reference = now or datetime.now(UTC)
-        severity_part = self.severity.rank / 4 * 45
-        criticality_part = (self.asset_criticality - 1) / 4 * 25
-        volume_part = min(len(self.events), 10) / 10 * 15
+        severity_part = self.severity.rank / 4 * 30
+        criticality_part = (self.asset_criticality - 1) / 4 * 20
+        volume_part = min(len(self.events), 10) / 10 * 10
         mean_confidence = (
             sum(e.confidence for e in self.events) / len(self.events) if self.events else 0.0
         )
-        confidence_part = mean_confidence * 10
+        confidence_part = mean_confidence * 5
         age_minutes = max((reference - self.updated_at).total_seconds() / 60, 0)
         freshness_part = max(0.0, 1 - age_minutes / 120) * 5
+
+        # Sans classification, ces deux parts valent zero : un incident non
+        # qualifie ne doit pas passer devant un incident qualifie critique.
+        priority_part = self.priority_rank / 4 * 20
+        danger_part = self.dangerousness / 10 * 10
+
         return round(
-            severity_part + criticality_part + volume_part + confidence_part + freshness_part, 2
+            severity_part
+            + criticality_part
+            + volume_part
+            + confidence_part
+            + freshness_part
+            + priority_part
+            + danger_part,
+            2,
         )
+
+    def apply_classification(self, classification: Any) -> None:
+        """Rattache la qualification du catalogue a l'incident."""
+        self.attack_code = classification.code
+        self.attack_label = classification.label
+        self.family = classification.family.value if classification.family else ""
+        self.family_label = classification.family.label if classification.family else ""
+        self.dangerousness = classification.dangerousness
+        self.priority = classification.priority.value
+        self.priority_rank = classification.priority.rank
+        if classification.severity > self.severity:
+            self.severity = classification.severity
 
     @property
     def executed_actions(self) -> list[ActionResult]:
@@ -132,4 +172,11 @@ class Incident:
             "site_id": self.site_id,
             "actions": [a.to_dict() for a in self.actions],
             "labels": self.labels,
+            "attack_code": self.attack_code,
+            "attack_label": self.attack_label,
+            "family": self.family,
+            "family_label": self.family_label,
+            "dangerousness": self.dangerousness,
+            "priority": self.priority,
+            "priority_rank": self.priority_rank,
         }

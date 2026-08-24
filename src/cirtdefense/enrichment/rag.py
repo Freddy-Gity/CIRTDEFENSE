@@ -29,11 +29,36 @@ class EnrichedContext:
     grounding: GroundingReport | None = None
     relevance: float = 0.0
     threat_notes: list[str] = field(default_factory=list)
+    covering_documents: list[str] = field(default_factory=list)
+    """Documents declarant explicitement couvrir la categorie de l'evenement."""
+
+    @property
+    def category_is_documented(self) -> bool:
+        """Critere decisif de la garde EF-04.
+
+        Une fiche du corpus declare-t-elle couvrir cette famille de menace ?
+        C'est une question binaire, insensible a la taille du corpus.
+
+        Le controle lexical seul s'etait revele fragile : lorsque le corpus
+        est passe de 11 a 28 fiches, les mots de liaison de la phrase de
+        controle (« menace », « type ») ont cesse d'etre presents dans la
+        majorite des documents, ont donc ete comptes comme discriminants, et
+        une menace parfaitement inconnue est repassee pour documentee. Faire
+        dependre l'autorisation d'agir d'un seuil de frequence de mots etait
+        une erreur de conception : la composition du corpus evolue, le critere
+        doit rester stable.
+        """
+        return bool(self.covering_documents)
 
     @property
     def is_usable(self) -> bool:
         """Seul un contexte fonde autorise une action autonome (EF-04)."""
-        return bool(self.hits) and self.grounding is not None and self.grounding.grounded
+        return (
+            bool(self.hits)
+            and self.category_is_documented
+            and self.grounding is not None
+            and self.grounding.grounded
+        )
 
     @property
     def sources(self) -> list[str]:
@@ -45,6 +70,8 @@ class EnrichedContext:
             "query": self.query,
             "relevance": self.relevance,
             "usable": self.is_usable,
+            "category_is_documented": self.category_is_documented,
+            "covering_documents": self.covering_documents,
             "sources": self.sources,
             "documents": [
                 {
@@ -120,6 +147,7 @@ class EnrichmentService:
             grounding=report,
             relevance=self._guard.check_score(hits),
             threat_notes=[h.document.title for h in hits],
+            covering_documents=[d.source_path for d in declared],
         )
 
         if not context.is_usable:
@@ -129,7 +157,11 @@ class EnrichmentService:
                 "contexte non fonde : aucune action autonome ne sera engagee",
                 event_id=event.event_id,
                 category=event.category,
-                reason=report.reason,
+                reason=(
+                    f"aucune fiche du corpus ne declare couvrir la categorie '{event.category}'"
+                    if not context.category_is_documented
+                    else report.reason
+                ),
             )
         return context
 

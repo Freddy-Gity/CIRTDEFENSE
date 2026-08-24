@@ -26,6 +26,19 @@ def normalize(payload: dict[str, Any]) -> DetectionEvent:
     if alert.get("signature_id"):
         indicators["signature_id"] = alert["signature_id"]
 
+    # Le nom de domaine interroge est l'indicateur decisif d'un canal de
+    # commande et controle : sans lui, la reponse prescrite par le catalogue
+    # (sinkhole DNS) ne peut pas etre ciblee et le playbook retombe sur le
+    # seul blocage d'adresse, moins efficace contre une infrastructure a
+    # resolution dynamique.
+    domain = (
+        (payload.get("dns") or {}).get("rrname")
+        or (payload.get("tls") or {}).get("sni")
+        or (payload.get("http") or {}).get("hostname")
+    )
+    if domain:
+        indicators["domain"] = str(domain).rstrip(".")
+
     return DetectionEvent(
         occurred_at=_parse_time(payload.get("timestamp")),
         source=SourceKind.NIDS,

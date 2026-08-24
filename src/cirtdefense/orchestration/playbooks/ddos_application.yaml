@@ -1,0 +1,37 @@
+id: pb-a2-ddos-applicatif
+version: "1.0"
+category: ddos_application
+attack_code: A2
+description: >
+  A2 — DDoS applicatif (HTTP flood, Slowloris). Le volume reseau reste
+  modeste : c'est l'epuisement des connexions et des sessions qui degrade le
+  service, donc la reponse est applicative et non volumetrique.
+rules:
+  - id: A2-01
+    label: Limitation de debit par IP au pare-feu applicatif
+    when:
+      indicators_present: [srcip]
+    actions:
+      - verb: rate_limit_rule
+        actuator: waf
+        target: "{indicators.srcip}"
+        parameters:
+          requests_per_minute: 60
+          scope: ip
+          reason: "nombre de connexions anormal, temps de reponse degrade"
+        expected_effect: "Le rythme des requetes redevient soutenable."
+
+  - id: A2-02
+    label: Fermeture des connexions inactives
+    when:
+      severity_min: medium
+    actions:
+      - verb: close_idle_connections
+        actuator: service
+        target: "{asset.asset_id}"
+        parameters:
+          idle_seconds: 30
+          reason: "epuisement du pool de connexions (Slowloris)"
+        expected_effect: >
+          Les connexions maintenues ouvertes sans trafic sont liberees ; le
+          service retrouve des emplacements pour les clients legitimes.

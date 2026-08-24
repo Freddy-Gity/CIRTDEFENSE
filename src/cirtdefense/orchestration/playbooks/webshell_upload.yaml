@@ -1,0 +1,35 @@
+id: pb-b5-webshell
+version: "1.0"
+category: webshell_upload
+attack_code: B5
+description: >
+  B5 — Televersement de fichier malveillant. Le catalogue precise
+  « deplacement, pas suppression » : la quarantaine conserve le fichier, qui
+  reste une piece d'investigation.
+rules:
+  - id: B5-01
+    label: Mise en quarantaine du fichier televerse
+    when:
+      indicators_present: [file_path]
+    actions:
+      - verb: quarantine_file
+        actuator: edr
+        target: "{indicators.file_path}"
+        parameters:
+          host: "{asset.asset_id}"
+          reason: "fichier executable depose dans un repertoire non prevu"
+        expected_effect: >
+          Le fichier est deplace en quarantaine chiffree, pas supprime : il
+          reste disponible pour l'investigation.
+
+  - id: B5-02
+    label: Blocage de la source du televersement
+    when:
+      indicators_present: [srcip]
+      target_not_private: srcip
+    actions:
+      - verb: block_ip
+        actuator: firewall
+        target: "{indicators.srcip}"
+        parameters:
+          reason: "televersement de webshell"

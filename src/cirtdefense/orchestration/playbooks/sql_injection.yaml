@@ -1,0 +1,33 @@
+id: pb-b1-injection-sql
+version: "1.0"
+category: sql_injection
+attack_code: B1
+description: "B1 — Injection SQL. Blocage du motif et de la source."
+rules:
+  - id: B1-01
+    label: Blocage du motif au pare-feu applicatif
+    when:
+      indicators_present: [pattern]
+    actions:
+      - verb: block_pattern
+        actuator: waf
+        target: "{indicators.pattern}"
+        parameters:
+          rule_type: sqli
+          reason: "motif d'injection SQL dans les parametres"
+        blast_radius: 4
+        expected_effect: "Les requetes portant ce motif sont rejetees."
+
+  - id: B1-02
+    label: Blocage temporaire de la source
+    when:
+      indicators_present: [srcip]
+      target_not_private: srcip
+      confidence_min: 0.5
+    actions:
+      - verb: block_ip
+        actuator: firewall
+        target: "{indicators.srcip}"
+        parameters:
+          duration_minutes: 60
+          reason: "injection SQL"
