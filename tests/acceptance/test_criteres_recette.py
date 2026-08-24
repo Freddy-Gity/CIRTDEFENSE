@@ -1,0 +1,351 @@
+"""Criteres de recette du CDCF §5, version v3.0.
+
+Chaque test porte le numero du critere qu'il demontre. La suite tient lieu de
+proces-verbal de recette reproductible : elle peut etre rejouee devant le jury
+et son resultat ne depend d'aucun equipement reel.
+
+Les criteres CR-01 a CR-10 heritent de la v2.1 mais ont ete **reformules** :
+plusieurs supposaient une etape de validation humaine qui n'existe plus. Les
+criteres CR-11 a CR-15 sont propres au pivot d'autonomie totale.
+"""
+
+from __future__ import annotations
+
+import time
+
+import pytest
+from cirtdefense.detection.infra.health import HealthSnapshot
+from cirtdefense.domain.enums import ActionStatus, DecisionOutcome, Reversibility
+
+pytestmark = pytest.mark.acceptance
+
+
+class TestCR01_NormalisationMultiSources:
+    """CR-01 — Toute source supportee produit un `DetectionEvent` exploitable,
+    sans modification du moteur d'orchestration (EF-18 a EF-20)."""
+
+    @pytest.mark.parametrize(
+        "source,payload",
+        [
+            ("wazuh", {"rule": {"level": 10, "description": "Multiple failed password"},
+                       "agent": {"id": "srv-01"}, "data": {"srcip": "41.202.1.9"}}),
+            ("suricata", {"alert": {"signature": "ET TROJAN Beacon", "severity": 1},
+                          "src_ip": "10.0.0.5", "dest_ip": "185.1.1.1"}),
+            ("syslog", {"line": "<131>1 2026-08-24T10:05:00Z fw-01 sshd 1 ID47 "
+                                "Failed password for user root from 41.202.1.9"}),
+            ("generic_json", {"category": "scan", "severity": "low", "asset_id": "srv-01",
+                              "indicators": {"srcip": "41.202.1.9"}}),
+        ],
+    )
+    def test_source_traitee_de_bout_en_bout(self, platform, source, payload):
+        result = platform.ingest_and_respond(source, payload)
+        assert result is not None
+        assert result.decision.decision_id
+
+
+class TestCR02_Deduplication:
+    """CR-02 — Une meme observation remontee deux fois ne produit qu'un seul
+    traitement (EF-19). En autonomie totale, ce critere devient critique :
+    un doublon non filtre est une action executee deux fois."""
+
+    def test_second_envoi_ignore(self, platform, bruteforce_payload):
+        assert platform.ingest_and_respond("wazuh", bruteforce_payload) is not None
+        assert platform.ingest_and_respond("wazuh", bruteforce_payload) is None
+
+
+class TestCR03_Correlation:
+    """CR-03 — Les evenements portant sur la meme cible et la meme famille de
+    menace sont regroupes en un incident unique (EF-20)."""
+
+    def test_regroupement(self, platform):
+        for i in range(3):
+            platform.ingest_and_respond("generic_json", {
+                "category": "bruteforce", "severity": "high", "asset_id": "srv-01",
+                "indicators": {"srcip": f"41.202.1.{i}"},
+                "occurred_at": f"2026-08-24T10:0{i}:00Z",
+            })
+        assert len(platform.portfolio.list()) == 1
+
+
+class TestCR04_EnrichissementFonde:
+    """CR-04 — Aucune action n'est engagee sur un contexte non fonde
+    documentairement (EF-04). Reformulation v3.0 : en v2.1 le contexte
+    halluciner produisait une recommandation douteuse qu'un humain filtrait ;
+    il produirait desormais une action reelle."""
+
+    def test_menace_documentee_permet_d_agir(self, platform, bruteforce_payload):
+        result = platform.ingest_and_respond("wazuh", bruteforce_payload)
+        assert result.decision.outcome is DecisionOutcome.AUTONOMOUS_EXECUTION
+        assert result.decision.trace.context_sources
+
+    def test_menace_non_documentee_bloque_l_action(self, platform):
+        result = platform.ingest_and_respond("generic_json", {
+            "category": "menace_inedite_non_repertoriee", "severity": "critical",
+            "asset_id": "srv-01", "title": "signal inconnu",
+        })
+        assert result.decision.outcome is DecisionOutcome.NO_GROUNDED_CONTEXT
+        assert result.execution is None
+
+
+class TestCR05_ExecutionAutonome:
+    """CR-05 — L'action retenue est executee sans validation humaine prealable
+    (EF-07, revisee). Remplace le critere v2.1 « Valider recommandation »."""
+
+    def test_action_executee_immediatement(self, platform, bruteforce_payload):
+        result = platform.ingest_and_respond("wazuh", bruteforce_payload)
+
+        assert result.execution is not None
+        assert result.execution.executed >= 1
+        assert all(r.status is ActionStatus.EXECUTED for r in result.execution.results)
+
+    def test_aucun_etat_d_attente_dans_le_systeme(self, platform, bruteforce_payload):
+        """Il n'existe aucun statut « en attente de validation » : ce serait le
+        signe d'une validation humaine residuelle."""
+        platform.ingest_and_respond("wazuh", bruteforce_payload)
+        statuts = {a.status.value for i in platform.portfolio.list()
+                   for a in platform.incidents.get(i.incident_id).actions}
+        assert not any("attente" in s or "pending" in s for s in statuts)
+
+
+class TestCR06_PerimetreReversible:
+    """CR-06 — Aucune action irreversible n'est executee en autonomie (EF-14).
+    C'est la mesure compensatoire principale du CDCF §1.4.3."""
+
+    def test_le_catalogue_borne_le_perimetre(self, platform):
+        autonomes = platform.catalog.autonomous_subset()
+        assert autonomes
+        assert all(e.reversibility is not Reversibility.IRREVERSIBLE for e in autonomes)
+        assert all(e.rollback_verb for e in autonomes)
+
+    def test_action_irreversible_refusee_a_l_execution(self, platform):
+        """Verification au point de non-retour, et non seulement a la
+        planification : une action peut arriver par un autre chemin."""
+        from cirtdefense.domain.action import ActionSpec
+
+        result = platform.executor.execute(
+            ActionSpec(verb="wipe_disk", actuator="edr", target="srv-01"),
+            incident_id="inc_test", decision_id="dec_test",
+        )
+        assert result.status is ActionStatus.BLOCKED_BY_POLICY
+        assert "hors du perimetre" in (result.error or "")
+
+    def test_toute_action_executee_reste_annulable(self, platform, bruteforce_payload):
+        result = platform.ingest_and_respond("wazuh", bruteforce_payload)
+        assert all(r.is_reversible for r in result.execution.results)
+
+
+class TestCR07_PolitiqueCompilee:
+    """CR-07 — La politique exprimee en langage naturel par l'administrateur
+    contraint effectivement le moteur (EF-15, revisee)."""
+
+    def test_une_interdiction_est_respectee(self, platform, bruteforce_payload):
+        from cirtdefense.orchestration.policy_compiler import PolicyCompiler
+
+        report = PolicyCompiler().compile("Ne jamais bloquer une adresse")
+        platform.engine.set_policy(report.policy)
+
+        result = platform.ingest_and_respond("wazuh", bruteforce_payload)
+        verbes = [a.verb for a in result.decision.actions]
+        assert "block_ip" not in verbes
+
+    def test_une_consigne_non_comprise_est_signalee(self, platform):
+        """Une politique qui parait appliquee sans l'etre serait le pire
+        resultat possible."""
+        from cirtdefense.orchestration.policy_compiler import PolicyCompiler
+
+        report = PolicyCompiler().compile("Soyez raisonnables avec la production")
+        assert report.unparsed_sentences
+        assert not report.fully_compiled
+
+
+class TestCR08_NotificationAPosteriori:
+    """CR-08 — L'analyste est informe de toute action executee, sans que cette
+    information ne conditionne l'execution (EF-13, revisee)."""
+
+    def test_notification_emise_et_exploitable(self, platform, bruteforce_payload):
+        result = platform.ingest_and_respond("wazuh", bruteforce_payload)
+        notifications = platform.notifications.pending()
+
+        assert notifications
+        corps = notifications[0]["body"]
+        assert result.incident.incident_id in corps
+        assert "MOTIF DE LA DECISION" in corps
+        assert "POUR ANNULER" in corps
+
+    def test_echec_de_notification_ne_bloque_pas_l_action(self, platform, bruteforce_payload):
+        """L'action a deja eu lieu : un canal indisponible ne peut pas la
+        defaire, et ne doit surtout pas la retenir."""
+        actuateur = platform.registry.require("notify")
+        actuateur.sinks.append(lambda payload: (_ for _ in ()).throw(RuntimeError("canal HS")))
+
+        result = platform.ingest_and_respond("wazuh", bruteforce_payload)
+        assert result.execution.executed >= 1
+
+
+class TestCR09_PortefeuillePriorise:
+    """CR-09 — Le portefeuille classe les incidents par enjeu decroissant
+    (Axe 4). Sa sortie change en v3.0 : il montre ce qui a ete traite."""
+
+    def test_ordre_par_score_de_risque(self, platform):
+        platform.ingest_and_respond("generic_json", {
+            "category": "scan", "severity": "low", "asset_id": "poste-01",
+            "asset": {"asset_id": "poste-01", "criticality": 1},
+            "indicators": {"srcip": "41.202.1.1"},
+        })
+        platform.ingest_and_respond("generic_json", {
+            "category": "malware", "severity": "critical", "confidence": 0.9,
+            "asset": {"asset_id": "srv-01", "criticality": 5},
+            "indicators": {"file_path": "/tmp/x"},
+        })
+        scores = [e.risk_score for e in platform.portfolio.list()]
+        assert scores == sorted(scores, reverse=True)
+
+    def test_indicateurs_de_pilotage(self, platform, bruteforce_payload):
+        platform.ingest_and_respond("wazuh", bruteforce_payload)
+        stats = platform.portfolio.statistics()
+
+        assert stats["actions_executed"] >= 1
+        assert "rollback_ratio" in stats
+
+
+class TestCR10_ModeDegrade:
+    """CR-10 — En perte de connectivite, la plateforme met en file et rejoue a
+    la reprise (Axe 5). Precision v3.0 : elle n'agit pas, faute de pouvoir
+    observer l'effet de ses actions."""
+
+    def test_file_puis_rejeu(self, platform, bruteforce_payload):
+        platform.enter_degraded_mode("perte de connectivite")
+        assert platform.ingest_and_respond("wazuh", bruteforce_payload) is None
+        assert platform.spool.size() == 1
+
+        report = platform.leave_degraded_mode()
+        assert report["replayed"] == 1
+
+
+class TestCR11_RollbackAutonome:
+    """CR-11 (nouveau) — Une action suivie d'une degradation de la cible est
+    annulee automatiquement, sans intervention humaine (EF-25)."""
+
+    def test_annulation_automatique(self, platform, probe, bruteforce_payload):
+        platform.ingest_and_respond("wazuh", bruteforce_payload)
+        probe.set(HealthSnapshot(target="srv-web-01", reachable=False,
+                                 error_rate=0.95, throughput=0))
+
+        report = platform.engine.run_control_loop()
+
+        assert report.rolled_back >= 1
+        assert not platform.registry.require("firewall").is_applied("block_ip", "41.202.1.9")
+
+
+class TestCR12_CoupeCircuit:
+    """CR-12 (nouveau) — L'autonomie peut etre suspendue globalement, par
+    l'administrateur ou par le systeme lui-meme (EF-26).
+
+    Le critere repond a la question de soutenance : « comment arretez-vous le
+    systeme s'il se trompe en boucle ? »."""
+
+    def test_suspension_manuelle(self, platform, bruteforce_payload):
+        platform.breaker.trip("comportement anormal constate", actor="human:admin")
+        result = platform.ingest_and_respond("wazuh", bruteforce_payload)
+        assert result.execution is None
+
+    def test_suspension_automatique_sur_emballement(self, platform, probe):
+        for i in range(3):
+            platform.ingest_and_respond("generic_json", {
+                "category": "bruteforce", "severity": "high", "confidence": 0.8,
+                "asset_id": "srv-web-01", "indicators": {"srcip": f"41.202.1.{i}"},
+                "occurred_at": f"2026-08-24T1{i}:00:00Z",
+            })
+        probe.set(HealthSnapshot(target="srv-web-01", reachable=False,
+                                 error_rate=0.95, throughput=0))
+        platform.engine.run_control_loop()
+
+        assert not platform.breaker.status().autonomy_active
+
+
+class TestCR13_JournalImmuable:
+    """CR-13 — Le journal d'audit est complet, immuable et verifiable.
+
+    Repositionne comme mecanisme CENTRAL en v3.0 : c'est la seule trace de ce
+    que le systeme a fait sans intervention humaine."""
+
+    def test_chaine_complete_et_verifiable(self, platform, bruteforce_payload):
+        result = platform.ingest_and_respond("wazuh", bruteforce_payload)
+        types = [e.event_type
+                 for e in platform.ledger.incident_timeline(result.incident.incident_id)]
+
+        assert types[0] == "event.ingested"
+        assert {"context.enriched", "decision.made", "action.executed"} <= set(types)
+        assert platform.ledger.verify_chain().valid
+
+    def test_alteration_detectee(self, platform, bruteforce_payload):
+        platform.ingest_and_respond("wazuh", bruteforce_payload)
+        platform.connection.execute("DROP TRIGGER audit_log_no_update")
+        platform.connection.execute(
+            "UPDATE audit_log SET payload = '{}' WHERE seq = 2"
+        )
+        assert not platform.ledger.verify_chain().valid
+
+
+class TestCR14_NonRegressionSecuritaire:
+    """CR-14 (CDCF §5.3) — Une action erronee est detectee ET annulee dans un
+    delai borne.
+
+    C'est le critere que le jury interrogera en premier : il ne suffit pas que
+    le rollback fonctionne, il faut demontrer qu'il aboutit dans un temps
+    connu. Un rollback dont on ignore la duree ne compense rien.
+    """
+
+    def test_scenario_de_demonstration_complet(self, platform, probe, bruteforce_payload):
+        # 1. Une attaque est detectee et confinee automatiquement.
+        result = platform.ingest_and_respond("wazuh", bruteforce_payload)
+        assert result.execution.executed >= 1
+        assert platform.registry.require("firewall").is_applied("block_ip", "41.202.1.9")
+
+        # 2. Le confinement s'avere errone : le service legitime tombe.
+        probe.set(HealthSnapshot(target="srv-web-01", reachable=False,
+                                 latency_ms=9000, error_rate=1.0, throughput=0))
+
+        # 3. La boucle de controle constate et annule, seule.
+        debut = time.monotonic()
+        report = platform.engine.run_control_loop()
+        duree = time.monotonic() - debut
+
+        assert report.degraded >= 1, "la degradation n'a pas ete detectee"
+        assert report.rolled_back == report.degraded, "toutes n'ont pas ete annulees"
+        assert report.rollback_failures == 0
+
+        # 4. Le delai est borne, et mesure pour chaque action.
+        borne = platform.settings.autonomy.rollback_max_latency_seconds
+        assert duree < borne
+        assert all(o.within_bound for o in report.outcomes), (
+            "une annulation a depasse le delai maximal admis pour son type d'action"
+        )
+
+        # 5. L'etat reel de l'equipement est retabli.
+        assert not platform.registry.require("firewall").is_applied("block_ip", "41.202.1.9")
+
+        # 6. L'ensemble est trace de facon opposable.
+        assert platform.ledger.query(event_type="rollback.completed")
+        assert platform.ledger.verify_chain().valid
+
+
+class TestCR15_AbsenceDeValidationPrealable:
+    """CR-15 (nouveau) — Le systeme ne comporte aucun point de validation
+    humaine en amont d'une execution.
+
+    Contrepartie de la checklist du CDCF §5 : « le diagramme revise ne montre
+    plus aucun cas de validation cote Analyste en amont d'une execution ».
+    Ce critere le verifie sur le code, pas seulement sur le diagramme.
+    """
+
+    def test_aucune_route_de_validation_exposee(self, client):
+        chemins = client.get("/openapi.json").json()["paths"]
+        interdits = ("valider", "validate", "approve", "approuver", "reject", "rejeter")
+        assert not [c for c in chemins if any(m in c.lower() for m in interdits)]
+
+    def test_la_porte_de_sortie_humaine_existe_bien(self, client):
+        """L'autonomie totale n'est pas l'absence de recours : elle deplace le
+        recours apres l'action."""
+        chemins = client.get("/openapi.json").json()["paths"]
+        assert any("rollback" in c for c in chemins)

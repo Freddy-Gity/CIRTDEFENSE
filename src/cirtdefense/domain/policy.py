@@ -113,8 +113,26 @@ class ResponsePolicy:
     author: str = "administrateur"
 
     def checksum(self) -> str:
+        """Empreinte du **comportement** de la politique, pas de sa redaction.
+
+        Seuls l'effet et les contraintes de chaque regle entrent dans le
+        calcul ; la phrase d'origine en est exclue. C'est ce qui rend
+        l'empreinte utile en audit : elle repond a « le comportement du moteur
+        a-t-il change ? », et deux redactions equivalentes — avec ou sans
+        accents, reformulees — donnent bien la meme empreinte. L'identite
+        documentaire de la politique, elle, est portee par `version` et
+        `author`.
+        """
         payload = json.dumps(
-            [asdict(r) for r in sorted(self.rules, key=lambda r: r.rule_id)],
+            [
+                {
+                    "rule_id": r.rule_id,
+                    "effect": r.effect,
+                    "priority": r.priority,
+                    "constraints": [asdict(c) for c in r.constraints],
+                }
+                for r in sorted(self.rules, key=lambda r: r.rule_id)
+            ],
             sort_keys=True,
             default=str,
         )
