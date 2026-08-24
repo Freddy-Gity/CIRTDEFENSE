@@ -46,6 +46,11 @@ make test-recette     # les seuls criteres de recette (CDCF §5)
 make run              # API sur http://localhost:8000
 ```
 
+La suite est rejouee automatiquement sur Python 3.11 et 3.12 a chaque push
+(`.github/workflows/ci.yml`), scenario de demonstration compris : une
+regression qui ne casserait aucun test unitaire mais empecherait la
+demonstration serait autrement decouverte le jour de la soutenance.
+
 Puis `http://localhost:8000` pour le tableau de bord, `/docs` pour l'API.
 
 Avec Docker :
