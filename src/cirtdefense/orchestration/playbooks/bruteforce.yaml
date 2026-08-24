@@ -1,0 +1,50 @@
+id: pb-bruteforce
+version: "1.0"
+category: bruteforce
+description: >
+  Reponse aux attaques par force brute et pulverisation de mots de passe.
+  La progression suit celle de la fiche de connaissance bruteforce.md.
+rules:
+  - id: BF-01
+    label: Source externe identifiee, attaque en cours
+    when:
+      severity_min: medium
+      confidence_min: 0.5
+      indicators_present: [srcip]
+      target_not_private: srcip
+    actions:
+      - verb: block_ip
+        actuator: firewall
+        target: "{indicators.srcip}"
+        parameters:
+          duration_minutes: 120
+          reason: "force brute sur authentification"
+        expected_effect: "Les tentatives depuis cette adresse cessent."
+
+  - id: BF-02
+    label: Compte cible identifie et gravite elevee
+    when:
+      severity_min: high
+      user_present: true
+    actions:
+      - verb: revoke_sessions
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          reason: "authentification forcee sur ce compte"
+        expected_effect: "Les sessions ouvertes du compte sont invalidees."
+
+  - id: BF-03
+    label: Source interne — limitation plutot que blocage
+    when:
+      indicators_present: [srcip]
+      target_private: srcip
+    actions:
+      - verb: rate_limit_ip
+        actuator: firewall
+        target: "{indicators.srcip}"
+        parameters:
+          requests_per_minute: 10
+        expected_effect: >
+          Le rythme des tentatives devient inexploitable sans couper
+          un usage interne potentiellement legitime.

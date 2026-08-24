@@ -1,0 +1,37 @@
+id: pb-scan
+version: "1.0"
+category: scan
+description: >
+  Reponse au balayage reseau. Deliberement graduee : un balayage est un
+  signal precoce de faible gravite, et le blocage systematique d'une source
+  interne genererait plus de perturbation que de securite.
+rules:
+  - id: SC-01
+    label: Source interne — aucune action corrective
+    when:
+      indicators_present: [srcip]
+      target_private: srcip
+    actions:
+      - verb: notify
+        actuator: notify
+        target: "analyste"
+        parameters:
+          channel: analyst
+          severity: low
+          subject: "Balayage depuis une source interne"
+          body: >
+            Un balayage a ete detecte depuis une adresse interne. Aucune
+            action corrective n'a ete engagee : ce comportement correspond
+            frequemment a un outil d'inventaire legitime.
+
+  - id: SC-02
+    label: Source externe persistante
+    when:
+      indicators_present: [srcip]
+      target_not_private: srcip
+    actions:
+      - verb: rate_limit_ip
+        actuator: firewall
+        target: "{indicators.srcip}"
+        parameters:
+          requests_per_minute: 5

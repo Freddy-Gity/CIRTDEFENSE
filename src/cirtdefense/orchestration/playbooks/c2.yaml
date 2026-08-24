@@ -1,0 +1,46 @@
+id: pb-c2
+version: "1.0"
+category: c2
+description: Coupure du canal de commande et controle.
+rules:
+  - id: C2-01
+    label: Destination externe identifiee
+    when:
+      confidence_min: 0.5
+      indicators_present: [dest_ip]
+      target_not_private: dest_ip
+    actions:
+      - verb: block_ip
+        actuator: firewall
+        target: "{indicators.dest_ip}"
+        parameters:
+          direction: egress
+          reason: "canal de commande et controle"
+        expected_effect: "Le canal sortant est coupe."
+
+  - id: C2-02
+    label: Domaine de rappel identifie
+    when:
+      indicators_present: [domain]
+    actions:
+      - verb: block_domain
+        actuator: firewall
+        target: "{indicators.domain}"
+        parameters:
+          reason: "domaine de rappel"
+
+  - id: C2-03
+    label: Canal etabli sur un actif non critique
+    when:
+      severity_min: high
+      asset_criticality_max: 3
+    actions:
+      - verb: isolate_host
+        actuator: edr
+        target: "{asset.asset_id}"
+        parameters:
+          keep_agent_channel: true
+          reason: "machine sous controle externe"
+        expected_effect: >
+          La machine ne peut plus servir de point de rebond ; l'agent
+          reste joignable pour lever la quarantaine.

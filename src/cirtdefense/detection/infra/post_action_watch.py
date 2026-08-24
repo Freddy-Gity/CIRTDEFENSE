@@ -83,7 +83,17 @@ class PostActionWatcher:
     def has_baseline(self, action_id: str) -> bool:
         return action_id in self._baselines
 
-    def evaluate(self, action_id: str, target: str) -> WatchVerdict:
+    def evaluate(self, action_id: str, target: str | None = None) -> WatchVerdict:
+        """Juge l'etat d'apres.
+
+        La cible est celle sur laquelle la reference a ete prise, et non celle
+        que l'appelant croit surveiller. Une premiere version acceptait la
+        cible de l'appelant : la reference etait alors mesuree sur la machine
+        (`srv-web-01`) et la mesure d'apres sur la cible de l'action
+        (`41.202.1.9`, `jdupont`), deux grandeurs sans rapport. La comparaison
+        rendait « degrade » a peu pres a chaque fois, et le systeme annulait
+        des actions parfaitement saines.
+        """
         entry = self._baselines.get(action_id)
         if entry is None:
             # Sans reference, on ne peut pas imputer une degradation a
@@ -95,16 +105,24 @@ class PostActionWatcher:
                 action_id=action_id, target=target,
             )
             return WatchVerdict(
-                target=target,
+                target=target or "?",
                 degraded=False,
                 reasons=["aucune mesure de reference prise avant l'action"],
             )
 
         before, captured_at = entry
-        after = self._probe.measure(target)
+        watched = before.target
+        if target is not None and target != watched:
+            log_with(
+                logger, logging.WARNING,
+                "cible d'evaluation differente de la cible de reference : "
+                "la cible de reference fait foi",
+                action_id=action_id, requested=target, watched=watched,
+            )
+        after = self._probe.measure(watched)
         reasons = self._compare(before, after)
         verdict = WatchVerdict(
-            target=target,
+            target=watched,
             degraded=bool(reasons),
             reasons=reasons,
             before=before,
@@ -115,7 +133,7 @@ class PostActionWatcher:
             log_with(
                 logger, logging.ERROR,
                 "degradation imputee a une action autonome",
-                action_id=action_id, target=target, reasons=reasons,
+                action_id=action_id, target=watched, reasons=reasons,
             )
         return verdict
 

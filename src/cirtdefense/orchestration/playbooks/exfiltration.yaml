@@ -1,0 +1,32 @@
+id: pb-exfiltration
+version: "1.0"
+category: exfiltration
+description: Interruption d'un transfert non autorise de donnees.
+rules:
+  - id: EX-01
+    label: Destination externe identifiee
+    when:
+      indicators_present: [dest_ip]
+      target_not_private: dest_ip
+    actions:
+      - verb: block_ip
+        actuator: firewall
+        target: "{indicators.dest_ip}"
+        parameters:
+          direction: egress
+          reason: "destination d'exfiltration"
+
+  - id: EX-02
+    label: Source connue, destination non identifiee
+    when:
+      severity_min: high
+    actions:
+      - verb: throttle_egress
+        actuator: network
+        target: "{asset.asset_id}"
+        parameters:
+          bandwidth_mbps: 1
+          previous_bandwidth_mbps: 1000
+        expected_effect: >
+          Le transfert devient trop lent pour aboutir, sans couper
+          totalement la machine.

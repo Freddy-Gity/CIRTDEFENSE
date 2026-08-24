@@ -1,0 +1,32 @@
+id: pb-privilege-escalation
+version: "1.0"
+category: privilege_escalation
+description: Reponse a une elevation de privileges.
+rules:
+  - id: PE-01
+    label: Compte identifie
+    when:
+      user_present: true
+    actions:
+      - verb: revoke_sessions
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          reason: "elevation de privileges"
+      - verb: force_password_reset
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          reason: "identifiants presumes compromis"
+
+  - id: PE-02
+    label: Exploitation locale sur la machine
+    when:
+      severity_min: high
+    actions:
+      - verb: isolate_host
+        actuator: edr
+        target: "{asset.asset_id}"
+        parameters:
+          keep_agent_channel: true
+          reason: "exploitation d'une vulnerabilite locale"

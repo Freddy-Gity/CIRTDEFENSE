@@ -1,0 +1,40 @@
+id: pb-web-attack
+version: "1.0"
+category: web_attack
+description: Reponse aux attaques applicatives web.
+rules:
+  - id: WA-01
+    label: Source externe identifiee
+    when:
+      indicators_present: [srcip]
+      target_not_private: srcip
+      confidence_min: 0.5
+    actions:
+      - verb: block_ip
+        actuator: firewall
+        target: "{indicators.srcip}"
+        parameters:
+          reason: "attaque applicative web"
+
+  - id: WA-02
+    label: Web shell televerse
+    when:
+      indicators_present: [file_path]
+    actions:
+      - verb: quarantine_file
+        actuator: edr
+        target: "{indicators.file_path}"
+        parameters:
+          reason: "web shell suppose"
+
+  - id: WA-03
+    label: Volume eleve sans compromission etablie
+    when:
+      severity_max: medium
+      indicators_present: [srcip]
+    actions:
+      - verb: rate_limit_ip
+        actuator: firewall
+        target: "{indicators.srcip}"
+        parameters:
+          requests_per_minute: 30

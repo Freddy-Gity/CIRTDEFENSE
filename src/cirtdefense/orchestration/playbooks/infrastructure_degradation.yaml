@@ -1,0 +1,23 @@
+id: pb-infrastructure-degradation
+version: "1.0"
+category: infrastructure_degradation
+description: >
+  Degradation de service. Le playbook ne corrige rien : une cause non
+  etablie comme malveillante ne justifie pas une action automatique, dont le
+  risque d'aggraver la panne depasse le benefice attendu.
+rules:
+  - id: ID-01
+    label: Constat et notification
+    when: {}
+    actions:
+      - verb: notify
+        actuator: notify
+        target: "equipe-exploitation"
+        parameters:
+          channel: ops
+          severity: high
+          subject: "Degradation de service constatee"
+          body: >
+            Une degradation de service a ete constatee par la surveillance.
+            Aucune action corrective automatique n'a ete engagee, la cause
+            n'etant pas etablie comme malveillante.
