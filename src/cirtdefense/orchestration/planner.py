@@ -1,14 +1,14 @@
-"""Planificateur : de l'evenement enrichi aux actions candidates (EF-05, EF-06).
+"""Planificateur : de l'événement enrichi aux actions candidates (EF-05, EF-06).
 
 Le choix de l'action vient de playbooks ecrits par des humains, jamais d'un
-texte genere. C'est un choix d'architecture assume : en autonomie totale, la
-question « pourquoi le systeme a-t-il fait cela ? » doit trouver sa reponse
-dans un fichier versionne et relisible, pas dans les poids d'un modele.
+texte génère. C'est un choix d'architecture assume : en autonomie totale, la
+question « pourquoi le système a-t-il fait cela ? » doit trouver sa réponse
+dans un fichier versionne et relisible, pas dans les poids d'un modèle.
 
-Le planificateur ne decide pas d'executer. Il propose des actions candidates ;
+Le planificateur ne decide pas d'exécuter. Il propose des actions candidates ;
 le filtrage par politique, catalogue et coupe-circuit se fait ensuite dans le
-moteur. Cette separation permet de tracer ce qui a ete envisage *puis* ecarte,
-ce qui est precisement ce qu'un auditeur cherche a reconstituer.
+moteur. Cette separation permet de tracer ce qui a été envisage *puis* écarte,
+ce qui est précisément ce qu'un auditeur cherche à reconstituer.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ class Playbook:
 
 
 class PlaybookLoadError(ValueError):
-    """Playbook mal forme : refus de chargement plutot que comportement devine."""
+    """Playbook mal forme : refus de chargement plutôt que comportement devine."""
 
 
 class Planner:
@@ -111,7 +111,7 @@ class Planner:
             log_with(
                 logger,
                 logging.WARNING,
-                "aucun playbook pour cette categorie : aucune action planifiee",
+                "aucun playbook pour cette catégorie : aucune action planifiée",
                 category=event.category,
                 event_id=event.event_id,
             )
@@ -119,7 +119,7 @@ class Planner:
                 skipped=[
                     {
                         "action": "-",
-                        "reason": f"aucun playbook ne couvre la categorie '{event.category}'",
+                        "reason": f"aucun playbook ne couvre la catégorie '{event.category}'",
                     }
                 ]
             )
@@ -176,8 +176,8 @@ class Planner:
 
     @staticmethod
     def _indicator(event: DetectionEvent, name: str) -> Any:
-        """Les sources ne nomment pas les indicateurs de la meme facon ;
-        `srcip` et `src_ip` designent la meme chose."""
+        """Les sources ne nomment pas les indicateurs de la même façon ;
+        `srcip` et `src_ip` designent la même chose."""
         aliases = {
             "srcip": ("srcip", "src_ip", "source_ip"),
             "src_ip": ("src_ip", "srcip", "source_ip"),
@@ -209,7 +209,7 @@ class Planner:
             result.skipped.append(
                 {
                     "action": label,
-                    "reason": f"gravite {event.severity.value} inferieure au seuil {threshold}",
+                    "reason": f"gravité {event.severity.value} inferieure au seuil {threshold}",
                 }
             )
             return
@@ -220,7 +220,7 @@ class Planner:
                 {
                     "action": label,
                     "reason": f"cible non resolue depuis '{action.get('target')}' "
-                    "(indicateur absent de l'evenement)",
+                    "(indicateur absent de l'événement)",
                 }
             )
             return
@@ -230,7 +230,7 @@ class Planner:
             result.skipped.append(
                 {
                     "action": label,
-                    "reason": "action absente du catalogue de reversibilite",
+                    "reason": "action absente du catalogue de réversibilité",
                 }
             )
             return
@@ -238,7 +238,7 @@ class Planner:
             result.skipped.append(
                 {
                     "action": label,
-                    "reason": f"action {entry.reversibility.value} : hors du perimetre autonome",
+                    "reason": f"action {entry.reversibility.value} : hors du périmètre autonome",
                 }
             )
             return
@@ -268,11 +268,11 @@ class Planner:
         )
 
     def _resolve(self, template: str, event: DetectionEvent) -> str:
-        """Remplace `{asset.user}` ou `{indicators.srcip}` par la valeur reelle.
+        """Remplace `{asset.user}` ou `{indicators.srcip}` par la valeur réelle.
 
-        Un motif non resolu rend une chaine vide : l'action sera ecartee plus
+        Un motif non resolu rend une chaîne vide : l'action sera ecartee plus
         haut. On ne substitue jamais une valeur de repli — agir sur une cible
-        devinee est precisement ce que l'autonomie ne doit pas se permettre.
+        devinee est précisément ce que l'autonomie ne doit pas se permettre.
         """
         if not template:
             return ""

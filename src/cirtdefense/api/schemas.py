@@ -1,4 +1,4 @@
-"""Schemas d'entree et de sortie de l'API."""
+"""Schemas d'entrée et de sortie de l'API."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 class IngestRequest(BaseModel):
     source: str = Field(
-        description="Normaliseur a utiliser : wazuh, suricata, syslog, generic_json"
+        description="Normaliseur à utiliser : wazuh, suricata, syslog, generic_json"
     )
     payload: dict[str, Any] = Field(description="Charge brute telle que produite par la source")
 
@@ -26,13 +26,13 @@ class RollbackRequest(BaseModel):
 class PolicyCompileRequest(BaseModel):
     text: str = Field(
         min_length=3,
-        description="Politique de reponse en langage naturel, une consigne par phrase",
+        description="Politique de réponse en langage naturel, une consigne par phrase",
     )
     version: str = "1"
     activate: bool = True
     default_effect: str = Field(
         default="allow",
-        description="'allow' : tout ce qui n'est pas refuse est execute ; "
+        description="'allow' : tout ce qui n'est pas refuse est exécuté ; "
         "'deny' : liste blanche stricte",
     )
 
@@ -54,7 +54,7 @@ class CatalogEntryRequest(BaseModel):
 
 
 class HealthReportRequest(BaseModel):
-    """Alimentation de la sonde de sante depuis l'exterieur (recette, demo)."""
+    """Alimentation de la sonde de santé depuis l'extérieur (recette, demo)."""
 
     target: str
     reachable: bool = True

@@ -1,8 +1,8 @@
 """Assemblage de la plateforme : un seul endroit ou les pieces se branchent.
 
-Regrouper le cablage ici a une consequence pratique importante : la posture
-d'autonomie effective d'un deploiement se lit en un seul fichier. Un auditeur
-n'a pas a parcourir le code pour savoir si le systeme agit reellement, avec
+Regrouper le cablage ici à une conséquence pratique importante : la posture
+d'autonomie effective d'un déploiement se lit en un seul fichier. Un auditeur
+n'a pas à parcourir le code pour savoir si le système agit réellement, avec
 quels actuateurs et sous quelle politique.
 """
 
@@ -102,11 +102,11 @@ class Platform:
     def ingest_and_respond(
         self, source: str, payload: dict[str, Any]
     ) -> OrchestrationResult | None:
-        """Point d'entree unique : de la charge brute a l'action executee.
+        """Point d'entrée unique : de la charge brute a l'action exécutée.
 
-        En mode degrade, l'evenement est mis en file et rien n'est execute :
-        agir sans pouvoir observer l'effet de son action reviendrait a
-        desactiver EF-25 en silence.
+        En mode dégrade, l'événement est mis en file et rien n'est exécuté :
+        agir sans pouvoir observer l'effet de son action reviendrait à
+        désactiver EF-25 en silence.
         """
         if self.degraded:
             self.spool.enqueue(source, payload)
@@ -123,7 +123,7 @@ class Platform:
 
     def enter_degraded_mode(self, reason: str) -> None:
         self.degraded = True
-        log_with(logger, logging.WARNING, "entree en mode degrade", reason=reason)
+        log_with(logger, logging.WARNING, "entrée en mode dégrade", reason=reason)
 
     def leave_degraded_mode(self) -> dict[str, Any]:
         self.degraded = False
@@ -310,10 +310,10 @@ def _load_or_compile_policy(
 ) -> ResponsePolicy:
     """Compile la politique fournie, sinon applique la politique minimale.
 
-    La politique minimale ne contient que le garde-fou d'irreversibilite : elle
-    autorise toute action reversible du catalogue. C'est la posture v3.0 dans
-    sa forme la plus large, et elle est explicitement journalisee comme telle
-    au demarrage plutot que subie par defaut.
+    La politique minimale ne contient que le garde-fou d'irréversibilité : elle
+    autorise toute action réversible du catalogue. C'est la posture v3.0 dans
+    sa forme la plus large, et elle est explicitement journalisée comme telle
+    au démarrage plutôt que subie par défaut.
     """
     if policy_text:
         report = PolicyCompiler().compile(policy_text)
@@ -322,7 +322,7 @@ def _load_or_compile_policy(
             log_with(
                 logger,
                 logging.WARNING,
-                "des consignes de politique n'ont pas ete compilees et resteront sans effet",
+                "des consignes de politique n'ont pas été compilées et resteront sans effet",
                 unparsed=report.unparsed_sentences,
             )
         return report.policy

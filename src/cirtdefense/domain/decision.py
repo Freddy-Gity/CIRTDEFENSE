@@ -1,9 +1,9 @@
-"""Decision du moteur d'orchestration et sa trace explicative.
+"""Décision du moteur d'orchestration et sa trace explicative.
 
-L'autonomie totale supprime le point de controle humain *avant* l'action.
-La contrepartie exigee par le CDCF 1.4.3 est que chaque decision porte, en
-elle-meme, de quoi etre rejugee apres coup : contexte source, regles de
-politique appliquees, alternatives ecartees.
+L'autonomie totale supprime le point de contrôle humain *avant* l'action.
+La contrepartie exigee par le CDCF 1.4.3 est que chaque décision porte, en
+elle-même, de quoi être rejugee après coup : contexte source, règles de
+politique appliquées, alternatives ecartees.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ def _new_id(prefix: str) -> str:
 
 @dataclass(slots=True)
 class PolicyVerdict:
-    """Resultat de l'evaluation d'une action face a la politique compilee."""
+    """Résultat de l'évaluation d'une action face à la politique compilée."""
 
     allowed: bool
     rule_id: str | None = None
@@ -33,14 +33,14 @@ class PolicyVerdict:
 
 @dataclass(slots=True)
 class DecisionTrace:
-    """Le « pourquoi » d'une decision, lisible par un humain non technicien."""
+    """Le « pourquoi » d'une décision, lisible par un humain non technicien."""
 
     playbook_id: str = ""
     playbook_version: str = ""
     matched_conditions: list[str] = field(default_factory=list)
     grounding_score: float = 0.0
     context_sources: list[str] = field(default_factory=list)
-    """Chemins ou identifiants des documents ayant fonde la decision (EF-04)."""
+    """Chemins ou identifiants des documents ayant fondé la décision (EF-04)."""
     considered_actions: list[str] = field(default_factory=list)
     rejected_actions: list[dict[str, str]] = field(default_factory=list)
     policy_verdicts: list[dict[str, Any]] = field(default_factory=list)
@@ -71,7 +71,7 @@ class Decision:
     rationale: str = ""
     decided_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     classification: dict[str, Any] = field(default_factory=dict)
-    """Qualification au catalogue CIRT : type, famille, criticite, dangerosite."""
+    """Qualification au catalogue CIRT : type, famille, criticité, dangerosité."""
 
     @property
     def is_actionable(self) -> bool:

@@ -1,9 +1,9 @@
-"""Catalogue de reversibilite (EF-14).
+"""Catalogue de réversibilité (EF-14).
 
 En v2.1 ce catalogue documentait la difficulte d'annulation pour aider
-l'analyste a prioriser. En v3.0 il devient un mecanisme de securite
-operationnelle : une action absente du catalogue, ou declaree irreversible,
-n'est jamais executee de facon autonome. C'est la mesure compensatoire
+l'analyste à prioriser. En v3.0 il devient un mécanisme de sécurité
+opérationnelle : une action absente du catalogue, ou déclarée irréversible,
+n'est jamais exécutée de façon autonome. C'est la mesure compensatoire
 principale annoncee au CDCF §1.4.3.
 """
 
@@ -24,10 +24,10 @@ class CatalogEntry:
     description: str
     rollback_description: str = ""
     residual_effect: str = ""
-    """Ce qui subsiste apres annulation. Vide si l'annulation est totale."""
+    """Ce qui subsiste après annulation. Vide si l'annulation est totale."""
     typical_blast_radius: int = 1
     max_rollback_seconds: int = 60
-    """Delai au-dela duquel l'annulation est consideree comme echouee."""
+    """Délai au-delà duquel l'annulation est considérée comme échouée."""
 
     @property
     def key(self) -> str:
@@ -59,8 +59,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="firewall",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="unblock_ip",
-        description="Ajoute une regle de rejet pour une adresse source.",
-        rollback_description="Retire la regle ; aucun etat n'est perdu.",
+        description="Ajoute une règle de rejet pour une adresse source.",
+        rollback_description="Retire la règle ; aucun état n'est perdu.",
         typical_blast_radius=1,
         max_rollback_seconds=15,
     ),
@@ -69,7 +69,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="firewall",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="clear_rate_limit",
-        description="Limite le debit accepte depuis une adresse source.",
+        description="Limite le débit accepte depuis une adresse source.",
         rollback_description="Retire la limitation.",
         typical_blast_radius=1,
         max_rollback_seconds=15,
@@ -79,8 +79,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="firewall",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="unblock_domain",
-        description="Bloque la resolution et le trafic vers un domaine.",
-        rollback_description="Retire l'entree de la liste de blocage.",
+        description="Bloque la résolution et le trafic vers un domaine.",
+        rollback_description="Retire l'entrée de la liste de blocage.",
         typical_blast_radius=2,
         max_rollback_seconds=30,
     ),
@@ -89,10 +89,10 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="edr",
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         rollback_verb="release_host",
-        description="Place la machine en quarantaine reseau, agent maintenu.",
-        rollback_description="Leve la quarantaine et retablit la connectivite.",
+        description="Place la machine en quarantaine réseau, agent maintenu.",
+        rollback_description="Lève la quarantaine et rétablit la connectivite.",
         residual_effect="Les connexions et sessions en cours sont perdues et "
-        "ne sont pas retablies par la levee de quarantaine.",
+        "ne sont pas retablies par la levée de quarantaine.",
         typical_blast_radius=1,
         max_rollback_seconds=60,
     ),
@@ -103,7 +103,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         rollback_verb="restart_process",
         description="Termine un processus identifie comme malveillant.",
         rollback_description="Relance le processus depuis son chemin d'origine.",
-        residual_effect="L'etat en memoire du processus est definitivement perdu.",
+        residual_effect="L'état en mémoire du processus est definitivement perdu.",
         typical_blast_radius=1,
         max_rollback_seconds=45,
     ),
@@ -112,8 +112,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="edr",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="restore_file",
-        description="Deplace un fichier vers la zone de quarantaine chiffree.",
-        rollback_description="Restaure le fichier a son emplacement d'origine.",
+        description="Deplace un fichier vers la zone de quarantaine chiffrée.",
+        rollback_description="Restaure le fichier à son emplacement d'origine.",
         typical_blast_radius=1,
         max_rollback_seconds=30,
     ),
@@ -122,7 +122,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="iam",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="enable_account",
-        description="Desactive un compte dans l'annuaire.",
+        description="Désactive un compte dans l'annuaire.",
         rollback_description="Reactive le compte avec ses attributs d'origine.",
         typical_blast_radius=1,
         max_rollback_seconds=30,
@@ -133,9 +133,9 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         rollback_verb="noop_restore_sessions",
         description="Invalide les jetons de session actifs d'un compte.",
-        rollback_description="Leve l'invalidation ; l'utilisateur doit se "
+        rollback_description="Lève l'invalidation ; l'utilisateur doit se "
         "reauthentifier, ce qui est le comportement nominal attendu.",
-        residual_effect="Les sessions invalidees ne sont pas restaurees : "
+        residual_effect="Les sessions invalidees ne sont pas restaurées : "
         "l'utilisateur doit ouvrir une nouvelle session.",
         typical_blast_radius=1,
         max_rollback_seconds=20,
@@ -145,9 +145,9 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="iam",
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         rollback_verb="cancel_password_reset",
-        description="Marque le mot de passe comme a renouveler a la prochaine ouverture.",
+        description="Marque le mot de passe comme à renouveler à la prochaine ouverture.",
         rollback_description="Retire l'obligation de renouvellement.",
-        residual_effect="Si l'utilisateur a deja renouvele, l'ancien mot de "
+        residual_effect="Si l'utilisateur a déjà renouvele, l'ancien mot de "
         "passe n'est pas retabli.",
         typical_blast_radius=1,
         max_rollback_seconds=20,
@@ -157,8 +157,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="network",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="clear_egress_throttle",
-        description="Limite le debit sortant d'une machine.",
-        rollback_description="Retire la limitation de debit.",
+        description="Limite le débit sortant d'une machine.",
+        rollback_description="Retire la limitation de débit.",
         typical_blast_radius=1,
         max_rollback_seconds=15,
     ),
@@ -167,8 +167,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="network",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="restore_vlan",
-        description="Bascule un port d'acces vers un VLAN de quarantaine.",
-        rollback_description="Retablit le VLAN d'origine, memorise avant bascule.",
+        description="Bascule un port d'accès vers un VLAN de quarantaine.",
+        rollback_description="Rétablit le VLAN d'origine, memorise avant bascule.",
         typical_blast_radius=1,
         max_rollback_seconds=45,
     ),
@@ -177,8 +177,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="notify",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="retract_notification",
-        description="Emet une notification vers l'analyste ou l'exploitation.",
-        rollback_description="Marque la notification comme retiree.",
+        description="Émet une notification vers l'analyste ou l'exploitation.",
+        rollback_description="Marque la notification comme retirée.",
         typical_blast_radius=1,
         max_rollback_seconds=5,
     ),
@@ -188,8 +188,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="edge",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="disable_scrubbing",
-        description="Active le nettoyage de trafic chez l'operateur de transit.",
-        rollback_description="Desactive le nettoyage et retablit le routage nominal.",
+        description="Active le nettoyage de trafic chez l'opérateur de transit.",
+        rollback_description="Désactive le nettoyage et rétablit le routage nominal.",
         typical_blast_radius=3,
         max_rollback_seconds=120,
     ),
@@ -198,8 +198,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="edge",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="release_blackhole",
-        description="Annonce un trou noir pour une source en tete de volumetrie.",
-        rollback_description="Retire l'annonce ; la regle expire de toute facon (TTL court).",
+        description="Annonce un trou noir pour une source en tête de volumétrie.",
+        rollback_description="Retire l'annonce ; la règle expire de toute façon (TTL court).",
         typical_blast_radius=2,
         max_rollback_seconds=120,
     ),
@@ -208,7 +208,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="edge",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="clear_edge_rate_limit",
-        description="Limite le debit accepte en bordure pour une source.",
+        description="Limite le débit accepte en bordure pour une source.",
         rollback_description="Retire la limitation.",
         typical_blast_radius=2,
         max_rollback_seconds=60,
@@ -219,8 +219,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="waf",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="unblock_pattern",
-        description="Bloque un motif de requete au pare-feu applicatif.",
-        rollback_description="Retire la regle de motif.",
+        description="Bloque un motif de requête au pare-feu applicatif.",
+        rollback_description="Retire la règle de motif.",
         typical_blast_radius=4,
         max_rollback_seconds=30,
     ),
@@ -229,7 +229,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="waf",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="unblock_request",
-        description="Bloque une requete ou un point d'entree precis.",
+        description="Bloque une requête ou un point d'entrée precis.",
         rollback_description="Retire le blocage.",
         typical_blast_radius=2,
         max_rollback_seconds=30,
@@ -239,7 +239,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="waf",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="clear_rate_limit_rule",
-        description="Pose une limitation de debit par IP ou par session.",
+        description="Pose une limitation de débit par IP ou par session.",
         rollback_description="Retire la limitation.",
         typical_blast_radius=3,
         max_rollback_seconds=30,
@@ -249,8 +249,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="waf",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="clear_sanitize_field",
-        description="Active la sanitisation a la volee d'un champ soumis.",
-        rollback_description="Desactive la sanitisation.",
+        description="Active la sanitisation à la volee d'un champ soumis.",
+        rollback_description="Désactive la sanitisation.",
         typical_blast_radius=2,
         max_rollback_seconds=30,
     ),
@@ -260,8 +260,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="dns",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="release_domain",
-        description="Detourne la resolution d'un domaine vers une adresse controlee.",
-        rollback_description="Retablit la resolution nominale.",
+        description="Détourne la résolution d'un domaine vers une adresse contrôlée.",
+        rollback_description="Rétablit la résolution nominale.",
         typical_blast_radius=2,
         max_rollback_seconds=60,
     ),
@@ -270,8 +270,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="dns",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="unblock_resolution",
-        description="Empeche la resolution d'un domaine.",
-        rollback_description="Retire l'entree de blocage.",
+        description="Empêche la résolution d'un domaine.",
+        rollback_description="Retire l'entrée de blocage.",
         typical_blast_radius=2,
         max_rollback_seconds=60,
     ),
@@ -281,10 +281,10 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="network",
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         rollback_verb="restore_egress_connection",
-        description="Coupe une connexion sortante identifiee.",
-        rollback_description="Leve le blocage ; la connexion doit etre rouverte par l'hote.",
+        description="Coupe une connexion sortante identifiée.",
+        rollback_description="Lève le blocage ; la connexion doit être rouverte par l'hôte.",
         residual_effect="La connexion coupee n'est pas retablie : "
-        "l'application doit la reouvrir d'elle-meme.",
+        "l'application doit la reouvrir d'elle-même.",
         typical_blast_radius=1,
         max_rollback_seconds=30,
     ),
@@ -293,8 +293,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="network",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="unblock_lateral",
-        description="Bloque les protocoles de propagation laterale (SMB, RDP, WinRM).",
-        rollback_description="Retablit les protocoles bloques.",
+        description="Bloque les protocoles de propagation latérale (SMB, RDP, WinRM).",
+        rollback_description="Rétablit les protocoles bloqués.",
         typical_blast_radius=2,
         max_rollback_seconds=60,
     ),
@@ -306,7 +306,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         rollback_verb="unlock_account",
         description="Verrouille temporairement un compte cible.",
         rollback_description="Deverrouille le compte.",
-        residual_effect="L'utilisateur legitime a ete gene pendant la duree du verrouillage.",
+        residual_effect="L'utilisateur légitime a été gêne pendant la durée du verrouillage.",
         typical_blast_radius=1,
         max_rollback_seconds=30,
     ),
@@ -315,7 +315,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="iam",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="clear_mfa_requirement",
-        description="Exige une authentification renforcee a la prochaine connexion.",
+        description="Exige une authentification renforcée à la prochaine connexion.",
         rollback_description="Retire l'exigence.",
         typical_blast_radius=1,
         max_rollback_seconds=20,
@@ -326,7 +326,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="reissue_token",
         description="Revoque temporairement un jeton d'API.",
-        rollback_description="Reemet un jeton pour la meme application.",
+        rollback_description="Reemet un jeton pour la même application.",
         typical_blast_radius=1,
         max_rollback_seconds=30,
     ),
@@ -335,8 +335,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="iam",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="restore_privilege",
-        description="Revoque un privilege accorde hors processus et retablit le role anterieur.",
-        rollback_description="Retablit le privilege tel qu'il etait avant revocation.",
+        description="Revoque un privilège accorde hors processus et rétablit le rôle anterieur.",
+        rollback_description="Rétablit le privilège tel qu'il était avant révocation.",
         typical_blast_radius=1,
         max_rollback_seconds=30,
     ),
@@ -345,8 +345,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="iam",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="restore_resource_access",
-        description="Bloque l'acces en cours a une ressource hors profil.",
-        rollback_description="Retablit l'acces.",
+        description="Bloque l'accès en cours à une ressource hors profil.",
+        rollback_description="Rétablit l'accès.",
         typical_blast_radius=1,
         max_rollback_seconds=20,
     ),
@@ -355,10 +355,10 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="iam",
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         rollback_verb="restore_export",
-        description="Restreint temporairement les droits d'ecriture et d'export d'un compte.",
-        rollback_description="Retablit les droits d'origine.",
+        description="Restreint temporairement les droits d'écriture et d'export d'un compte.",
+        rollback_description="Rétablit les droits d'origine.",
         residual_effect="Les exports tentes pendant la restriction ont echoue "
-        "et doivent etre relances par l'utilisateur.",
+        "et doivent être relances par l'utilisateur.",
         typical_blast_radius=1,
         max_rollback_seconds=30,
     ),
@@ -368,8 +368,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="backup",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="unlink_snapshot",
-        description="Declenche un instantane de sauvegarde de l'hote.",
-        rollback_description="Detache l'instantane de l'incident SANS le supprimer : "
+        description="Déclenche un instantané de sauvegarde de l'hôte.",
+        rollback_description="Detache l'instantané de l'incident SANS le supprimer : "
         "un snapshot pris pendant une attaque garde sa valeur de preuve.",
         typical_blast_radius=1,
         max_rollback_seconds=60,
@@ -379,10 +379,10 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="service",
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         rollback_verb="cancel_restart",
-        description="Redemarre un service sous controle de la plateforme.",
-        rollback_description="Marque l'operation comme annulee ; le service reste demarre, "
-        "ce qui est l'etat recherche.",
-        residual_effect="L'interruption survenue pendant le redemarrage ne se rattrape pas.",
+        description="Redemarre un service sous contrôle de la plateforme.",
+        rollback_description="Marque l'opération comme annulée ; le service reste demarre, "
+        "ce qui est l'état recherche.",
+        residual_effect="L'interruption survenue pendant le redémarrage ne se rattrape pas.",
         typical_blast_radius=2,
         max_rollback_seconds=120,
     ),
@@ -391,8 +391,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="service",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="failback",
-        description="Bascule le service vers un noeud de secours.",
-        rollback_description="Rebascule vers le noeud nominal.",
+        description="Bascule le service vers un nœud de secours.",
+        rollback_description="Rebascule vers le nœud nominal.",
         typical_blast_radius=3,
         max_rollback_seconds=180,
     ),
@@ -402,7 +402,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         rollback_verb="restore_connections",
         description="Ferme les connexions inactives saturant le service.",
-        rollback_description="Leve la fermeture systematique ; les clients se reconnectent.",
+        rollback_description="Lève la fermeture systématique ; les clients se reconnectent.",
         residual_effect="Les connexions fermees ne sont pas retablies.",
         typical_blast_radius=3,
         max_rollback_seconds=60,
@@ -412,7 +412,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="config",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="reopen_port",
-        description="Ferme un port ouvert non prevu par la configuration de reference.",
+        description="Ferme un port ouvert non prévu par la configuration de référence.",
         rollback_description="Rouvre le port.",
         typical_blast_radius=2,
         max_rollback_seconds=60,
@@ -422,8 +422,8 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="config",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="revert_restore",
-        description="Restaure la configuration de reference sur une derive mineure.",
-        rollback_description="Retablit la configuration relevee avant restauration.",
+        description="Restaure la configuration de référence sur une dérive mineure.",
+        rollback_description="Rétablit la configuration relevee avant restauration.",
         typical_blast_radius=3,
         max_rollback_seconds=180,
     ),
@@ -436,7 +436,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         reversibility=Reversibility.IRREVERSIBLE,
         rollback_verb=None,
         description="Efface le contenu du disque de la machine.",
-        residual_effect="Perte definitive des donnees non sauvegardees.",
+        residual_effect="Perte definitive des données non sauvegardees.",
         typical_blast_radius=1,
     ),
     CatalogEntry(
@@ -453,9 +453,9 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="edr",
         reversibility=Reversibility.IRREVERSIBLE,
         rollback_verb=None,
-        description="Arrete physiquement la machine.",
-        residual_effect="Le redemarrage exige une intervention locale ; il "
-        "n'est pas garanti a distance.",
+        description="Arrête physiquement la machine.",
+        residual_effect="Le redémarrage exige une intervention locale ; il "
+        "n'est pas garanti à distance.",
         typical_blast_radius=1,
     ),
 )
@@ -472,8 +472,8 @@ class ReversibilityCatalog:
         entry = self.get(actuator, verb)
         if entry is None:
             raise UnknownActionError(
-                f"action '{actuator}:{verb}' absente du catalogue de reversibilite ; "
-                "elle ne peut pas etre executee en autonomie"
+                f"action '{actuator}:{verb}' absente du catalogue de réversibilité ; "
+                "elle ne peut pas être exécutée en autonomie"
             )
         return entry
 
@@ -482,7 +482,7 @@ class ReversibilityCatalog:
         return entry is not None and entry.autonomously_executable
 
     def add(self, entry: CatalogEntry) -> None:
-        """Gestion du catalogue par l'administrateur (role renforce en v3.0)."""
+        """Gestion du catalogue par l'administrateur (rôle renforce en v3.0)."""
         self._entries[entry.key] = entry
 
     def remove(self, actuator: str, verb: str) -> bool:
@@ -504,7 +504,7 @@ class ReversibilityCatalog:
 
 
 class UnknownActionError(ValueError):
-    """Action hors catalogue : refus d'execution autonome."""
+    """Action hors catalogue : refus d'exécution autonome."""
 
 
 _catalog: ReversibilityCatalog | None = None

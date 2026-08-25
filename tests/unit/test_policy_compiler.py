@@ -27,14 +27,14 @@ class TestReconnaissance:
         assert policy.evaluate(_action(target="41.202.1.9"), {}).allowed
 
     def test_plage_cidr_survit_au_decoupage(self, compiler):
-        """Regression : le decoupage en phrases coupait sur tous les points et
+        """Régression : le decoupage en phrases coupait sur tous les points et
         detruisait toute adresse ecrite dans une politique."""
         report = compiler.compile("Ne jamais bloquer une adresse de la plage 172.16.0.0/12")
         contraintes = report.policy.to_dict()["rules"][1]["constraints"]
         assert any("172" in c for c in contraintes)
 
     def test_seuil_de_criticite(self, compiler):
-        policy = compiler.compile("Interdire l'isolement des machines de criticite 5").policy
+        policy = compiler.compile("Interdire l'isolement des machines de criticité 5").policy
         action = _action(
             verb="isolate_host",
             actuator="edr",
@@ -52,14 +52,14 @@ class TestReconnaissance:
 
     def test_insensibilite_aux_accents(self, compiler):
         avec = compiler.compile("Interdire l'isolement des machines de criticité 5").policy
-        sans = compiler.compile("Interdire l'isolement des machines de criticite 5").policy
+        sans = compiler.compile("Interdire l'isolement des machines de criticité 5").policy
         assert avec.checksum() == sans.checksum()
 
 
 class TestRefusDeDeviner:
     def test_phrase_non_reconnue_est_signalee(self, compiler):
-        """Une consigne mal comprise doit etre rapportee, jamais approximee :
-        sinon la politique paraitrait appliquee sans l'etre."""
+        """Une consigne mal comprise doit être rapportee, jamais approximee :
+        sinon la politique paraitrait appliquée sans l'être."""
         report = compiler.compile("Faites en sorte que tout se passe bien")
         assert report.unparsed_sentences == ["Faites en sorte que tout se passe bien"]
         assert not report.fully_compiled
@@ -69,14 +69,14 @@ class TestRefusDeDeviner:
         assert any("AUCUN effet" in w for w in report.warnings)
 
     def test_consigne_sans_condition_n_est_pas_compilee(self, compiler):
-        """« Ne rien faire » sans condition identifiable serait une regle
-        s'appliquant a tout : trop dangereuse pour etre devinee."""
+        """« Ne rien faire » sans condition identifiable serait une règle
+        s'appliquant à tout : trop dangereuse pour être devinee."""
         assert not compiler.compile("Ne jamais rien faire de dangereux").fully_compiled
 
 
 class TestGardeFouStructurel:
     def test_garde_fou_toujours_present(self, compiler):
-        """Aucune politique ne peut autoriser une action irreversible."""
+        """Aucune politique ne peut autoriser une action irréversible."""
         report = compiler.compile("Autoriser toutes les actions sans exception")
         irreversible = ActionSpec(verb="wipe_disk", actuator="edr", target="srv-01")
         assert not report.policy.evaluate(irreversible, {}).allowed
@@ -96,7 +96,7 @@ class TestTracabilite:
 
     def test_empreinte_change_avec_la_politique(self, compiler):
         a = compiler.compile("Ne jamais bloquer une adresse interne").policy
-        b = compiler.compile("Ne jamais isoler une machine de criticite 5").policy
+        b = compiler.compile("Ne jamais isoler une machine de criticité 5").policy
         assert a.checksum() != b.checksum()
 
     def test_phrase_source_conservee(self, compiler):
@@ -108,12 +108,12 @@ class TestTracabilite:
 
 
 class TestCouvertureDuVocabulaire:
-    """Toute action executable doit etre exprimable dans une politique.
+    """Toute action exécutable doit être exprimable dans une politique.
 
     Un verbe absent du vocabulaire est une action que l'administrateur ne peut
-    pas interdire : le moteur pourrait l'executer sans qu'aucune consigne ne
-    puisse s'y opposer. C'est le genre d'ecart qui s'installe silencieusement
-    a chaque ajout d'actuateur.
+    pas interdire : le moteur pourrait l'exécuter sans qu'aucune consigne ne
+    puisse s'y opposer. C'est le genre d'écart qui s'installe silencieusement
+    à chaque ajout d'actuateur.
     """
 
     def test_tout_verbe_autonome_est_exprimable(self):
@@ -123,12 +123,12 @@ class TestCouvertureDuVocabulaire:
         verbes = {e.verb for e in ReversibilityCatalog().autonomous_subset()}
         manquants = sorted(verbes - set(VERB_SYNONYMS))
         assert not manquants, (
-            f"verbes executables mais non interdictibles par politique : {manquants}"
+            f"verbes exécutables mais non interdictibles par politique : {manquants}"
         )
 
     def test_chaque_synonyme_est_reconnu(self, compiler):
-        """Un synonyme declare mais non reconnu par le compilateur serait un
-        piege : l'administrateur croirait sa consigne appliquee."""
+        """Un synonyme déclare mais non reconnu par le compilateur serait un
+        piege : l'administrateur croirait sa consigne appliquée."""
         from cirtdefense.orchestration.policy_compiler import VERB_SYNONYMS
 
         non_reconnus = []
@@ -137,4 +137,4 @@ class TestCouvertureDuVocabulaire:
                 report = compiler.compile(f"Ne jamais {synonyme} sur une adresse interne")
                 if not report.fully_compiled:
                     non_reconnus.append((verbe, synonyme))
-        assert not non_reconnus, f"synonymes non compiles : {non_reconnus}"
+        assert not non_reconnus, f"synonymes non compilés : {non_reconnus}"

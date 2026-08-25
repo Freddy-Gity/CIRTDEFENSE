@@ -1,4 +1,4 @@
-"""Assistant d'exploitation et generation de rapports."""
+"""Assistant d'exploitation et génération de rapports."""
 
 from __future__ import annotations
 
@@ -16,18 +16,18 @@ class QuestionRequest(BaseModel):
 
 @router.post("/ask")
 def ask(request: QuestionRequest, platform: PlatformDep) -> dict:
-    """Repond a partir des seules donnees de la plateforme.
+    """Répond à partir des seules données de la plateforme.
 
-    Une question hors du perimetre reconnu recoit un refus explicite,
-    accompagne de ce que l'assistant sait faire — jamais une reponse
-    fabriquee.
+    Une question hors du périmètre reconnu reçoit un refus explicite,
+    accompagne de ce que l'assistant sait faire — jamais une réponse
+    fabriquée.
     """
     return platform.assistant.ask(request.question).to_dict()
 
 
 @router.get("/brief")
 def brief(platform: PlatformDep) -> dict:
-    """Bilan des operations du jour."""
+    """Bilan des opérations du jour."""
     return platform.assistant.daily_brief().to_dict()
 
 
@@ -38,20 +38,20 @@ def suggestions(platform: PlatformDep) -> dict:
 
 @router.get("/report")
 def report(platform: PlatformDep, hours: int = 24) -> dict:
-    """Rapport d'operations sur une periode, au format structure et Markdown."""
+    """Rapport d'opérations sur une période, au format structure et Markdown."""
     if not 1 <= hours <= 8760:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "periode invalide : entre 1 heure et 1 an (8760 heures)",
+            "période invalide : entre 1 heure et 1 an (8760 heures)",
         )
     return platform.reports.build(hours=hours)
 
 
 @router.get("/report.md", response_class=Response)
 def report_markdown(platform: PlatformDep, hours: int = 24) -> Response:
-    """Le meme rapport, en Markdown telechargeable."""
+    """Le même rapport, en Markdown telechargeable."""
     if not 1 <= hours <= 8760:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "periode invalide")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "période invalide")
     contenu = platform.reports.build(hours=hours)["markdown"]
     return Response(
         content=contenu,

@@ -1,16 +1,16 @@
-"""Acces optionnel a un modele de langage.
+"""Accès optionnel à un modèle de langage.
 
-Deux implantations derriere un meme contrat :
+Deux implantations derriere un même contrat :
 
-- `OfflineProvider` : rendu deterministe a partir de gabarits. C'est le
-  **defaut**, et il n'est pas un pis-aller — il garantit que la plateforme
-  reste operante sans connexion, contrainte du mode degrade (Axe 5), et que
-  les rapports sont reproductibles d'une execution a l'autre.
-- `AnthropicProvider` : redaction par modele, activee explicitement.
+- `OfflineProvider` : rendu déterministe à partir de gabarits. C'est le
+  **défaut**, et il n'est pas un pis-aller — il garantit que la plateforme
+  reste operante sans connexion, contrainte du mode dégrade (Axe 5), et que
+  les rapports sont reproductibles d'une exécution a l'autre.
+- `AnthropicProvider` : rédaction par modèle, activee explicitement.
 
-Dans les deux cas, **les chiffres ne viennent jamais du modele**. Ils sont
-calcules par `assistant.facts` a partir du journal et du portefeuille, puis
-passes au redacteur. Un assistant de securite qui inventerait un nombre
+Dans les deux cas, **les chiffrés ne viennent jamais du modèle**. Ils sont
+calcules par `assistant.facts` à partir du journal et du portefeuille, puis
+passes au redacteur. Un assistant de sécurité qui inventerait un nombre
 d'incidents serait pire qu'inutile.
 """
 

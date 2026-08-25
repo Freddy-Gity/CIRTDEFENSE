@@ -1,9 +1,9 @@
-"""Incident : agregat de correlation et unite de priorisation (Axe 4).
+"""Incident : agregat de correlation et unité de priorisation (Axe 4).
 
-Un incident regroupe les evenements qui portent sur la meme cible et la meme
-famille de menace dans une fenetre de temps. C'est l'objet que le decideur
+Un incident regroupe les événements qui portent sur la même cible et la même
+famille de menace dans une fenêtre de temps. C'est l'objet que le décideur
 consulte dans le portefeuille, et celui auquel toutes les actions sont
-rattachees pour la tracabilite.
+rattachées pour la traçabilité.
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ class Incident:
         return f"{event.category}::{event.asset.correlation_key()}"
 
     def accepts(self, event: DetectionEvent, now: datetime | None = None) -> bool:
-        """Un evenement rejoint l'incident s'il partage la cle et la fenetre."""
+        """Un événement rejoint l'incident s'il partage la clé et la fenêtre."""
         if self.status in (IncidentStatus.CLOSED, IncidentStatus.ROLLED_BACK):
             return False
         if self.key_for(event) != self.correlation_key:
@@ -88,13 +88,13 @@ class Incident:
     def risk_score(self, now: datetime | None = None) -> float:
         """Score 0-100 arbitrant l'ordre de traitement (Axe 4).
 
-        Volontairement deterministe et explicable : le decideur doit pouvoir
-        justifier l'ordre du portefeuille sans lire les poids d'un modele.
+        Volontairement déterministe et explicable : le décideur doit pouvoir
+        justifier l'ordre du portefeuille sans lire les poids d'un modèle.
 
         Six composantes, dont deux issues du catalogue CIRT quand l'incident a
-        ete classifie. La priorite du catalogue et la dangerosite y ont un
-        poids deliberement fort : c'est le document metier qui arbitre l'ordre,
-        pas la seule gravite remontee par la source.
+        été classifie. La priorité du catalogue et la dangerosité y ont un
+        poids deliberement fort : c'est le document métier qui arbitre l'ordre,
+        pas la seule gravité remontee par la source.
         """
         reference = now or datetime.now(UTC)
         severity_part = self.severity.rank / 4 * 30

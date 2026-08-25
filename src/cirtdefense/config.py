@@ -1,8 +1,8 @@
-"""Configuration d'execution, lue une fois au demarrage.
+"""Configuration d'exécution, lue une fois au démarrage.
 
-Les valeurs qui touchent a la posture d'autonomie (EF-07, EF-25, EF-26) sont
-regroupees ici et journalisees au demarrage : un auditeur doit pouvoir dire,
-pour un incident donne, sous quelle configuration le systeme a agi.
+Les valeurs qui touchent à la posture d'autonomie (EF-07, EF-25, EF-26) sont
+regroupees ici et journalisées au démarrage : un auditeur doit pouvoir dire,
+pour un incident donne, sous quelle configuration le système a agi.
 """
 
 from __future__ import annotations
@@ -41,13 +41,13 @@ class AutonomySettings:
     """Posture d'autonomie - CDCF v3.0 §1.4.3."""
 
     enabled: bool = True
-    """EF-07 : execution sans validation humaine prealable."""
+    """EF-07 : exécution sans validation humaine préalable."""
     actuation_mode: str = "simulation"
-    """simulation | live. En simulation les actuateurs n'ont aucun effet reel."""
+    """simulation | live. En simulation les actuateurs n'ont aucun effet réel."""
     post_action_watch_seconds: int = 120
-    """EF-25 : duree de surveillance post-action avant cloture de la boucle."""
+    """EF-25 : durée de surveillance post-action avant cloture de la boucle."""
     rollback_max_latency_seconds: int = 180
-    """CR de non-regression : delai borne d'annulation d'une action erronee."""
+    """CR de non-régression : délai borne d'annulation d'une action erronee."""
     circuit_breaker_enabled: bool = True
     """EF-26 : coupe-circuit global actionnable par l'administrateur."""
     breaker_rollback_threshold: int = 3
@@ -72,7 +72,7 @@ class Settings:
     )
     grounding_min_score: float = 0.15
     """EF-04 : sous ce seuil, le contexte est juge non fonde et le moteur
-    refuse d'agir plutot que d'agir sur une hypothese."""
+    refuse d'agir plutôt que d'agir sur une hypothèse."""
     llm_provider: str = "offline"
     llm_model: str = "claude-opus-5"
     llm_api_key: str = ""

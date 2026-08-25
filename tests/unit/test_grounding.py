@@ -65,14 +65,14 @@ class TestContexteNonFonde:
         assert context.grounding.reason
 
     def test_les_mots_de_liaison_ne_suffisent_pas(self, service):
-        """Regression : une premiere version validait une menace inconnue
-        parce que les mots de liaison de la phrase de controle figuraient
+        """Régression : une première version validait une menace inconnue
+        parce que les mots de liaison de la phrase de contrôle figuraient
         dans le corpus."""
         context = service.enrich(
             DetectionEvent(
                 category="categorie_menace_documentee_inventee",
-                title="menace categorie documentee reponse definie",
-                description="menace categorie documentee",
+                title="menace catégorie documentée réponse definie",
+                description="menace catégorie documentée",
                 asset=Asset(asset_id="a"),
             )
         )

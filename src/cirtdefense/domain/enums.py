@@ -1,15 +1,15 @@
 """Vocabulaire ferme du domaine.
 
 Les valeurs sont serialisees telles quelles dans le journal d'audit : elles
-font partie du contrat de tracabilite et ne doivent pas etre renommees sans
-une entree d'historique de version (CDCF 7.3).
+font partie du contrat de traçabilité et ne doivent pas être renommees sans
+une entrée d'historique de version (CDCF 7.3).
 """
 
 from enum import StrEnum
 
 
 class Severity(StrEnum):
-    """Gravite d'un evenement de detection, echelle normalisee de l'adaptateur."""
+    """Gravité d'un événement de détection, échelle normalisee de l'adaptateur."""
 
     INFO = "info"
     LOW = "low"
@@ -64,20 +64,20 @@ class SourceKind(StrEnum):
 
 
 class Reversibility(StrEnum):
-    """Catalogue de reversibilite (EF-14).
+    """Catalogue de réversibilité (EF-14).
 
     En v3.0 cette metadonnee n'est plus un simple support de priorisation :
-    c'est la condition operationnelle qui autorise le moteur a agir seul.
+    c'est la condition opérationnelle qui autorise le moteur a agir seul.
     """
 
     REVERSIBLE = "reversible"
-    """Annulation automatique complete, sans perte d'etat."""
+    """Annulation automatique complète, sans perte d'état."""
 
     PARTIALLY_REVERSIBLE = "partially_reversible"
     """Annulation automatique possible mais avec effet residuel (session coupee...)."""
 
     IRREVERSIBLE = "irreversible"
-    """Aucun retour arriere automatique (effacement, reinitialisation materielle)."""
+    """Aucun retour arriere automatique (effacement, reinitialisation matérielle)."""
 
 
 class ActionStatus(StrEnum):
@@ -99,7 +99,7 @@ class IncidentStatus(StrEnum):
 
 
 class DecisionOutcome(StrEnum):
-    """Issue du moteur d'orchestration pour un evenement donne."""
+    """Issue du moteur d'orchestration pour un événement donne."""
 
     AUTONOMOUS_EXECUTION = "autonomous_execution"
     NO_ACTION_NEEDED = "no_action_needed"

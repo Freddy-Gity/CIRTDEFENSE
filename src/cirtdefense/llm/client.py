@@ -1,4 +1,4 @@
-"""Fournisseurs de redaction."""
+"""Fournisseurs de rédaction."""
 
 from __future__ import annotations
 
@@ -12,38 +12,38 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """\
 Tu es l'assistant d'exploitation d'une plateforme d'orchestration autonome de
-la reponse aux incidents de securite, operee par un CIRT national.
+la réponse aux incidents de sécurité, operee par un CIRT national.
 
-REGLE ABSOLUE : tu ne disposes d'aucune information en dehors des donnees
+RÈGLE ABSOLUE : tu ne disposes d'aucune information en dehors des données
 factuelles qui te sont fournies dans le message. Tu ne dois JAMAIS inventer
 un chiffre, un identifiant d'incident, un horodatage ou un nom d'actif. Si une
-donnee ne figure pas dans les faits fournis, dis explicitement qu'elle n'est
+donnée ne figure pas dans les faits fournis, dis explicitement qu'elle n'est
 pas disponible.
 
-Ton role est de mettre en forme et d'expliquer ces faits, pas de les completer.
-Un chiffre invente dans un bilan de securite est une faute grave : il conduirait
-un decideur a se croire informe alors qu'il ne l'est pas.
+Ton rôle est de mettre en forme et d'expliquer ces faits, pas de les compléter.
+Un chiffre invente dans un bilan de sécurité est une faute grave : il conduirait
+un décideur a se croire informe alors qu'il ne l'est pas.
 
-Reponds en francais, de facon concise et factuelle. Emploie les termes du
-metier (incident, confinement, annulation, coupe-circuit). N'ajoute ni formule
+Reponds en francais, de façon concise et factuelle. Emploie les termes du
+métier (incident, confinement, annulation, coupe-circuit). N'ajoute ni formule
 de politesse ni proposition d'aide supplementaire.\
 """
 
 
 class LlmProvider(Protocol):
-    """Contrat minimal : rendre un texte a partir de faits verifies."""
+    """Contrat minimal : rendre un texte à partir de faits vérifiés."""
 
     name: str
 
     def available(self) -> bool: ...
 
     def render(self, question: str, facts: dict[str, Any], fallback: str) -> str:
-        """Redige une reponse. `fallback` est le texte deterministe deja
-        construit : il est rendu tel quel si le modele est indisponible."""
+        """Redige une réponse. `fallback` est le texte déterministe déjà
+        construit : il est rendu tel quel si le modèle est indisponible."""
 
 
 class OfflineProvider:
-    """Rendu deterministe. Rend le texte deja compose par l'assistant."""
+    """Rendu déterministe. Rend le texte déjà compose par l'assistant."""
 
     name = "offline"
 
@@ -55,10 +55,10 @@ class OfflineProvider:
 
 
 class AnthropicProvider:
-    """Redaction par modele Claude.
+    """Rédaction par modèle Claude.
 
     Le client est construit paresseusement : le paquet `anthropic` est une
-    dependance optionnelle, et la plateforme doit demarrer sans lui.
+    dependance optionnelle, et la plateforme doit démarrer sans lui.
     """
 
     name = "anthropic"
@@ -87,16 +87,16 @@ class AnthropicProvider:
             log_with(
                 logger,
                 logging.WARNING,
-                "paquet 'anthropic' absent : repli sur le rendu deterministe",
+                "paquet 'anthropic' absent : repli sur le rendu déterministe",
             )
             return fallback
 
         message = (
             f"Question de l'exploitant :\n{question}\n\n"
-            "Faits verifies, extraits du journal d'audit et du portefeuille "
-            "d'incidents. Ce sont les SEULES donnees dont tu disposes :\n"
+            "Faits vérifiés, extraits du journal d'audit et du portefeuille "
+            "d'incidents. Ce sont les SEULES données dont tu disposes :\n"
             f"```json\n{json.dumps(facts, ensure_ascii=False, indent=2, default=str)}\n```\n\n"
-            "Redige la reponse a partir de ces seuls faits."
+            "Redige la réponse à partir de ces seuls faits."
         )
 
         try:
@@ -113,7 +113,7 @@ class AnthropicProvider:
             log_with(
                 logger,
                 logging.WARNING,
-                "modele indisponible : repli sur le rendu deterministe",
+                "modèle indisponible : repli sur le rendu déterministe",
                 status=exc.status_code,
                 error=str(exc),
             )
@@ -122,13 +122,13 @@ class AnthropicProvider:
             log_with(
                 logger,
                 logging.WARNING,
-                "modele injoignable : repli sur le rendu deterministe",
+                "modèle injoignable : repli sur le rendu déterministe",
                 error=str(exc),
             )
             return fallback
 
         if response.stop_reason == "refusal":
-            log_with(logger, logging.WARNING, "redaction refusee par le modele")
+            log_with(logger, logging.WARNING, "rédaction refusée par le modèle")
             return fallback
 
         text = "\n".join(b.text for b in response.content if b.type == "text").strip()
@@ -138,8 +138,8 @@ class AnthropicProvider:
 def build_provider(provider: str, api_key: str = "", model: str = "claude-opus-5") -> LlmProvider:
     """Fabrique le fournisseur configure.
 
-    Un fournisseur `anthropic` sans cle retombe sur le rendu deterministe
-    plutot que d'echouer au demarrage : la plateforme doit rester operante.
+    Un fournisseur `anthropic` sans clé retombe sur le rendu déterministe
+    plutôt que d'echouer au démarrage : la plateforme doit rester operante.
     """
     if provider == "anthropic" and api_key:
         return AnthropicProvider(api_key=api_key, model=model)
@@ -147,6 +147,6 @@ def build_provider(provider: str, api_key: str = "", model: str = "claude-opus-5
         log_with(
             logger,
             logging.WARNING,
-            "fournisseur 'anthropic' demande sans cle : rendu deterministe applique",
+            "fournisseur 'anthropic' demande sans clé : rendu déterministe applique",
         )
     return OfflineProvider()

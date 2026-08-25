@@ -1,8 +1,8 @@
-"""Actuateur annuaire : desactivation de compte, revocation de sessions.
+"""Actuateur annuaire : désactivation de compte, révocation de sessions.
 
-Ces actions touchent des personnes. Le rayon d'impact declare doit refleter
-le nombre d'utilisateurs affectes : desactiver un compte de service utilise
-par plusieurs traitements ne vaut pas desactiver un compte nominatif.
+Ces actions touchent des personnes. Le rayon d'impact déclare doit refleter
+le nombre d'utilisateurs affectes : désactiver un compte de service utilise
+par plusieurs traitements ne vaut pas désactiver un compte nominatif.
 """
 
 from __future__ import annotations
@@ -41,8 +41,8 @@ VERBS: tuple[str, ...] = (
 )
 
 PROTECTED_ACCOUNTS = frozenset({"administrator", "root", "admin", "krbtgt", "svc-backup"})
-"""Comptes dont la desactivation automatique paralyserait l'administration —
-y compris celle qui permettrait de reparer une erreur du systeme."""
+"""Comptes dont la désactivation automatique paralyserait l'administration —
+y compris celle qui permettrait de reparer une erreur du système."""
 
 
 class SimulatedIam(SimulatedActuator):
@@ -53,14 +53,14 @@ class SimulatedIam(SimulatedActuator):
         if verb == "disable_account" and target.lower() in PROTECTED_ACCOUNTS:
             return ActuationOutcome(
                 success=False,
-                message=f"compte '{target}' protege : desactivation automatique refusee, "
-                "sous peine de perdre le moyen de corriger une erreur du systeme",
+                message=f"compte '{target}' protege : désactivation automatique refusée, "
+                "sous peine de perdre le moyen de corriger une erreur du système",
             )
         return super().execute(verb, target, parameters)
 
 
 class LiveIam(Actuator):
-    """Squelette d'integration (LDAP, Active Directory, Keycloak, Entra ID)."""
+    """Squelette d'intégration (LDAP, Active Directory, Keycloak, Entra ID)."""
 
     name = "iam"
     supported_verbs = VERBS
@@ -70,19 +70,19 @@ class LiveIam(Actuator):
 
     def execute(self, verb: str, target: str, parameters: dict[str, Any]) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur IAM en mode reel sans client configure")
+            raise RuntimeError("actuateur IAM en mode réel sans client configure")
         if verb == "disable_account" and target.lower() in PROTECTED_ACCOUNTS:
             return ActuationOutcome(
-                success=False, message=f"compte '{target}' protege : desactivation refusee"
+                success=False, message=f"compte '{target}' protege : désactivation refusée"
             )
-        raise NotImplementedError("LiveIam.execute : brancher le client d'annuaire du site.")
+        raise NotImplementedError("LiveIam.exécute : brancher le client d'annuaire du site.")
 
     def rollback(
         self, verb: str, target: str, token: str, parameters: dict[str, Any]
     ) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur IAM en mode reel sans client configure")
-        raise NotImplementedError("LiveIam.rollback : retablir l'etat memorise sous `token`.")
+            raise RuntimeError("actuateur IAM en mode réel sans client configure")
+        raise NotImplementedError("LiveIam.rollback : rétablir l'état memorise sous `token`.")
 
     def health(self) -> bool:
         return self._client is not None

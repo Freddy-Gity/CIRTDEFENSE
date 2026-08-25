@@ -1,8 +1,8 @@
 """Assistant d'exploitation : bilan, questions, rapports.
 
 Le test central est celui de la non-invention : l'assistant ne doit jamais
-citer un chiffre qu'il n'a pas calcule. Un bilan de securite comportant un
-nombre fabrique conduirait un decideur a se croire informe alors qu'il ne
+citer un chiffre qu'il n'a pas calcule. Un bilan de sécurité comportant un
+nombre fabrique conduirait un décideur a se croire informe alors qu'il ne
 l'est pas.
 """
 
@@ -33,7 +33,7 @@ def parc(platform, probe):
 class TestBilanSurBaseVide:
     def test_ne_fabrique_rien_sans_donnees(self, platform):
         """Le piege classique : rendre un bilan plausible alors qu'il n'y a
-        rien a rapporter."""
+        rien à rapporter."""
         answer = platform.assistant.daily_brief()
 
         assert answer.facts["incidents_total"] == 0
@@ -47,7 +47,7 @@ class TestBilanSurBaseVide:
         texte = answer.text.replace(answer.facts["periode"], "")
         nombres = [int(n) for n in re.findall(r"\b(\d+)\b", texte)]
         assert all(n == 0 for n in nombres), (
-            f"chiffres cites sans donnee correspondante : {nombres}"
+            f"chiffrés cités sans donnée correspondante : {nombres}"
         )
 
 
@@ -64,8 +64,8 @@ class TestBilanSurDonneesReelles:
         assert str(answer.facts["incidents_total"]) in answer.text
 
     def test_les_repartitions_totalisent_le_nombre_d_incidents(self, parc):
-        """Regression : la classification etait perdue au rechargement d'un
-        incident, si bien que les repartitions ne totalisaient plus le
+        """Régression : la classification était perdue au rechargement d'un
+        incident, si bien que les répartitions ne totalisaient plus le
         nombre d'incidents annonce."""
         for code in ("A1", "A6", "B1", "C4", "D3"):
             parc.ingest_and_respond("generic_json", build_payload(code))
@@ -87,8 +87,8 @@ class TestBilanSurDonneesReelles:
         parc.engine.run_control_loop()
 
         texte = parc.assistant.daily_brief().text
-        assert "annulee" in texte.lower()
-        assert "anormalement eleve" in texte.lower()
+        assert "annulée" in texte.lower()
+        assert "anormalement élevé" in texte.lower()
 
     def test_les_sources_sont_citees(self, parc):
         parc.ingest_and_respond("generic_json", build_payload("A6"))
@@ -100,12 +100,12 @@ class TestReconnaissanceDIntention:
     @pytest.mark.parametrize(
         "question,attendu",
         [
-            ("Fais le bilan des operations du jour", Intent.DAILY_BRIEF),
-            ("Combien d'actions ont ete annulees ?", Intent.ROLLBACKS),
-            ("Pourquoi le systeme a-t-il refuse d'agir ?", Intent.REFUSALS),
+            ("Fais le bilan des opérations du jour", Intent.DAILY_BRIEF),
+            ("Combien d'actions ont été annulées ?", Intent.ROLLBACKS),
+            ("Pourquoi le système a-t-il refuse d'agir ?", Intent.REFUSALS),
             ("Quelle est la posture d'autonomie ?", Intent.POSTURE),
             ("Quels types d'attaques sais-tu traiter ?", Intent.CATALOG),
-            ("Genere un rapport", Intent.REPORT),
+            ("Génère un rapport", Intent.REPORT),
             ("Donne-moi les statistiques", Intent.STATISTICS),
         ],
     )
@@ -134,14 +134,14 @@ class TestRefusDeRepondre:
     def test_question_hors_perimetre_declinee(self, platform, question):
         answer = platform.assistant.ask(question)
         assert answer.intent is Intent.UNKNOWN
-        assert "ne sais pas repondre" in answer.text.lower()
+        assert "ne sais pas répondre" in answer.text.lower()
 
     def test_le_refus_indique_ce_que_l_assistant_sait_faire(self, platform):
         answer = platform.assistant.ask("Raconte-moi une histoire")
         assert "bilan" in answer.text.lower()
 
     def test_incident_inexistant_declare_tel_quel(self, platform):
-        answer = platform.assistant.ask("Detaille l'incident inc_abcdef123456")
+        answer = platform.assistant.ask("Détaille l'incident inc_abcdef123456")
         assert answer.intent is Intent.INCIDENT_DETAIL
         assert "aucun incident" in answer.text.lower()
 
@@ -149,7 +149,7 @@ class TestRefusDeRepondre:
 class TestDetailIncident:
     def test_chronologie_et_actions_restituees(self, parc):
         result = parc.ingest_and_respond("generic_json", build_payload("A6"))
-        answer = parc.assistant.ask(f"Detaille {result.incident.incident_id}")
+        answer = parc.assistant.ask(f"Détaille {result.incident.incident_id}")
 
         assert answer.intent is Intent.INCIDENT_DETAIL
         assert "A6" in answer.text
@@ -163,20 +163,20 @@ class TestRapports:
         rapport = parc.reports.build(hours=24)
 
         assert rapport["site_id"]
-        assert rapport["markdown"].startswith("# Rapport d'operations")
+        assert rapport["markdown"].startswith("# Rapport d'opérations")
         for section in ("Posture d'exploitation", "Volumetrie", "Tracabilite"):
             assert section in rapport["markdown"]
 
     def test_numerotation_sans_trou(self, parc):
-        """Les sections vides sont omises : la numerotation doit se
-        recalculer, sans quoi le rapport saute des numeros."""
+        """Les sections vides sont omises : la numérotation doit se
+        recalculer, sans quoi le rapport saute des numéros."""
         rapport = parc.reports.build(hours=24)["markdown"]
         numeros = [int(n) for n in re.findall(r"^## (\d+)\.", rapport, re.M)]
         assert numeros == list(range(1, len(numeros) + 1))
 
     def test_le_rapport_porte_la_note_de_lecture(self, parc):
         """Un rapport transmis hors contexte doit rappeler que les actions
-        ont ete decidees sans validation humaine."""
+        ont été decidees sans validation humaine."""
         rapport = parc.reports.build(hours=24)["markdown"]
         assert "sans validation" in rapport
 
@@ -187,7 +187,7 @@ class TestRapports:
 
         rapport = parc.reports.build(hours=24)["markdown"]
         assert "ROMPUE" in rapport
-        assert "incident de securite" in rapport
+        assert "incident de sécurité" in rapport
 
 
 class TestApiAssistant:

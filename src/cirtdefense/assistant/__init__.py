@@ -1,13 +1,13 @@
-"""Assistant d'exploitation : bilan des operations et generation de rapports.
+"""Assistant d'exploitation : bilan des opérations et génération de rapports.
 
-L'assistant repond **exclusivement** a partir des donnees de la plateforme —
+L'assistant répond **exclusivement** à partir des données de la plateforme —
 journal d'audit, portefeuille d'incidents, catalogue. Il ne dispose d'aucune
-connaissance propre et ne complete jamais un fait manquant.
+connaissance propre et ne complète jamais un fait manquant.
 
 Cette contrainte prolonge EF-04 : la plateforme refuse d'agir sur un contexte
 non fonde ; elle refuse symetriquement de rapporter un fait qu'elle n'a pas
-observe. Un bilan de securite comportant un chiffre invente conduirait un
-decideur a se croire informe alors qu'il ne l'est pas.
+observe. Un bilan de sécurité comportant un chiffre invente conduirait un
+décideur a se croire informe alors qu'il ne l'est pas.
 """
 
 from .facts import FactCollector, OperationsFacts

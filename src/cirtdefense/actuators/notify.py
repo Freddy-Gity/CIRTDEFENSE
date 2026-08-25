@@ -1,10 +1,10 @@
 """Actuateur de notification (EF-13 v3.0 : information a posteriori).
 
-La notification est traitee comme une action a part entiere : elle est
-planifiee, executee, journalisee et annulable comme les autres. Ce choix n'est
+La notification est traitée comme une action a part entiere : elle est
+planifiée, exécutée, journalisée et annulable comme les autres. Ce choix n'est
 pas cosmetique — en v3.0 la notification est la seule chose que l'analyste
-recoit avant que l'action ne soit deja faite, et elle doit donc etre aussi
-tracable que l'action elle-meme.
+reçoit avant que l'action ne soit déjà faite, et elle doit donc être aussi
+tracable que l'action elle-même.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ VERBS: tuple[str, ...] = ("notify", "retract_notification")
 
 
 class NotificationActuator(Actuator):
-    """Depose les notifications dans un depot ; la remise effective (courriel,
+    """Depose les notifications dans un dépôt ; la remise effective (courriel,
     messagerie instantanee, SMS) est branchee par `sinks`."""
 
     name = "notify"
@@ -41,7 +41,7 @@ class NotificationActuator(Actuator):
             "channel": parameters.get("channel", "analyst"),
             "recipient": target,
             "severity": parameters.get("severity", "medium"),
-            "subject": parameters.get("subject", "Action autonome executee"),
+            "subject": parameters.get("subject", "Action autonome exécutée"),
             "body": parameters.get("body", ""),
             "incident_id": parameters.get("incident_id"),
             "action_id": parameters.get("action_id"),
@@ -77,7 +77,7 @@ class NotificationActuator(Actuator):
         return ActuationOutcome(
             success=True,
             details={"notification_id": token},
-            message="notification marquee comme retiree",
+            message="notification marquee comme retirée",
         )
 
     def sent(self) -> list[dict[str, Any]]:

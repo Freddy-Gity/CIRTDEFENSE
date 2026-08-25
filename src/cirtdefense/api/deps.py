@@ -1,4 +1,4 @@
-"""Dependances partagees : instance de plateforme et controle de role."""
+"""Dependances partagees : instance de plateforme et contrôle de rôle."""
 
 from __future__ import annotations
 
@@ -38,14 +38,14 @@ def resolve_role(
     """Authentification par jeton porteur.
 
     Les jetons sont lus sur la plateforme active, et non sur la configuration
-    globale : c'est la meme instance qui porte la posture d'autonomie, la
-    politique et les depots. Deux sources de configuration distinctes
-    finiraient par diverger, et l'ecart porterait precisement sur qui a le
-    droit d'arreter le systeme.
+    globale : c'est la même instance qui porte la posture d'autonomie, la
+    politique et les dépôts. Deux sources de configuration distinctes
+    finiraient par diverger, et l'écart porterait précisément sur qui à le
+    droit d'arrêter le système.
 
-    Volontairement minimale par ailleurs : l'integration a l'annuaire du CIRT
-    releve du deploiement et non du prototype. Ce qui compte ici est que la
-    separation des roles existe et soit verifiee a chaque appel sensible.
+    Volontairement minimale par ailleurs : l'intégration a l'annuaire du CIRT
+    releve du déploiement et non du prototype. Ce qui compte ici est que la
+    separation des rôles existe et soit vérifiée à chaque appel sensible.
     """
     settings = platform.settings
     if not authorization:
@@ -64,7 +64,7 @@ def require_admin(role: Annotated[Role, Depends(resolve_role)]) -> Role:
     if role is not Role.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="operation reservee a l'administrateur",
+            detail="opération reservee a l'administrateur",
         )
     return role
 
@@ -73,7 +73,7 @@ def require_analyst(role: Annotated[Role, Depends(resolve_role)]) -> Role:
     if role not in (Role.ANALYST, Role.ADMIN):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="operation reservee a l'analyste ou a l'administrateur",
+            detail="opération reservee a l'analyste ou a l'administrateur",
         )
     return role
 

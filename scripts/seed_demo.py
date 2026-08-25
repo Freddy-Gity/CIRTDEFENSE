@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Alimente la base avec un jeu d'incidents varie, pour l'interface et la recette.
 
-Contrairement au scenario de demonstration, ce script ne raconte pas une
-histoire : il produit un etat realiste et heterogene — incidents traites,
-incidents refuses faute de contexte, actions annulees — de facon a ce que le
-tableau de bord et le portefeuille aient quelque chose a montrer.
+Contrairement au scénario de démonstration, ce script ne raconte pas une
+histoire : il produit un état realiste et hétérogène — incidents traités,
+incidents refusés faute de contexte, actions annulées — de façon à ce que le
+tableau de bord et le portefeuille aient quelque chose à montrer.
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ SCENARIOS: list[dict] = [
             "confidence": 0.88,
             "occurred_at": "2026-08-24T09:45:00Z",
             "asset": {"asset_id": "poste-114", "criticality": 2, "zone": "bureautique"},
-            "title": "Rancongiciel detecte en cours de chiffrement",
+            "title": "Rancongiciel détecte en cours de chiffrement",
             "indicators": {"file_path": "C:/Users/public/enc.exe", "process": "enc.exe"},
         },
     },
@@ -91,7 +91,7 @@ SCENARIOS: list[dict] = [
                 "user": "svc-deploy",
                 "zone": "interne",
             },
-            "title": "Progression laterale via partage administratif",
+            "title": "Progression latérale via partage administratif",
             "indicators": {"srcip": "10.0.2.19"},
         },
     },
@@ -136,7 +136,7 @@ SCENARIOS: list[dict] = [
 def main() -> int:
     platform = build_platform()
     if not isinstance(platform.probe, StaticProbe):
-        print("Note : la sonde active n'est pas alimentable ; aucune degradation ne sera simulee.")
+        print("Note : la sonde active n'est pas alimentable ; aucune dégradation ne sera simulée.")
     else:
         for target in (
             "srv-web-01",
@@ -176,18 +176,18 @@ def main() -> int:
                 HealthSnapshot(target="srv-web-02", reachable=False, error_rate=1.0, throughput=0)
             )
             report = platform.engine.run_control_loop()
-            print(f"\n  Boucle de controle : {report.rolled_back} annulation(s) autonome(s)")
+            print(f"\n  Boucle de contrôle : {report.rolled_back} annulation(s) autonome(s)")
 
         stats = platform.portfolio.statistics()
         print(
             f"\n  Incidents : {stats['incidents_total']} "
-            f"| executees : {stats['actions_executed']} "
-            f"| annulees : {stats['actions_rolled_back']} "
+            f"| exécutées : {stats['actions_executed']} "
+            f"| annulées : {stats['actions_rolled_back']} "
             f"| refus d'agir : {refuse}"
         )
         print(
-            f"  Journal : {platform.ledger.verify_chain().entries_checked} entrees, "
-            f"chaine intacte = {platform.ledger.verify_chain().valid}"
+            f"  Journal : {platform.ledger.verify_chain().entries_checked} entrées, "
+            f"chaîne intacte = {platform.ledger.verify_chain().valid}"
         )
     finally:
         platform.close()

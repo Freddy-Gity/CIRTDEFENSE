@@ -2,8 +2,8 @@
 
 L'Axe 4 est conceptuellement inchange par le pivot v3.0 : seule sa sortie
 change. Le portefeuille ne sert plus a dire a l'analyste quoi traiter en
-premier, mais a lui montrer ce que le systeme a deja traite, dans l'ordre de
-l'enjeu. C'est la vue du decideur.
+premier, mais a lui montrer ce que le système a déjà traite, dans l'ordre de
+l'enjeu. C'est la vue du décideur.
 """
 
 from __future__ import annotations
@@ -59,12 +59,12 @@ class PortfolioEntry:
 
 class PortfolioService:
     """Les compteurs d'actions viennent de la table des actions, jamais de
-    l'instantane stocke avec l'incident.
+    l'instantané stocke avec l'incident.
 
-    L'instantane est fige au moment de l'execution : il ignore les annulations
+    L'instantané est fige au moment de l'exécution : il ignore les annulations
     survenues ensuite. S'en servir affichait un taux d'annulation de 0 % alors
-    meme que le systeme venait d'annuler cinq actions — c'est-a-dire faux sur
-    precisement l'indicateur qui mesure la fiabilite de l'autonomie.
+    même que le système venait d'annuler cinq actions — c'est-a-dire faux sur
+    précisément l'indicateur qui mesure la fiabilité de l'autonomie.
     """
 
     def __init__(self, incidents: IncidentRepository, actions: ActionRepository) -> None:
@@ -101,9 +101,9 @@ class PortfolioService:
     def statistics(self) -> dict[str, Any]:
         """Indicateurs de pilotage.
 
-        Le taux d'annulation est le plus important : il mesure la frequence a
-        laquelle le systeme doit se corriger lui-meme. C'est l'indicateur que
-        la soutenance interrogera, et celui qui, s'il derive, justifie de
+        Le taux d'annulation est le plus important : il mesure la fréquence à
+        laquelle le système doit se corriger lui-même. C'est l'indicateur que
+        la soutenance interrogera, et celui qui, s'il dérive, justifie de
         rouvrir la question de la posture d'autonomie.
         """
         data = self._incidents.portfolio(limit=1000)

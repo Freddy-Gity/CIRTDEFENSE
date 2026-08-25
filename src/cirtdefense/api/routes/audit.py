@@ -1,8 +1,8 @@
-"""Journal d'audit des decisions.
+"""Journal d'audit des décisions.
 
-En v3.0 ce journal est la **seule** trace de ce que le systeme a fait sans
-intervention humaine. Les points d'entree exposent aussi la verification
-d'integrite de la chaine : un journal qu'on ne peut pas prouver intact ne vaut
+En v3.0 ce journal est la **seule** trace de ce que le système a fait sans
+intervention humaine. Les points d'entrée exposent aussi la vérification
+d'intégrité de la chaîne : un journal qu'on ne peut pas prouver intact ne vaut
 rien comme piece d'audit.
 """
 
@@ -31,7 +31,7 @@ def query(
 
 @router.get("/verify")
 def verify(platform: PlatformDep) -> dict:
-    """Rejoue la chaine d'empreintes de bout en bout."""
+    """Rejoue la chaîne d'empreintes de bout en bout."""
     return platform.ledger.verify_chain().to_dict()
 
 
@@ -50,7 +50,7 @@ notifications_router = APIRouter(prefix="/api/v1/notifications", tags=["notifica
 
 @notifications_router.get("")
 def pending(platform: PlatformDep, limit: int = 100) -> dict:
-    """Notifications a posteriori non encore acquittees par l'analyste."""
+    """Notifications a posteriori non encore acquittées par l'analyste."""
     items = platform.notifications.pending(limit)
     return {"count": len(items), "notifications": items}
 

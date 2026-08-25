@@ -1,8 +1,8 @@
 """Journalisation applicative structuree (JSON), distincte du journal d'audit.
 
-Ce fichier sert au diagnostic technique. La tracabilite des decisions, elle,
-passe exclusivement par `audit.ledger` : les deux ne doivent pas etre
-confondus, notamment parce que ce journal-ci peut etre purge par rotation.
+Ce fichier sert au diagnostic technique. La traçabilité des décisions, elle,
+passe exclusivement par `audit.ledger` : les deux ne doivent pas être
+confondus, notamment parce que ce journal-ci peut être purge par rotation.
 """
 
 from __future__ import annotations

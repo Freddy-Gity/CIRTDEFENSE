@@ -1,12 +1,12 @@
-"""Actuateur de service : redemarrage et bascule (D3).
+"""Actuateur de service : redémarrage et bascule (D3).
 
-Le redemarrage est la seule action du catalogue dont la reversibilite est
-paradoxale : on ne « derredemarre » pas un service. Ce qui est reversible,
-c'est la bascule vers un noeud de secours — on rebascule. Pour le
-redemarrage, l'annulation consiste a marquer l'operation comme annulee dans
-la trace, le service restant demarre, ce qui est l'etat souhaite de toute
-facon. L'effet residuel — l'interruption pendant le redemarrage — est
-documente au catalogue de reversibilite.
+Le redémarrage est la seule action du catalogue dont la réversibilité est
+paradoxale : on ne « derredemarre » pas un service. Ce qui est réversible,
+c'est la bascule vers un nœud de secours — on rebascule. Pour le
+redémarrage, l'annulation consiste à marquer l'opération comme annulée dans
+la trace, le service restant demarre, ce qui est l'état souhaite de toute
+façon. L'effet residuel — l'interruption pendant le redémarrage — est
+documenté au catalogue de réversibilité.
 """
 
 from __future__ import annotations
@@ -35,13 +35,13 @@ class SimulatedService(SimulatedActuator):
             # Basculer sans savoir vers ou aggraverait l'indisponibilite.
             return ActuationOutcome(
                 success=False,
-                message="bascule refusee : aucun noeud de secours declare",
+                message="bascule refusée : aucun nœud de secours déclare",
             )
         return super().execute(verb, target, parameters)
 
 
 class LiveService(Actuator):
-    """Squelette d'integration (systemd, orchestrateur de conteneurs,
+    """Squelette d'intégration (systemd, orchestrateur de conteneurs,
     equilibreur de charge)."""
 
     name = "service"
@@ -52,19 +52,19 @@ class LiveService(Actuator):
 
     def execute(self, verb: str, target: str, parameters: dict[str, Any]) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur de service en mode reel sans client configure")
+            raise RuntimeError("actuateur de service en mode réel sans client configure")
         if verb == "failover" and not parameters.get("standby_node"):
             return ActuationOutcome(
-                success=False, message="bascule refusee : aucun noeud de secours declare"
+                success=False, message="bascule refusée : aucun nœud de secours déclare"
             )
-        raise NotImplementedError("LiveService.execute : brancher le gestionnaire de services.")
+        raise NotImplementedError("LiveService.exécute : brancher le gestionnaire de services.")
 
     def rollback(
         self, verb: str, target: str, token: str, parameters: dict[str, Any]
     ) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur de service en mode reel sans client configure")
-        raise NotImplementedError("LiveService.rollback : rebasculer vers le noeud nominal.")
+            raise RuntimeError("actuateur de service en mode réel sans client configure")
+        raise NotImplementedError("LiveService.rollback : rebasculer vers le nœud nominal.")
 
     def health(self) -> bool:
         return self._client is not None

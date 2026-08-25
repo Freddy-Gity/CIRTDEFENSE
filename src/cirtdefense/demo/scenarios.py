@@ -1,9 +1,9 @@
-"""Scenarios de demonstration, un par ligne du catalogue CIRT.
+"""Scénarios de démonstration, un par ligne du catalogue CIRT.
 
-Chaque scenario porte la charge utile qu'un collecteur emettrait reellement
+Chaque scénario porte la charge utile qu'un collecteur emettrait réellement
 pour l'attaque decrite, avec les indicateurs dont le playbook a besoin. Un
-scenario dont les indicateurs seraient incomplets produirait une decision sans
-action — et donnerait a croire, a tort, que la plateforme ne reagit pas.
+scénario dont les indicateurs seraient incomplets produirait une décision sans
+action — et donnerait à croire, a tort, que la plateforme ne réagit pas.
 """
 
 from __future__ import annotations
@@ -57,17 +57,17 @@ HOSTILE_DOMAINS = ("update-c2.example", "cdn-sync.example", "telemetry-node.exam
 
 @dataclass(slots=True)
 class Scenario:
-    """Un scenario rejouable, rattache a une ligne du catalogue."""
+    """Un scénario rejouable, rattache à une ligne du catalogue."""
 
     code: str
     source: str
     """Normaliseur cible : wazuh, suricata, syslog, generic_json."""
     title: str
     narrative: str
-    """Ce que le scenario raconte, en une phrase, pour l'interface."""
+    """Ce que le scénario raconte, en une phrase, pour l'interface."""
     payload_builder: Any = field(repr=False, default=None)
     expected_actions: tuple[str, ...] = ()
-    """Actions attendues. Sert a l'interface et aux tests de non-regression."""
+    """Actions attendues. Sert a l'interface et aux tests de non-régression."""
 
     @property
     def attack_type(self) -> AttackType:
@@ -167,10 +167,10 @@ def _a2_ddos_applicatif() -> dict[str, Any]:
         asset="srv-web-01",
         severity="high",
         confidence=0.85,
-        title="Epuisement du pool de connexions — Slowloris suspecte",
+        title="Épuisement du pool de connexions — Slowloris suspecte",
         description=(
-            "1 840 connexions simultanees maintenues ouvertes sans emission de "
-            "donnees ; temps de reponse median passe de 95 ms a 4 200 ms."
+            "1 840 connexions simultanees maintenues ouvertes sans émission de "
+            "données ; temps de réponse median passe de 95 ms a 4 200 ms."
         ),
         indicators={
             "srcip": HOSTILE_IPS[1],
@@ -196,7 +196,7 @@ def _a3_scan() -> dict[str, Any]:
 
 
 def _a4_bruteforce() -> dict[str, Any]:
-    """Emis au format Wazuh : c'est l'UEBA/EDR qui detecte ce type."""
+    """Émis au format Wazuh : c'est l'UEBA/EDR qui détecte ce type."""
     return {
         "timestamp": _now(),
         "rule": {
@@ -220,7 +220,7 @@ def _a5_exfiltration() -> dict[str, Any]:
         title="Volume sortant anormal vers une destination externe",
         description=(
             "8,4 Go transferes en 22 minutes vers une adresse jamais contactee "
-            "auparavant ; requetes DNS de longueur atypique en parallele."
+            "auparavant ; requêtes DNS de longueur atypique en parallele."
         ),
         indicators={
             "dest_ip": HOSTILE_IPS[0],
@@ -238,11 +238,11 @@ def _a6_ransomware() -> dict[str, Any]:
         asset="srv-file-01",
         severity="critical",
         confidence=0.92,
-        title="Chiffrement de masse en cours — propagation SMB detectee",
+        title="Chiffrement de masse en cours — propagation SMB détectée",
         description=(
             "14 200 fichiers modifies en 4 minutes avec extension inconnue ; "
-            "tentatives de connexion SMB vers 37 hotes du meme segment ; "
-            "service de cliches instantanes arrete."
+            "tentatives de connexion SMB vers 37 hôtes du même segment ; "
+            "service de cliches instantanés arrête."
         ),
         indicators={
             "process": "svchost32.exe",
@@ -256,7 +256,7 @@ def _a6_ransomware() -> dict[str, Any]:
 
 
 def _a7_c2() -> dict[str, Any]:
-    """Emis au format Suricata : detection reseau."""
+    """Émis au format Suricata : détection réseau."""
     return {
         "timestamp": _now(),
         "alert": {
@@ -281,10 +281,10 @@ def _b1_sql_injection() -> dict[str, Any]:
         asset="srv-web-02",
         severity="high",
         confidence=0.88,
-        title="Motif d'injection SQL dans les parametres de requete",
+        title="Motif d'injection SQL dans les paramètres de requête",
         description=(
             "Sequence UNION SELECT detectee dans le parametre 'id' du point "
-            "d'entree /api/clients ; 43 tentatives en 2 minutes."
+            "d'entrée /api/clients ; 43 tentatives en 2 minutes."
         ),
         indicators={
             "srcip": HOSTILE_IPS[2],
@@ -303,7 +303,7 @@ def _b2_xss() -> dict[str, Any]:
         severity="medium",
         confidence=0.75,
         title="Contenu suspect soumis dans un champ de formulaire",
-        description="Balise script encodee detectee dans le champ 'commentaire'.",
+        description="Balise script encodee détectée dans le champ 'commentaire'.",
         indicators={
             "srcip": HOSTILE_IPS[3],
             "pattern": "<script>",
@@ -341,7 +341,7 @@ def _b4_path_traversal() -> dict[str, Any]:
         severity="high",
         confidence=0.82,
         title="Tentative de traversee de chemin",
-        description="Motif de remontee de repertoire vers /etc/passwd.",
+        description="Motif de remontee de répertoire vers /etc/passwd.",
         indicators={
             "srcip": HOSTILE_IPS[1],
             "pattern": "../../../etc/passwd",
@@ -357,10 +357,10 @@ def _b5_webshell() -> dict[str, Any]:
         asset="srv-web-01",
         severity="high",
         confidence=0.9,
-        title="Fichier executable depose dans un repertoire de televersement",
+        title="Fichier exécutable depose dans un répertoire de televersement",
         description=(
-            "Fichier PHP depose dans /var/www/uploads, repertoire servi par "
-            "le serveur web et non prevu pour du code executable."
+            "Fichier PHP depose dans /var/www/uploads, répertoire servi par "
+            "le serveur web et non prévu pour du code exécutable."
         ),
         indicators={
             "srcip": HOSTILE_IPS[2],
@@ -377,10 +377,10 @@ def _b6_api_abuse() -> dict[str, Any]:
         asset="srv-app-01",
         severity="medium",
         confidence=0.78,
-        title="Volume de requetes anormal pour un jeton d'API",
+        title="Volume de requêtes anormal pour un jeton d'API",
         description=(
-            "84 000 requetes en une heure pour un jeton dont l'usage nominal "
-            "est de 200 requetes par jour ; enumeration sequentielle d'identifiants."
+            "84 000 requêtes en une heure pour un jeton dont l'usage nominal "
+            "est de 200 requêtes par jour ; enumeration sequentielle d'identifiants."
         ),
         indicators={
             "srcip": HOSTILE_IPS[3],
@@ -400,7 +400,7 @@ def _b7_session_hijacking() -> dict[str, Any]:
         user="n.fotso",
         title="Session utilisee depuis deux localisations incompatibles",
         description=(
-            "Meme jeton de session presente depuis Douala puis depuis une "
+            "Même jeton de session présente depuis Douala puis depuis une "
             "adresse externe, a 6 minutes d'intervalle."
         ),
         indicators={
@@ -421,8 +421,8 @@ def _c1_privilege_escalation() -> dict[str, Any]:
         user="s.eyenga",
         title="Ajout au groupe d'administration hors processus",
         description=(
-            "Le compte a ete ajoute au groupe Administrateurs sans demande "
-            "associee, en dehors des heures ouvrables."
+            "Le compte a été ajoute au groupe Administrateurs sans demande "
+            "associée, en dehors des heures ouvrables."
         ),
         indicators={"privilege": "db_admin", "previous_role": "db_reader"},
         mitre=("T1098", "T1068"),
@@ -436,10 +436,10 @@ def _c2_abnormal_access() -> dict[str, Any]:
         severity="medium",
         confidence=0.65,
         user="j.ngono",
-        title="Consultation de ressources hors perimetre metier",
+        title="Consultation de ressources hors périmètre métier",
         description=(
-            "Acces a 340 documents du service financier par un compte rattache "
-            "a la direction technique, sans precedent sur 180 jours."
+            "Accès a 340 documents du service financier par un compte rattache "
+            "à la direction technique, sans precedent sur 180 jours."
         ),
         indicators={"resource": "/partage/finance/2026", "documents_accessed": 340},
         mitre=("T1530",),
@@ -456,7 +456,7 @@ def _c3_slow_exfiltration() -> dict[str, Any]:
         title="Accumulation progressive dans un espace non habituel",
         description=(
             "1,2 Go rassembles par increments de 40 Mo sur 11 jours dans un "
-            "repertoire temporaire, sous les seuils de detection volumetrique."
+            "répertoire temporaire, sous les seuils de détection volumétrique."
         ),
         indicators={"staging_path": "/tmp/.cache_u", "bytes": 1_200_000_000, "days": 11},
         mitre=("T1074", "T1030"),
@@ -488,8 +488,8 @@ def _d1_tls_certificate() -> dict[str, Any]:
         confidence=0.99,
         title="Certificat TLS expire",
         description=(
-            "Le certificat du service a expire il y a 3 jours ; signature "
-            "SHA-1, cle RSA de 1024 bits."
+            "Le certificat du service à expiré il y a 3 jours ; signature "
+            "SHA-1, clé RSA de 1024 bits."
         ),
         indicators={
             "expired_days": 3,
@@ -507,8 +507,8 @@ def _d2_unexpected_port() -> dict[str, Any]:
         confidence=0.95,
         title="Port ouvert absent de la configuration attendue",
         description=(
-            "Le port 4444/tcp repond sur l'hote alors qu'il ne figure pas dans "
-            "la configuration de reference."
+            "Le port 4444/tcp répond sur l'hôte alors qu'il ne figure pas dans "
+            "la configuration de référence."
         ),
         indicators={"port": "4444", "protocol": "tcp", "service": "inconnu"},
         mitre=("T1571",),
@@ -521,8 +521,8 @@ def _d3_service_unavailable() -> dict[str, Any]:
         asset="srv-mail-01",
         severity="high",
         confidence=0.98,
-        title="Service injoignable — echecs repetes de la sonde",
-        description="7 echecs consecutifs de la sonde de disponibilite sur 3 minutes.",
+        title="Service injoignable — échecs répétés de la sonde",
+        description="7 échecs consecutifs de la sonde de disponibilité sur 3 minutes.",
         indicators={"consecutive_failures": 7, "standby_node": "srv-mail-02"},
     )
 
@@ -533,10 +533,10 @@ def _d4_config_drift() -> dict[str, Any]:
         asset="srv-web-01",
         severity="low",
         confidence=0.9,
-        title="Ecart a la configuration de reference",
+        title="Écart à la configuration de référence",
         description=(
-            "3 parametres divergent de la reference, dont la desactivation "
-            "de la journalisation des acces."
+            "3 paramètres divergent de la référence, dont la désactivation "
+            "de la journalisation des accès."
         ),
         indicators={"delta_count": 3, "changed": "access_log,tls_min_version,keepalive"},
         mitre=("T1562",),
@@ -553,7 +553,7 @@ SCENARIOS: tuple[Scenario, ...] = (
         source="generic_json",
         payload_builder=_a1_ddos_volumetrique,
         title="Inondation SYN saturant le lien de transit",
-        narrative="Le lien est sature avant nos equipements : la reponse se joue en bordure.",
+        narrative="Le lien est sature avant nos équipements : la réponse se joue en bordure.",
         expected_actions=("edge:enable_scrubbing", "edge:blackhole_ip", "notify:notify"),
     ),
     Scenario(
@@ -561,7 +561,7 @@ SCENARIOS: tuple[Scenario, ...] = (
         source="generic_json",
         payload_builder=_a2_ddos_applicatif,
         title="Slowloris epuisant le pool de connexions",
-        narrative="Peu d'octets, beaucoup de connexions : la reponse est applicative.",
+        narrative="Peu d'octets, beaucoup de connexions : la réponse est applicative.",
         expected_actions=("waf:rate_limit_rule", "service:close_idle_connections"),
     ),
     Scenario(
@@ -569,15 +569,15 @@ SCENARIOS: tuple[Scenario, ...] = (
         source="generic_json",
         payload_builder=_a3_scan,
         title="Balayage de 1 024 ports depuis une source externe",
-        narrative="Signal precoce de faible gravite : reponse graduee, pas de blocage brutal.",
+        narrative="Signal precoce de faible gravité : réponse graduee, pas de blocage brutal.",
         expected_actions=("firewall:rate_limit_ip",),
     ),
     Scenario(
         code="A4",
         source="wazuh",
         payload_builder=_a4_bruteforce,
-        title="247 echecs d'authentification suivis d'un succes",
-        narrative="Le succes apres la rafale change tout : le compte est presume compromis.",
+        title="247 échecs d'authentification suivis d'un succes",
+        narrative="Le succes après la rafale change tout : le compte est presume compromis.",
         expected_actions=("firewall:block_ip", "iam:revoke_sessions"),
     ),
     Scenario(
@@ -585,7 +585,7 @@ SCENARIOS: tuple[Scenario, ...] = (
         source="generic_json",
         payload_builder=_a5_exfiltration,
         title="8,4 Go sortants vers une destination inconnue",
-        narrative="La donnee est peut-etre deja partie : coupure immediate de la destination.",
+        narrative="La donnée est peut-être déjà partie : coupure immédiate de la destination.",
         expected_actions=("firewall:block_ip", "network:throttle_egress"),
     ),
     Scenario(
@@ -594,8 +594,8 @@ SCENARIOS: tuple[Scenario, ...] = (
         payload_builder=_a6_ransomware,
         title="Chiffrement de 14 200 fichiers en 4 minutes",
         narrative=(
-            "Priorite maximale. La reponse s'arrete a l'isolation : jamais de "
-            "remediation automatique, qui serait irreversible."
+            "Priorité maximale. La réponse s'arrête a l'isolation : jamais de "
+            "remédiation automatique, qui serait irréversible."
         ),
         expected_actions=(
             "network:move_to_vlan",
@@ -609,7 +609,7 @@ SCENARIOS: tuple[Scenario, ...] = (
         code="A7",
         source="suricata",
         payload_builder=_a7_c2,
-        title="Beaconing TLS vers un domaine de commande et controle",
+        title="Beaconing TLS vers un domaine de commande et contrôle",
         narrative="Sinkhole DNS et blocage : on coupe le canal sans aveugler l'investigation.",
         expected_actions=("firewall:block_ip", "edr:isolate_host"),
     ),
@@ -626,7 +626,7 @@ SCENARIOS: tuple[Scenario, ...] = (
         source="generic_json",
         payload_builder=_b2_xss,
         title="Balise script encodee dans un champ de formulaire",
-        narrative="Un contenu deja stocke n'est pas retire automatiquement : il est signale.",
+        narrative="Un contenu déjà stocke n'est pas retire automatiquement : il est signalé.",
         expected_actions=("waf:block_pattern", "waf:sanitize_field"),
     ),
     Scenario(
@@ -634,22 +634,22 @@ SCENARIOS: tuple[Scenario, ...] = (
         source="generic_json",
         payload_builder=_b3_rce,
         title="Interpreteur de commandes lance par le service tomcat",
-        narrative="Compromission directe : isolation immediate et arret du processus.",
+        narrative="Compromission directe : isolation immédiate et arrêt du processus.",
         expected_actions=("edr:isolate_host", "edr:kill_process"),
     ),
     Scenario(
         code="B4",
         source="generic_json",
         payload_builder=_b4_path_traversal,
-        title="Remontee de repertoire vers /etc/passwd",
-        narrative="Blocage du motif et du point d'entree vise.",
+        title="Remontee de répertoire vers /etc/passwd",
+        narrative="Blocage du motif et du point d'entrée vise.",
         expected_actions=("waf:block_pattern", "waf:block_request"),
     ),
     Scenario(
         code="B5",
         source="generic_json",
         payload_builder=_b5_webshell,
-        title="Fichier PHP depose dans un repertoire de televersement",
+        title="Fichier PHP depose dans un répertoire de televersement",
         narrative="Quarantaine — deplacement, pas suppression : le fichier reste une preuve.",
         expected_actions=("edr:quarantine_file", "firewall:block_ip"),
     ),
@@ -657,24 +657,24 @@ SCENARIOS: tuple[Scenario, ...] = (
         code="B6",
         source="generic_json",
         payload_builder=_b6_api_abuse,
-        title="84 000 requetes en une heure sur un jeton partenaire",
-        narrative="Revocation du jeton, reemissible : la gene est temporaire.",
+        title="84 000 requêtes en une heure sur un jeton partenaire",
+        narrative="Révocation du jeton, reemissible : la gêne est temporaire.",
         expected_actions=("iam:revoke_token", "waf:rate_limit_rule"),
     ),
     Scenario(
         code="B7",
         source="generic_json",
         payload_builder=_b7_session_hijacking,
-        title="Meme session depuis deux localisations incompatibles",
-        narrative="Le second facteur distingue l'utilisateur legitime de l'attaquant.",
+        title="Même session depuis deux localisations incompatibles",
+        narrative="Le second facteur distingue l'utilisateur légitime de l'attaquant.",
         expected_actions=("iam:revoke_sessions", "iam:force_mfa", "iam:revoke_token"),
     ),
     Scenario(
         code="C1",
         source="generic_json",
         payload_builder=_c1_privilege_escalation,
-        title="Ajout au groupe d'administration sans demande associee",
-        narrative="Revocation du privilege et restauration du role anterieur.",
+        title="Ajout au groupe d'administration sans demande associée",
+        narrative="Révocation du privilège et restauration du rôle anterieur.",
         expected_actions=("iam:revoke_sessions",),
     ),
     Scenario(
@@ -683,8 +683,8 @@ SCENARIOS: tuple[Scenario, ...] = (
         payload_builder=_c2_abnormal_access,
         title="340 documents financiers consultes par un compte technique",
         narrative=(
-            "Le catalogue exclut ici la revocation de compte : le risque de "
-            "faux positif est trop eleve."
+            "Le catalogue exclut ici la révocation de compte : le risque de "
+            "faux positif est trop élève."
         ),
         expected_actions=("iam:block_resource_access", "notify:notify"),
     ),
@@ -693,7 +693,7 @@ SCENARIOS: tuple[Scenario, ...] = (
         source="generic_json",
         payload_builder=_c3_slow_exfiltration,
         title="1,2 Go accumules par increments sur 11 jours",
-        narrative="Sous les seuils volumetriques : c'est l'accumulation qui trahit.",
+        narrative="Sous les seuils volumétriques : c'est l'accumulation qui trahit.",
         expected_actions=("iam:restrict_export", "notify:notify"),
     ),
     Scenario(
@@ -708,10 +708,10 @@ SCENARIOS: tuple[Scenario, ...] = (
         code="D1",
         source="generic_json",
         payload_builder=_d1_tls_certificate,
-        title="Certificat expire, SHA-1, cle de 1024 bits",
+        title="Certificat expire, SHA-1, clé de 1024 bits",
         narrative=(
             "Aucune action corrective possible : le renouvellement depend d'une "
-            "autorite externe. Le systeme constate et s'abstient."
+            "autorité externe. Le système constate et s'abstient."
         ),
         expected_actions=("notify:notify",),
     ),
@@ -719,24 +719,24 @@ SCENARIOS: tuple[Scenario, ...] = (
         code="D2",
         source="generic_json",
         payload_builder=_d2_unexpected_port,
-        title="Port 4444/tcp ouvert hors configuration de reference",
-        narrative="Fermeture si le port est sous controle, alerte de derive sinon.",
+        title="Port 4444/tcp ouvert hors configuration de référence",
+        narrative="Fermeture si le port est sous contrôle, alerte de dérive sinon.",
         expected_actions=("config:close_port", "notify:notify"),
     ),
     Scenario(
         code="D3",
         source="generic_json",
         payload_builder=_d3_service_unavailable,
-        title="7 echecs consecutifs de la sonde de disponibilite",
-        narrative="Bascule vers le noeud de secours declare, sinon redemarrage.",
+        title="7 échecs consecutifs de la sonde de disponibilité",
+        narrative="Bascule vers le nœud de secours déclare, sinon redémarrage.",
         expected_actions=("service:failover", "service:restart_service"),
     ),
     Scenario(
         code="D4",
         source="generic_json",
         payload_builder=_d4_config_drift,
-        title="3 parametres divergents, dont la journalisation desactivee",
-        narrative="Derive mineure : restauration admise. Au-dela du seuil, elle serait refusee.",
+        title="3 paramètres divergents, dont la journalisation désactivée",
+        narrative="Dérive mineure : restauration admise. Au-delà du seuil, elle serait refusée.",
         expected_actions=("config:restore_baseline", "notify:notify"),
     ),
 )
@@ -753,10 +753,10 @@ def list_scenarios() -> list[dict[str, Any]]:
 
 
 def build_payload(code: str) -> dict[str, Any]:
-    """Fabrique la charge utile du scenario, prete pour l'adaptateur."""
+    """Fabrique la charge utile du scénario, prete pour l'adaptateur."""
     scenario = get_scenario(code)
     if scenario is None:
-        raise KeyError(f"scenario '{code}' inconnu ; codes valides : {sorted(BY_CODE_SCENARIO)}")
+        raise KeyError(f"scénario '{code}' inconnu ; codes valides : {sorted(BY_CODE_SCENARIO)}")
     return scenario.payload_builder()
 
 
@@ -765,7 +765,7 @@ def random_scenario(rng: random.Random | None = None) -> Scenario:
 
 
 def by_family() -> dict[str, list[dict[str, Any]]]:
-    """Scenarios groupes par famille, pour l'affichage de l'interface."""
+    """Scénarios groupes par famille, pour l'affichage de l'interface."""
     grouped: dict[str, list[dict[str, Any]]] = {}
     for scenario in SCENARIOS:
         grouped.setdefault(scenario.attack_type.family.code, []).append(scenario.to_dict())

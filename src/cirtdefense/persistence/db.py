@@ -1,4 +1,4 @@
-"""Ouverture de connexion et creation du schema."""
+"""Ouverture de connexion et création du schema."""
 
 from __future__ import annotations
 
@@ -151,7 +151,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
 
 @contextmanager
 def transaction(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
-    """Transaction explicite : la connexion est en autocommit par defaut."""
+    """Transaction explicite : la connexion est en autocommit par défaut."""
     conn.execute("BEGIN IMMEDIATE")
     try:
         yield conn

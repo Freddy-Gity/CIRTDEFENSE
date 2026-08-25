@@ -1,8 +1,8 @@
-"""Extraction des attributs comportementaux d'une entite.
+"""Extraction des attributs comportementaux d'une entité.
 
 Les attributs sont volontairement peu nombreux et interpretables : en
 autonomie totale, un score qu'on ne sait pas expliquer est un score qu'on ne
-peut pas defendre devant l'analyste apres coup.
+peut pas defendre devant l'analyste après coup.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ class BehaviourFeatures:
     last_seen: datetime | None = None
 
     def as_vector(self) -> dict[str, float]:
-        """Representation numerique stable, utilisee par le scoreur."""
+        """Représentation numérique stable, utilisee par le scoreur."""
         return {
             "event_rate": float(self.event_count),
             "hour_spread": float(len(self.distinct_hours)),
@@ -43,7 +43,7 @@ class BehaviourFeatures:
 
 
 OFF_HOURS = set(range(0, 6)) | {22, 23}
-"""Plage consideree hors heures ouvrables (UTC). A ajuster au fuseau du site."""
+"""Plage considérée hors heures ouvrables (UTC). à ajuster au fuseau du site."""
 
 
 def extract(entity: str, events: list[DetectionEvent]) -> BehaviourFeatures:
@@ -69,7 +69,7 @@ def extract(entity: str, events: list[DetectionEvent]) -> BehaviourFeatures:
 
 
 def entity_of(event: DetectionEvent) -> str:
-    """Entite observee : l'utilisateur si connu, sinon la machine."""
+    """Entité observée : l'utilisateur si connu, sinon la machine."""
     return event.asset.user or event.asset.correlation_key()
 
 

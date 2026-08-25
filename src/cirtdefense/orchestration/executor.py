@@ -1,18 +1,18 @@
 """Executeur : application effective des actions (EF-07 revisee).
 
-C'est le point exact ou la v3.0 se separe de la v2.1. Il n'y a plus d'etape
-d'attente : une action validee par la politique, presente au catalogue de
-reversibilite et autorisee par le coupe-circuit part immediatement.
+C'est le point exact ou la v3.0 se sépare de la v2.1. Il n'y a plus d'étape
+d'attente : une action validee par la politique, présente au catalogue de
+réversibilité et autorisée par le coupe-circuit part immédiatement.
 
-Ordre des operations, non negociable :
+Ordre des opérations, non negociable :
 
-1. mesure de reference de la cible (sans elle, EF-25 est aveugle) ;
-2. execution ;
+1. mesure de référence de la cible (sans elle, EF-25 est aveugle) ;
+2. exécution ;
 3. journalisation ;
 4. notification a posteriori de l'analyste (EF-13 revisee).
 
-La mesure de reference precede l'execution. Inverser 1 et 2 rendrait toute
-imputation de degradation impossible, et donc le rollback autonome arbitraire.
+La mesure de référence precede l'exécution. Inverser 1 et 2 rendrait toute
+imputation de dégradation impossible, et donc le rollback autonome arbitraire.
 """
 
 from __future__ import annotations
@@ -95,7 +95,7 @@ class Executor:
             log_with(
                 logger,
                 logging.ERROR,
-                "action refusee avant execution",
+                "action refusée avant exécution",
                 action=spec.key,
                 reason=guard,
             )
@@ -115,7 +115,7 @@ class Executor:
             log_with(
                 logger,
                 logging.ERROR,
-                "exception pendant l'execution",
+                "exception pendant l'exécution",
                 action=spec.key,
                 target=spec.target,
                 error=str(exc),
@@ -132,7 +132,7 @@ class Executor:
                     rollback_token=outcome.rollback_token,
                 )
             else:
-                result.mark_failed(outcome.message or "echec sans motif fourni")
+                result.mark_failed(outcome.message or "échec sans motif fourni")
 
         # (3) Journalisation : reussite comme echec.
         self._actions.save(result)
@@ -154,9 +154,9 @@ class Executor:
         log_with(
             logger,
             level,
-            "action autonome executee"
+            "action autonome exécutée"
             if result.status is ActionStatus.EXECUTED
-            else "action autonome en echec",
+            else "action autonome en échec",
             action=spec.key,
             target=spec.target,
             mode=self._mode,
@@ -186,19 +186,19 @@ class Executor:
         return report
 
     def _preflight(self, spec: ActionSpec) -> str | None:
-        """Derniere verification avant le point de non-retour.
+        """Dernière vérification avant le point de non-retour.
 
         Elle double celle du planificateur a dessein : une action peut avoir
-        ete construite ailleurs (rejeu du mode degrade, appel direct de l'API),
+        été construite ailleurs (rejeu du mode dégrade, appel direct de l'API),
         et le catalogue est le garde-fou qu'on ne veut pas pouvoir contourner.
         """
         entry = self._catalog.get(spec.actuator, spec.verb)
         if entry is None:
-            return f"action '{spec.key}' absente du catalogue de reversibilite"
+            return f"action '{spec.key}' absente du catalogue de réversibilité"
         if not entry.autonomously_executable:
             return (
-                f"action '{spec.key}' declaree {entry.reversibility.value} : "
-                "hors du perimetre de l'execution autonome"
+                f"action '{spec.key}' déclarée {entry.reversibility.value} : "
+                "hors du périmètre de l'exécution autonome"
             )
         if not self._registry.can_handle(spec.actuator, spec.verb):
             return f"actuateur '{spec.actuator}' ne supporte pas le verbe '{spec.verb}'"

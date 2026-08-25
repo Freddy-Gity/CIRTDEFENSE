@@ -4,142 +4,182 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CIRTDEFENSE — poste de supervision</title>
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNyIgZmlsbD0iIzJhNzhkNiIvPjxwYXRoIGQ9Ik0yMiAxNmgtNGwtMyA4LTQtMTYtMiA4SDciIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyLjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==">
 <style>
-/* Palette de visualisation validee (contrastes et separation CVD verifies
-   pour les deux modes). Les quatre teintes categorielles portent les quatre
-   familles du catalogue CIRT ; les couleurs d'etat sont reservees et ne
-   servent jamais de teinte de serie. */
+/* Palette de visualisation validee : bandes de clarte, plancher de chroma,
+   separation CVD et contrastes verifies pour les deux modes. Les quatre
+   teintes categorielles portent les quatre familles du catalogue CIRT ; les
+   couleurs d'etat sont reservees et ne servent jamais de teinte de serie. */
 :root {
   color-scheme: light;
   --surface-1: #fcfcfb;
   --plane: #f9f9f7;
+  --rail: #f4f4f1;
   --ink-1: #0b0b0b;
   --ink-2: #52514e;
   --ink-muted: #898781;
   --grid: #e1e0d9;
-  --axis: #c3c2b7;
-  --ring: rgba(11, 11, 11, 0.10);
+  --ring: rgba(11, 11, 11, .10);
 
-  --fam-A: #2a78d6;
-  --fam-B: #eb6834;
-  --fam-C: #1baf7a;
-  --fam-D: #eda100;
-
-  --good: #0ca30c;
-  --warning: #fab219;
-  --serious: #ec835a;
-  --critical: #d03b3b;
+  --fam-A: #2a78d6; --fam-B: #eb6834; --fam-C: #1baf7a; --fam-D: #eda100;
+  --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b;
   --success-text: #006300;
+  --accent: var(--fam-A);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --surface-1: #1a1a19;
-    --plane: #0d0d0d;
-    --ink-1: #ffffff;
-    --ink-2: #c3c2b7;
-    --ink-muted: #898781;
-    --grid: #2c2c2a;
-    --axis: #383835;
-    --ring: rgba(255, 255, 255, 0.10);
-    --fam-A: #3987e5;
-    --fam-B: #d95926;
-    --fam-C: #199e70;
-    --fam-D: #c98500;
+    --surface-1: #1a1a19; --plane: #0d0d0d; --rail: #151514;
+    --ink-1: #fff; --ink-2: #c3c2b7; --ink-muted: #898781;
+    --grid: #2c2c2a; --ring: rgba(255, 255, 255, .10);
+    --fam-A: #3987e5; --fam-B: #d95926; --fam-C: #199e70; --fam-D: #c98500;
     --success-text: #0ca30c;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --surface-1: #1a1a19;
-  --plane: #0d0d0d;
-  --ink-1: #ffffff;
-  --ink-2: #c3c2b7;
-  --ink-muted: #898781;
-  --grid: #2c2c2a;
-  --axis: #383835;
-  --ring: rgba(255, 255, 255, 0.10);
-  --fam-A: #3987e5;
-  --fam-B: #d95926;
-  --fam-C: #199e70;
-  --fam-D: #c98500;
+  --surface-1: #1a1a19; --plane: #0d0d0d; --rail: #151514;
+  --ink-1: #fff; --ink-2: #c3c2b7; --ink-muted: #898781;
+  --grid: #2c2c2a; --ring: rgba(255, 255, 255, .10);
+  --fam-A: #3987e5; --fam-B: #d95926; --fam-C: #199e70; --fam-D: #c98500;
   --success-text: #0ca30c;
 }
 
 * { box-sizing: border-box; }
+html, body { height: 100%; }
 body {
   margin: 0; background: var(--plane); color: var(--ink-1);
   font: 14px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+  display: grid; grid-template-columns: 232px 1fr;
 }
-header {
-  background: var(--surface-1); border-bottom: 1px solid var(--ring);
-  padding: 14px 24px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+
+/* ------------------------------- barre laterale ------------------------- */
+#rail {
+  background: var(--rail); border-right: 1px solid var(--ring);
+  display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0;
 }
-h1 { font-size: 16px; margin: 0; letter-spacing: .01em; }
-h1 span { color: var(--ink-muted); font-weight: 400; }
+.marque { padding: 16px 16px 12px; display: flex; align-items: center; gap: 9px; }
+.marque .logo {
+  width: 26px; height: 26px; border-radius: 7px; flex: none;
+  background: var(--accent); color: #fff;
+  display: grid; place-items: center; font-weight: 700; font-size: 13px;
+}
+.marque .nom { font-weight: 700; font-size: 14px; letter-spacing: .01em; }
+.marque .ver { font-size: 11px; color: var(--ink-muted); }
+
+#nav { display: flex; flex-direction: column; flex: 1; padding: 4px 8px 12px; gap: 1px; }
+#nav .flex { flex: 1; min-height: 14px; }
+#nav .sep { height: 1px; background: var(--grid); margin: 8px 8px; }
+.lien-nav {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 8px; cursor: pointer;
+  color: var(--ink-2); font-size: 13px; text-decoration: none;
+  border: none; background: none; width: 100%; text-align: left; font-family: inherit;
+}
+.lien-nav:hover { background: var(--surface-1); color: var(--ink-1); }
+.lien-nav[aria-current="page"] {
+  background: var(--surface-1); color: var(--ink-1); font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.lien-nav svg { width: 17px; height: 17px; flex: none; }
+.lien-nav .pastille {
+  margin-left: auto; font-size: 11px; font-weight: 600; padding: 1px 7px;
+  border-radius: 999px; background: var(--grid); color: var(--ink-2);
+}
+#rail .pied { padding: 10px 16px 14px; border-top: 1px solid var(--grid); font-size: 11px; color: var(--ink-muted); }
+
+/* --------------------------------- contenu ------------------------------ */
+#contenu { min-width: 0; display: flex; flex-direction: column; height: 100vh; overflow: auto; }
+#entete {
+  position: sticky; top: 0; z-index: 5; background: var(--surface-1);
+  border-bottom: 1px solid var(--ring); padding: 13px 24px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+#entete h1 { font-size: 15px; margin: 0; font-weight: 650; }
+#entete .sous { font-size: 12px; color: var(--ink-muted); }
 .spacer { margin-left: auto; }
-button, .lien {
-  font: inherit; cursor: pointer; border-radius: 7px;
+main { padding: 20px 24px 44px; max-width: 1320px; width: 100%; }
+
+button, .btn {
+  font: inherit; cursor: pointer; border-radius: 7px; padding: 6px 12px;
   border: 1px solid var(--ring); background: var(--surface-1); color: var(--ink-1);
-  padding: 6px 12px;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
 }
-button:hover { background: var(--plane); }
-button.primaire { background: var(--fam-A); border-color: var(--fam-A); color: #fff; }
+button:hover, .btn:hover { background: var(--plane); }
+button.primaire { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.primaire:hover { filter: brightness(1.08); }
 button:disabled { opacity: .5; cursor: progress; }
-
-nav { display: flex; gap: 4px; padding: 0 24px; background: var(--surface-1);
-      border-bottom: 1px solid var(--ring); }
-nav button {
-  border: none; background: none; border-radius: 0; padding: 10px 14px;
-  border-bottom: 2px solid transparent; color: var(--ink-2);
+select, input {
+  font: inherit; padding: 6px 10px; border-radius: 7px;
+  border: 1px solid var(--ring); background: var(--surface-1); color: var(--ink-1);
 }
-nav button[aria-selected="true"] { color: var(--ink-1); border-bottom-color: var(--fam-A); font-weight: 600; }
 
-main { padding: 22px 24px 48px; max-width: 1340px; margin: 0 auto; }
-section[hidden] { display: none; }
 h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
-     color: var(--ink-muted); margin: 26px 0 10px; font-weight: 600; }
+     color: var(--ink-muted); margin: 24px 0 10px; font-weight: 600; }
 h2:first-child { margin-top: 0; }
-
 .carte { background: var(--surface-1); border: 1px solid var(--ring); border-radius: 9px; padding: 14px 16px; }
-.grille { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
-.tuile .valeur { font-size: 27px; font-weight: 600; line-height: 1.15; }
+.grille { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); }
+/* Six tuiles se repartissent en 5+1 avec auto-fit, ce qui laisse la derniere
+   isolee. Sur large ecran on impose trois colonnes : deux rangees egales. */
+@media (min-width: 1180px) { .grille.six { grid-template-columns: repeat(3, 1fr); } }
+.tuile .valeur { font-size: 26px; font-weight: 600; line-height: 1.15; }
 .tuile .libelle { color: var(--ink-2); font-size: 12px; margin-top: 2px; }
 .tuile .note { color: var(--ink-muted); font-size: 11px; margin-top: 7px; line-height: 1.4; }
 
-.bandeau { padding: 10px 16px; border-radius: 9px; margin-bottom: 18px;
-           border: 1px solid; font-weight: 500; display: flex; gap: 10px; align-items: center; }
-.bandeau.actif { border-color: var(--good); color: var(--success-text); background: color-mix(in srgb, var(--good) 9%, var(--surface-1)); }
-.bandeau.suspendu { border-color: var(--critical); color: var(--critical); background: color-mix(in srgb, var(--critical) 9%, var(--surface-1)); }
+.bandeau { padding: 10px 15px; border-radius: 9px; margin-bottom: 18px; border: 1px solid; font-weight: 500; }
+.bandeau.actif { border-color: var(--good); color: var(--success-text);
+                 background: color-mix(in srgb, var(--good) 9%, var(--surface-1)); }
+.bandeau.suspendu { border-color: var(--critical); color: var(--critical);
+                    background: color-mix(in srgb, var(--critical) 9%, var(--surface-1)); }
 
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th { text-align: left; color: var(--ink-muted); font-weight: 600; font-size: 11px;
      text-transform: uppercase; letter-spacing: .06em; padding: 8px 10px;
-     border-bottom: 1px solid var(--grid); }
+     border-bottom: 1px solid var(--grid); white-space: nowrap; }
 td { padding: 9px 10px; border-bottom: 1px solid var(--grid); }
 tr:last-child td { border-bottom: none; }
 .num { font-variant-numeric: tabular-nums; }
 .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
 
-/* Les couleurs d'etat sont toujours accompagnees d'un libelle : la teinte ne
-   porte jamais seule l'information (deux d'entre elles sont sous 3:1 en clair). */
+/* Les couleurs d'etat sont toujours doublees d'un libelle : deux d'entre
+   elles passent sous 3:1 en mode clair, la teinte ne peut pas porter seule. */
 .etat { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px;
-        border-radius: 999px; font-size: 11px; font-weight: 600; border: 1px solid; }
-.etat.critical, .etat.critique { color: var(--critical); border-color: var(--critical); }
-.etat.high, .etat.haute { color: var(--serious); border-color: var(--serious); }
+        border-radius: 999px; font-size: 11px; font-weight: 600; border: 1px solid; white-space: nowrap; }
+.etat.critical, .etat.critique, .etat.injoignable { color: var(--critical); border-color: var(--critical); }
+.etat.high, .etat.haute, .etat.degrade { color: var(--serious); border-color: var(--serious); }
 .etat.medium, .etat.moyenne { color: var(--warning); border-color: var(--warning); }
-.etat.low, .etat.basse, .etat.info { color: var(--good); border-color: var(--good); }
+.etat.low, .etat.basse, .etat.info, .etat.nominal { color: var(--good); border-color: var(--good); }
 
-.fam { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 11px; }
+.fam { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
 .puce { width: 10px; height: 10px; border-radius: 3px; flex: none; }
 .puce.A { background: var(--fam-A); } .puce.B { background: var(--fam-B); }
 .puce.C { background: var(--fam-C); } .puce.D { background: var(--fam-D); }
 
-/* --- Lanceur d'attaques --- */
-.famille { margin-bottom: 22px; }
-.famille h3 { font-size: 13px; margin: 0 0 9px; display: flex; align-items: center; gap: 8px; }
-.attaques { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); }
+/* barres : marques fines, labels directs (relief obligatoire en mode clair) */
+.barres { display: flex; flex-direction: column; gap: 9px; }
+.barre { display: grid; grid-template-columns: 172px 1fr 40px; align-items: center; gap: 10px; }
+.barre .nom { font-size: 12px; color: var(--ink-2); }
+.piste { background: var(--grid); border-radius: 4px; height: 12px; overflow: hidden; }
+.remplissage { height: 100%; border-radius: 4px; }
+.barre .val { font-size: 12px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+
+.deux { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+@media (max-width: 1080px) { .deux { grid-template-columns: 1fr; } }
+
+.vide { color: var(--ink-muted); padding: 26px 10px; text-align: center; }
+.muet { color: var(--ink-muted); font-size: 12px; }
+a { color: var(--accent); }
+
+/* flux d'actions */
+.flux { display: flex; flex-direction: column; gap: 0; }
+.evt { display: grid; grid-template-columns: 74px 1fr; gap: 12px; padding: 9px 0;
+       border-bottom: 1px solid var(--grid); font-size: 13px; }
+.evt:last-child { border-bottom: none; }
+.evt .quand { color: var(--ink-muted); font-size: 11px; font-variant-numeric: tabular-nums; padding-top: 2px; }
+.evt .quoi { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+
+/* cartes d'attaque */
+.attaques { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .attaque { background: var(--surface-1); border: 1px solid var(--ring); border-radius: 9px;
            padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 .attaque .tete { display: flex; align-items: baseline; gap: 8px; }
@@ -147,129 +187,56 @@ tr:last-child td { border-bottom: none; }
 .attaque .titre { font-size: 13px; font-weight: 600; line-height: 1.35; }
 .attaque .recit { color: var(--ink-2); font-size: 12px; line-height: 1.45; }
 .attaque .pied { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 4px; }
-.attaque .dang { color: var(--ink-muted); font-size: 11px; }
 
-/* --- Barres : marques fines, labels directs (relief obligatoire en clair) --- */
-.barres { display: flex; flex-direction: column; gap: 9px; }
-.barre { display: grid; grid-template-columns: 130px 1fr 42px; align-items: center; gap: 10px; }
-.barre .nom { font-size: 12px; color: var(--ink-2); }
-.piste { background: var(--grid); border-radius: 4px; height: 12px; overflow: hidden; }
-.remplissage { height: 100%; border-radius: 4px; }
-.barre .val { font-size: 12px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.etape { border-left: 2px solid var(--accent); padding: 2px 0 2px 13px; margin-bottom: 10px; }
+.etape .quoi2 { font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
+                color: var(--ink-muted); font-weight: 600; }
 
-/* --- Panneau de resultat --- */
-.chaine { display: grid; gap: 10px; }
-.etape { border-left: 2px solid var(--fam-A); padding: 2px 0 2px 13px; }
-.etape .quoi { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-muted); font-weight: 600; }
-.etape .detail { font-size: 13px; margin-top: 3px; }
-.actions-liste { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
-.action-item { display: flex; gap: 8px; align-items: baseline; font-size: 12px; }
-.action-item .verbe { font-family: ui-monospace, Menlo, monospace; font-weight: 600; }
+/* rendu markdown de l'assistant et des rapports */
+.md h3 { font-size: 14px; margin: 14px 0 6px; color: var(--ink-1); }
+.md h4 { font-size: 13px; margin: 12px 0 4px; color: var(--ink-2); }
+.md p { margin: 6px 0; } .md ul { margin: 6px 0; padding-left: 20px; }
+.md li { margin: 3px 0; } .md table { margin: 8px 0; }
+.md blockquote { margin: 8px 0; padding: 8px 12px; border-left: 3px solid var(--serious);
+                 background: color-mix(in srgb, var(--serious) 8%, transparent); }
+.md hr { border: none; border-top: 1px solid var(--grid); margin: 14px 0; }
+.md code { background: var(--plane); padding: 1px 5px; border-radius: 4px;
+           font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 
-.vide { color: var(--ink-muted); padding: 22px 10px; text-align: center; }
-.muet { color: var(--ink-muted); font-size: 12px; }
-a { color: var(--fam-A); }
-#reponse h3 { font-size: 14px; margin: 14px 0 6px; text-transform: none; letter-spacing: 0; color: var(--ink-1); }
-#reponse h4 { font-size: 13px; margin: 12px 0 4px; color: var(--ink-2); }
-#reponse p { margin: 6px 0; }
-#reponse ul { margin: 6px 0; padding-left: 20px; }
-#reponse li { margin: 3px 0; }
-#reponse table { margin: 8px 0; }
-#reponse blockquote { margin: 8px 0; padding: 8px 12px; border-left: 3px solid var(--serious);
-                      background: color-mix(in srgb, var(--serious) 8%, transparent); }
-#reponse hr { border: none; border-top: 1px solid var(--grid); margin: 14px 0; }
-#reponse code { background: var(--plane); padding: 1px 5px; border-radius: 4px; }
-.deux-colonnes { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
-@media (max-width: 1000px) { .deux-colonnes { grid-template-columns: 1fr; } }
+@media (max-width: 860px) {
+  body { grid-template-columns: 60px 1fr; }
+  .marque .nom, .marque .ver, .lien-nav span, .lien-nav .pastille, #rail .pied { display: none; }
+  .lien-nav { justify-content: center; padding: 10px; }
+  .marque { justify-content: center; padding: 14px 0 10px; }
+}
 </style>
 </head>
 <body>
 
-<header>
-  <h1>CIRTDEFENSE <span>v3.0 — orchestration autonome</span></h1>
-  <span id="site" class="mono muet"></span>
-  <span class="spacer"></span>
-  <button id="theme" title="Basculer le theme">Theme</button>
-  <a class="lien" href="/docs" style="text-decoration:none;padding:6px 12px;display:inline-block">API</a>
-</header>
+<aside id="rail">
+  <div class="marque">
+    <div class="logo">C</div>
+    <div><div class="nom">CIRTDEFENSE</div><div class="ver">v3.0 — autonome</div></div>
+  </div>
+  <nav id="nav"></nav>
+  <div class="pied" id="pied-rail"></div>
+</aside>
 
-<nav role="tablist">
-  <button role="tab" data-vue="demo" aria-selected="true">Démonstration</button>
-  <button role="tab" data-vue="portefeuille" aria-selected="false">Portefeuille</button>
-  <button role="tab" data-vue="journal" aria-selected="false">Journal d'audit</button>
-  <button role="tab" data-vue="assistant" aria-selected="false">Assistant</button>
-</nav>
-
-<main>
-  <div id="bandeau" class="bandeau">Chargement…</div>
-
-  <!-- ================= DÉMONSTRATION ================= -->
-  <section id="vue-demo">
-    <h2>Simuler une attaque du catalogue CIRT</h2>
-    <div class="carte" style="margin-bottom:16px">
-      <div class="muet" style="margin-bottom:10px">
-        Chaque bouton fabrique la charge utile qu'un collecteur émettrait réellement pour
-        l'attaque décrite, puis la remet à l'adaptateur d'ingestion. La plateforme ne fait
-        aucune différence avec une alerte venue d'un Wazuh de production.
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="primaire" data-famille="">Tout le catalogue (22)</button>
-        <button data-famille="A">Famille A — réseau</button>
-        <button data-famille="B">Famille B — applicatif</button>
-        <button data-famille="C">Famille C — insider</button>
-        <button data-famille="D">Famille D — infrastructure</button>
-        <span class="spacer"></span>
-        <button id="reset">Remettre à zéro</button>
-      </div>
+<div id="contenu">
+  <header id="entete">
+    <div>
+      <h1 id="titre-vue">…</h1>
+      <div class="sous" id="sous-vue"></div>
     </div>
-
-    <div id="resultat" hidden></div>
-    <div id="catalogue"></div>
-  </section>
-
-  <!-- ================= PORTEFEUILLE ================= -->
-  <section id="vue-portefeuille" hidden>
-    <h2>Posture</h2>
-    <div class="grille" id="posture"></div>
-
-    <div class="deux-colonnes" style="margin-top:16px">
-      <div>
-        <h2>Incidents par famille d'attaque</h2>
-        <div class="carte"><div class="barres" id="par-famille"></div></div>
-      </div>
-      <div>
-        <h2>Incidents par niveau de dangerosité</h2>
-        <div class="carte"><div class="barres" id="par-danger"></div></div>
-      </div>
-    </div>
-
-    <h2>Portefeuille d'incidents — ordonné par enjeu (Axe 4)</h2>
-    <div class="carte" style="padding:0;overflow:auto">
-      <table><thead><tr>
-        <th>Type</th><th>Famille</th><th>Criticité</th><th>Dangerosité</th>
-        <th>Priorité</th><th>Risque</th><th>État</th><th>Exéc.</th><th>Annul.</th>
-      </tr></thead><tbody id="incidents"></tbody></table>
-    </div>
-  </section>
-
-  <!-- ================= JOURNAL ================= -->
-  <section id="vue-journal" hidden>
-    <h2>Journal d'audit — seule trace de ce que le système a fait seul</h2>
-    <div class="carte" style="padding:0;overflow:auto">
-      <table><thead><tr>
-        <th>#</th><th>Horodatage</th><th>Type</th><th>Acteur</th><th>Incident</th>
-      </tr></thead><tbody id="audit"></tbody></table>
-    </div>
-  </section>
-
-  <!-- ================= ASSISTANT ================= -->
-  <section id="vue-assistant" hidden>
-    <h2>Assistant — bilan et rapports</h2>
-    <div id="assistant-zone" class="carte">
-      <div class="vide">Assistant en cours de chargement…</div>
-    </div>
-  </section>
-</main>
+    <span class="spacer"></span>
+    <span class="mono muet" id="site"></span>
+    <button id="theme" title="Basculer le thème">Thème</button>
+  </header>
+  <main>
+    <div id="bandeau" class="bandeau">Chargement…</div>
+    <div id="vue"></div>
+  </main>
+</div>
 
 <script src="/static/app.js"></script>
 </body>

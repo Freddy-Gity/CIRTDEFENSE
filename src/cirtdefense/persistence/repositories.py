@@ -1,4 +1,4 @@
-"""Depots : seul endroit du code qui connait le SQL."""
+"""Dépôts : seul endroit du code qui connaît le SQL."""
 
 from __future__ import annotations
 
@@ -120,9 +120,9 @@ class IncidentRepository:
         return [json.loads(r["payload"]) for r in self._conn.execute(query, params)]
 
     def _rehydrate(self, row: sqlite3.Row) -> Incident:
-        """Recharge l'incident et rattache ses evenements et actions.
+        """Recharge l'incident et rattache ses événements et actions.
 
-        Le `payload` porte l'etat de synthese ; les collections viennent de
+        Le `payload` porte l'état de synthèse ; les collections viennent de
         leurs tables propres pour rester la source de verite.
         """
         data = json.loads(row["payload"])
@@ -238,11 +238,11 @@ class ActionRepository:
         return int(row["n"])
 
     def status_counts(self) -> dict[str, int]:
-        """Repartition globale par statut, lue depuis la table des actions.
+        """Répartition globale par statut, lue depuis la table des actions.
 
-        Le portefeuille ne doit pas deduire ces chiffres de l'instantane
-        stocke avec l'incident : cet instantane est fige au moment de
-        l'execution et ignore les annulations survenues ensuite.
+        Le portefeuille ne doit pas deduire ces chiffrés de l'instantané
+        stocke avec l'incident : cet instantané est fige au moment de
+        l'exécution et ignore les annulations survenues ensuite.
         """
         rows = self._conn.execute(
             "SELECT status, COUNT(*) AS n FROM actions GROUP BY status"
@@ -347,8 +347,8 @@ class PolicyRepository:
 
 
 class BreakerRepository:
-    """Etat persistant du coupe-circuit : il doit survivre a un redemarrage,
-    sinon un simple restart reactiverait l'autonomie apres un incident."""
+    """État persistant du coupe-circuit : il doit survivre à un redémarrage,
+    sinon un simple restart reactiverait l'autonomie après un incident."""
 
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn

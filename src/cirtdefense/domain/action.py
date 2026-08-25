@@ -1,7 +1,7 @@
-"""Actions correctives : specification, resultat, catalogue de reversibilite.
+"""Actions correctives : specification, résultat, catalogue de réversibilité.
 
 En v3.0 une action n'est plus une *proposition* soumise a l'analyste (EF-13
-ancienne version) mais un ordre que le moteur execute lui-meme. Le garde-fou
+ancienne version) mais un ordre que le moteur exécute lui-même. Le garde-fou
 n'est donc plus humain : il est porte par les invariants de ce module.
 """
 
@@ -21,29 +21,29 @@ def _new_id(prefix: str) -> str:
 
 @dataclass(frozen=True, slots=True)
 class ActionSpec:
-    """Description declarative d'une action executable par un actuateur.
+    """Description declarative d'une action exécutable par un actuateur.
 
-    `rollback_verb` est obligatoire des lors que l'action se dit reversible :
+    `rollback_verb` est obligatoire des lors que l'action se dit réversible :
     c'est la contrepartie technique de l'autonomie totale (CDCF 1.4.3).
     """
 
     verb: str
     """Identifiant du geste : block_ip, isolate_host, disable_account..."""
     actuator: str
-    """Nom du connecteur qui sait executer ce verbe : firewall, edr, iam..."""
+    """Nom du connecteur qui sait exécuter ce verbe : firewall, edr, iam..."""
     target: str
     parameters: dict[str, Any] = field(default_factory=dict)
     reversibility: Reversibility = Reversibility.IRREVERSIBLE
     rollback_verb: str | None = None
     blast_radius: int = 1
-    """Nombre approximatif d'entites impactees. Sert a la politique (EF-15)."""
+    """Nombre approximatif d'entités impactees. Sert à la politique (EF-15)."""
     expected_effect: str = ""
     timeout_seconds: int = 30
 
     def __post_init__(self) -> None:
         if self.reversibility is not Reversibility.IRREVERSIBLE and not self.rollback_verb:
             raise ValueError(
-                f"action '{self.verb}' declaree {self.reversibility.value} "
+                f"action '{self.verb}' déclarée {self.reversibility.value} "
                 "sans rollback_verb : le rollback autonome (EF-25) serait impossible"
             )
         if self.blast_radius < 1:
@@ -56,7 +56,7 @@ class ActionSpec:
 
 @dataclass(slots=True)
 class ActionResult:
-    """Trace d'execution d'une ActionSpec. Muable : son statut evolue."""
+    """Trace d'exécution d'une ActionSpec. Muable : son statut évolue."""
 
     action_id: str = field(default_factory=lambda: _new_id("act"))
     spec: ActionSpec | None = None
@@ -68,7 +68,7 @@ class ActionResult:
     output: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
     rollback_token: str | None = None
-    """Jeton rendu par l'actuateur, nécessaire pour annuler precisement."""
+    """Jeton rendu par l'actuateur, nécessaire pour annuler précisément."""
     rolled_back_at: datetime | None = None
     rollback_reason: str | None = None
     rollback_actor: str = ""

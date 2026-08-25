@@ -1,20 +1,20 @@
 """Catalogue des reactions autonomes par type d'attaque (CIRT / ANTIC).
 
 Transcription fidele du document « Classification des reactions autonomes par
-type d'attaque/intrusion ». Chaque ligne du document devient une entree ici :
-c'est la reference unique a laquelle le classificateur, les playbooks et les
+type d'attaque/intrusion ». Chaque ligne du document devient une entrée ici :
+c'est la référence unique à laquelle le classificateur, les playbooks et les
 tests se rapportent.
 
-Deux principes du document sont portes par le code lui-meme :
+Deux principes du document sont portes par le code lui-même :
 
-- **Aucune ligne ne declenche d'action irreversible en automatique.** Un test
-  de recette le verifie sur l'ensemble du catalogue, de sorte qu'une entree
+- **Aucune ligne ne déclenche d'action irréversible en automatique.** Un test
+  de recette le vérifie sur l'ensemble du catalogue, de sorte qu'une entrée
   ajoutee plus tard ne puisse pas franchir cette limite en silence.
-- **La reversibilite conditionne ce que le moteur autonome peut declencher**
-  (Axe 2), et la priorite arbitre l'ordre de traitement (Axe 4).
+- **La réversibilité conditionne ce que le moteur autonome peut déclencher**
+  (Axe 2), et la priorité arbitre l'ordre de traitement (Axe 4).
 
-Pour le rancongiciel (A6), la reponse reste l'isolation reseau — jamais une
-remediation complete. C'est le point de vigilance signale pour la soutenance.
+Pour le rancongiciel (A6), la réponse reste l'isolation réseau — jamais une
+remédiation complète. C'est le point de vigilance signale pour la soutenance.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ class AttackFamily(StrEnum):
     """Les quatre familles du catalogue."""
 
     NETWORK = "network"
-    """A — Attaques reseau."""
+    """A — Attaques réseau."""
     APPLICATION = "application"
     """B — Attaques applicatives."""
     INSIDER = "insider"
@@ -48,7 +48,7 @@ class AttackFamily(StrEnum):
 
 
 _FAMILY_LABELS = {
-    AttackFamily.NETWORK: "Attaques reseau",
+    AttackFamily.NETWORK: "Attaques réseau",
     AttackFamily.APPLICATION: "Attaques applicatives",
     AttackFamily.INSIDER: "Comportemental / insider",
     AttackFamily.INFRASTRUCTURE: "Infrastructure",
@@ -63,7 +63,7 @@ _FAMILY_CODES = {
 
 
 class Priority(StrEnum):
-    """Priorite de traitement au sens de l'Axe 4 (portefeuille d'incidents)."""
+    """Priorité de traitement au sens de l'Axe 4 (portefeuille d'incidents)."""
 
     CRITICAL = "critique"
     HIGH = "haute"
@@ -87,7 +87,7 @@ _PRIORITY_RANK = {
 class AttackType:
     """Une ligne du catalogue.
 
-    `category` fait le lien avec la categorie normalisee du `DetectionEvent` :
+    `category` fait le lien avec la catégorie normalisee du `DetectionEvent` :
     c'est par elle que le playbook correspondant est retrouve.
     """
 
@@ -96,26 +96,26 @@ class AttackType:
     family: AttackFamily
     label: str
     category: str
-    """Categorie normalisee, cle de correspondance avec les playbooks."""
+    """Catégorie normalisee, clé de correspondance avec les playbooks."""
     detection_sources: tuple[str, ...]
     signal: str
-    """Signal caracteristique, tel que decrit au document."""
+    """Signal caractéristique, tel que decrit au document."""
     prescribed_actions: str
     """Actions correctives prescrites, en clair."""
     reversibility: Reversibility
     priority: Priority
     priority_rationale: str = ""
     base_severity: Severity = Severity.MEDIUM
-    """Gravite plancher : un evenement de ce type ne descend jamais en dessous."""
+    """Gravité plancher : un événement de ce type ne descend jamais en dessous."""
     dangerousness: int = 5
-    """Degre de dangerosite intrinseque, 1 a 10.
+    """Degré de dangerosité intrinseque, 1 a 10.
 
-    Distinct de la priorite : la priorite arbitre l'ordre de traitement, la
-    dangerosite mesure le dommage potentiel si l'attaque aboutit. Un scan (A3)
+    Distinct de la priorité : la priorité arbitre l'ordre de traitement, la
+    dangerosité mesure le dommage potentiel si l'attaque aboutit. Un scan (A3)
     est peu prioritaire mais precurseur ; un rancongiciel (A6) est les deux.
     """
     residual_effect: str = ""
-    """Ce que l'action corrective laisse comme gene, s'il y en a une."""
+    """Ce que l'action corrective laisse comme gêne, s'il y en à une."""
     no_direct_action: bool = False
     """Vrai pour les lignes « sans action corrective directe » (D1)."""
 
@@ -158,17 +158,17 @@ NETWORK_ATTACKS: tuple[AttackType, ...] = (
     AttackType(
         code="A1",
         family=AttackFamily.NETWORK,
-        label="DDoS volumetrique (SYN/UDP flood, amplification DNS/NTP)",
+        label="DDoS volumétrique (SYN/UDP flood, amplification DNS/NTP)",
         category="ddos_volumetric",
-        detection_sources=("Surveillance infrastructure", "Detection reseau existante"),
+        detection_sources=("Surveillance infrastructure", "Détection réseau existante"),
         signal="Pic de trafic entrant, saturation de bande passante",
         prescribed_actions=(
             "Activation scrubbing / rate-limiting en amont (edge), "
-            "blackholing des IP sources en tete de volumetrie"
+            "blackholing des IP sources en tête de volumétrie"
         ),
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.HIGH,
-        priority_rationale="service impacte immediatement",
+        priority_rationale="service impacte immédiatement",
         base_severity=Severity.HIGH,
         dangerousness=7,
     ),
@@ -178,9 +178,9 @@ NETWORK_ATTACKS: tuple[AttackType, ...] = (
         label="DDoS applicatif (HTTP flood, Slowloris)",
         category="ddos_application",
         detection_sources=("Surveillance infrastructure",),
-        signal="Nombre de connexions/sessions anormal, temps de reponse degrade",
+        signal="Nombre de connexions/sessions anormal, temps de réponse dégrade",
         prescribed_actions=(
-            "Regle WAF de limitation de debit par IP/session, fermeture des connexions inactives"
+            "Règle WAF de limitation de débit par IP/session, fermeture des connexions inactives"
         ),
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.HIGH,
@@ -192,8 +192,8 @@ NETWORK_ATTACKS: tuple[AttackType, ...] = (
         family=AttackFamily.NETWORK,
         label="Scan de reconnaissance (port scan, scan de vulnerabilites)",
         category="scan",
-        detection_sources=("Surveillance infrastructure", "Detection reseau"),
-        signal="Sequence de connexions a ports multiples depuis une meme source",
+        detection_sources=("Surveillance infrastructure", "Détection réseau"),
+        signal="Séquence de connexions a ports multiples depuis une même source",
         prescribed_actions="Blocage temporaire de l'IP source au pare-feu",
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.LOW,
@@ -207,54 +207,54 @@ NETWORK_ATTACKS: tuple[AttackType, ...] = (
         label="Brute force / credential stuffing",
         category="bruteforce",
         detection_sources=("UEBA (comportemental)",),
-        signal="Nombre d'echecs d'authentification anormal, ciblage de comptes multiples",
+        signal="Nombre d'échecs d'authentification anormal, ciblage de comptes multiples",
         prescribed_actions=(
             "Verrouillage temporaire du/des compte(s) cible(s), blocage IP, "
-            "forcage MFA a la prochaine connexion"
+            "forcage MFA à la prochaine connexion"
         ),
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         priority=Priority.HIGH,
         priority_rationale="moyenne a haute selon le compte cible",
         base_severity=Severity.MEDIUM,
         dangerousness=6,
-        residual_effect="deverrouillage manuel possible mais gene l'utilisateur legitime",
+        residual_effect="deverrouillage manuel possible mais gêne l'utilisateur légitime",
     ),
     AttackType(
         code="A5",
         family=AttackFamily.NETWORK,
-        label="Exfiltration de donnees (tunneling DNS, transferts anormaux)",
+        label="Exfiltration de données (tunneling DNS, transferts anormaux)",
         category="exfiltration",
         detection_sources=("UEBA", "Surveillance"),
-        signal="Volume sortant anormal, requetes DNS atypiques (longueur, frequence)",
+        signal="Volume sortant anormal, requêtes DNS atypiques (longueur, fréquence)",
         prescribed_actions=(
             "Coupure de la connexion sortante concernee, "
-            "mise en quarantaine reseau de l'hote source"
+            "mise en quarantaine réseau de l'hôte source"
         ),
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         priority=Priority.HIGH,
-        priority_rationale="donnee potentiellement deja partie",
+        priority_rationale="donnée potentiellement déjà partie",
         base_severity=Severity.HIGH,
         dangerousness=9,
-        residual_effect="interruption de service pour l'hote",
+        residual_effect="interruption de service pour l'hôte",
     ),
     AttackType(
         code="A6",
         family=AttackFamily.NETWORK,
-        label="Ransomware (chiffrement de masse, propagation laterale)",
+        label="Ransomware (chiffrement de masse, propagation latérale)",
         category="ransomware",
-        detection_sources=("UEBA (activite fichiers massive)", "Surveillance"),
+        detection_sources=("UEBA (activité fichiers massive)", "Surveillance"),
         signal="Taux de modification/chiffrement de fichiers anormal, propagation SMB/RDP suspecte",
         prescribed_actions=(
-            "Isolation reseau immediate de l'hote (quarantaine VLAN), blocage des "
-            "mouvements lateraux, declenchement snapshot/sauvegarde si disponible "
-            "— jamais d'action irreversible automatique"
+            "Isolation réseau immédiate de l'hôte (quarantaine VLAN), blocage des "
+            "mouvements latéraux, déclenchement snapshot/sauvegarde si disponible "
+            "— jamais d'action irréversible automatique"
         ),
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         priority=Priority.CRITICAL,
-        priority_rationale="priorite maximale",
+        priority_rationale="priorité maximale",
         base_severity=Severity.CRITICAL,
         dangerousness=10,
-        residual_effect="isolation levee apres investigation",
+        residual_effect="isolation levée après investigation",
     ),
     AttackType(
         code="A7",
@@ -262,15 +262,15 @@ NETWORK_ATTACKS: tuple[AttackType, ...] = (
         label="Command & Control (beaconing, connexions sortantes suspectes)",
         category="c2",
         detection_sources=("UEBA", "Enrichissement (IOC via CVE/OSINT)"),
-        signal="Connexions periodiques vers IP/domaine a reputation degradee",
+        signal="Connexions périodiques vers IP/domaine a reputation dégradée",
         prescribed_actions=(
-            "Sinkhole DNS, blocage de l'IP/domaine C2, isolation de l'hote si beaconing confirme"
+            "Sinkhole DNS, blocage de l'IP/domaine C2, isolation de l'hôte si beaconing confirme"
         ),
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         priority=Priority.HIGH,
         base_severity=Severity.HIGH,
         dangerousness=8,
-        residual_effect="isolation levee apres investigation, si elle a ete appliquee",
+        residual_effect="isolation levée après investigation, si elle a été appliquée",
     ),
 )
 
@@ -286,8 +286,8 @@ APPLICATION_ATTACKS: tuple[AttackType, ...] = (
         label="Injection SQL",
         category="sql_injection",
         detection_sources=("Surveillance applicative", "WAF"),
-        signal="Motifs de requetes anormaux dans les parametres",
-        prescribed_actions="Regle WAF de blocage du motif, blocage temporaire de la source",
+        signal="Motifs de requêtes anormaux dans les paramètres",
+        prescribed_actions="Règle WAF de blocage du motif, blocage temporaire de la source",
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.HIGH,
         base_severity=Severity.HIGH,
@@ -301,28 +301,28 @@ APPLICATION_ATTACKS: tuple[AttackType, ...] = (
         detection_sources=("Surveillance applicative",),
         signal="Contenu suspect dans les champs soumis (balises script, encodages)",
         prescribed_actions=(
-            "Filtrage/sanitisation a la volee si possible, blocage de la requete, "
-            "alerte si contenu deja stocke"
+            "Filtrage/sanitisation à la volee si possible, blocage de la requête, "
+            "alerte si contenu déjà stocke"
         ),
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         priority=Priority.MEDIUM,
         base_severity=Severity.MEDIUM,
         dangerousness=5,
-        residual_effect="un contenu deja stocke reste a traiter manuellement",
+        residual_effect="un contenu déjà stocke reste à traiter manuellement",
     ),
     AttackType(
         code="B3",
         family=AttackFamily.APPLICATION,
-        label="RCE (execution de code distante)",
+        label="RCE (exécution de code distante)",
         category="rce",
         detection_sources=("UEBA (process anormal)", "Surveillance"),
         signal="Processus enfant inattendu lance par un service applicatif",
-        prescribed_actions="Isolation reseau immediate de l'hote, kill du processus suspect",
+        prescribed_actions="Isolation réseau immédiate de l'hôte, kill du processus suspect",
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         priority=Priority.CRITICAL,
         base_severity=Severity.CRITICAL,
         dangerousness=10,
-        residual_effect="perte de session/etat applicatif",
+        residual_effect="perte de session/état applicatif",
     ),
     AttackType(
         code="B4",
@@ -330,8 +330,8 @@ APPLICATION_ATTACKS: tuple[AttackType, ...] = (
         label="Path traversal / LFI / RFI",
         category="path_traversal",
         detection_sources=("Surveillance applicative",),
-        signal="Motifs '../', chemins hors racine applicative dans les requetes",
-        prescribed_actions="Blocage de la requete, regle WAF",
+        signal="Motifs '../', chemins hors racine applicative dans les requêtes",
+        prescribed_actions="Blocage de la requête, règle WAF",
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.MEDIUM,
         base_severity=Severity.MEDIUM,
@@ -343,7 +343,7 @@ APPLICATION_ATTACKS: tuple[AttackType, ...] = (
         label="Upload de fichier malveillant (webshell)",
         category="webshell_upload",
         detection_sources=("Surveillance", "Enrichissement (signature connue)"),
-        signal="Fichier executable/script depose dans un repertoire non prevu",
+        signal="Fichier exécutable/script depose dans un répertoire non prévu",
         prescribed_actions=(
             "Mise en quarantaine du fichier (deplacement, pas suppression), "
             "blocage de l'IP uploadeuse"
@@ -359,8 +359,8 @@ APPLICATION_ATTACKS: tuple[AttackType, ...] = (
         label="Abus d'API / contournement de rate limit",
         category="api_abuse",
         detection_sources=("Surveillance applicative",),
-        signal="Volume de requetes anormal par cle API/token",
-        prescribed_actions="Revocation temporaire du token, rate-limiting renforce",
+        signal="Volume de requêtes anormal par clé API/token",
+        prescribed_actions="Révocation temporaire du token, rate-limiting renforce",
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.MEDIUM,
         priority_rationale="basse a moyenne",
@@ -375,7 +375,7 @@ APPLICATION_ATTACKS: tuple[AttackType, ...] = (
         detection_sources=("UEBA (impossible travel, anomalie de session)",),
         signal="Session utilisee depuis deux localisations incompatibles, reutilisation de token",
         prescribed_actions=(
-            "Revocation de la session/du token concerne, forcage de re-authentification"
+            "Révocation de la session/du token concerne, forcage de re-authentification"
         ),
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.HIGH,
@@ -393,12 +393,12 @@ INSIDER_ANOMALIES: tuple[AttackType, ...] = (
     AttackType(
         code="C1",
         family=AttackFamily.INSIDER,
-        label="Elevation de privilege anormale",
+        label="Élévation de privilège anormale",
         category="privilege_escalation",
         detection_sources=("UEBA",),
-        signal="Changement de role/permission hors processus habituel, sans ticket associe",
+        signal="Changement de rôle/permission hors processus habituel, sans ticket associe",
         prescribed_actions=(
-            "Revocation immediate du privilege accorde, restauration du role anterieur"
+            "Révocation immédiate du privilège accorde, restauration du rôle anterieur"
         ),
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.HIGH,
@@ -408,13 +408,13 @@ INSIDER_ANOMALIES: tuple[AttackType, ...] = (
     AttackType(
         code="C2",
         family=AttackFamily.INSIDER,
-        label="Acces a des ressources hors profil habituel",
+        label="Accès a des ressources hors profil habituel",
         category="abnormal_access",
         detection_sources=("UEBA",),
-        signal="Consultation de ressources jamais accedees par l'entite, hors perimetre metier",
+        signal="Consultation de ressources jamais accedees par l'entité, hors périmètre métier",
         prescribed_actions=(
-            "Blocage de l'acces en cours, alerte — pas de revocation de compte "
-            "(risque de faux positif plus eleve)"
+            "Blocage de l'accès en cours, alerte — pas de révocation de compte "
+            "(risque de faux positif plus élève)"
         ),
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.MEDIUM,
@@ -425,11 +425,11 @@ INSIDER_ANOMALIES: tuple[AttackType, ...] = (
     AttackType(
         code="C3",
         family=AttackFamily.INSIDER,
-        label="Exfiltration lente (staging, volumes anormaux sur duree)",
+        label="Exfiltration lente (staging, volumes anormaux sur durée)",
         category="slow_exfiltration",
         detection_sources=("UEBA",),
-        signal="Accumulation progressive de donnees dans un espace non habituel",
-        prescribed_actions="Restriction temporaire des droits d'ecriture/export du compte, alerte",
+        signal="Accumulation progressive de données dans un espace non habituel",
+        prescribed_actions="Restriction temporaire des droits d'écriture/export du compte, alerte",
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         priority=Priority.HIGH,
         priority_rationale="moyenne a haute",
@@ -445,14 +445,14 @@ INSIDER_ANOMALIES: tuple[AttackType, ...] = (
         detection_sources=("UEBA",),
         signal="Connexions incompatibles geographiquement/temporellement",
         prescribed_actions=(
-            "Suspension temporaire du compte, revocation de toutes les sessions actives, "
+            "Suspension temporaire du compte, révocation de toutes les sessions actives, "
             "forcage MFA"
         ),
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         priority=Priority.HIGH,
         base_severity=Severity.HIGH,
         dangerousness=8,
-        residual_effect="gene l'utilisateur legitime le temps de la verification",
+        residual_effect="gêne l'utilisateur légitime le temps de la vérification",
     ),
 )
 
@@ -467,11 +467,11 @@ INFRASTRUCTURE_FINDINGS: tuple[AttackType, ...] = (
         family=AttackFamily.INFRASTRUCTURE,
         label="Certificat TLS expire ou faible",
         category="tls_certificate",
-        detection_sources=("Scan sslyze periodique",),
-        signal="Certificat expire, algorithme ou taille de cle insuffisants",
+        detection_sources=("Scan sslyze périodique",),
+        signal="Certificat expire, algorithme ou taille de clé insuffisants",
         prescribed_actions=(
-            "Notification + generation automatique d'un rapport — pas d'action "
-            "corrective directe possible (depend d'une autorite de certification externe)"
+            "Notification + génération automatique d'un rapport — pas d'action "
+            "corrective directe possible (depend d'une autorité de certification externe)"
         ),
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.LOW,
@@ -485,11 +485,11 @@ INFRASTRUCTURE_FINDINGS: tuple[AttackType, ...] = (
         family=AttackFamily.INFRASTRUCTURE,
         label="Port inattendu ouvert",
         category="unexpected_port",
-        detection_sources=("Scan Nmap periodique",),
-        signal="Delta entre les ports observes et la configuration attendue",
+        detection_sources=("Scan Nmap périodique",),
+        signal="Delta entre les ports observés et la configuration attendue",
         prescribed_actions=(
-            "Fermeture du port si sous controle de la plateforme, "
-            "sinon alerte de derive de configuration"
+            "Fermeture du port si sous contrôle de la plateforme, "
+            "sinon alerte de dérive de configuration"
         ),
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.MEDIUM,
@@ -501,28 +501,27 @@ INFRASTRUCTURE_FINDINGS: tuple[AttackType, ...] = (
         family=AttackFamily.INFRASTRUCTURE,
         label="Service indisponible (panne ou deni de service)",
         category="service_unavailable",
-        detection_sources=("Sonde httpx en echec repete",),
-        signal="Echecs repetes de la sonde de disponibilite",
+        detection_sources=("Sonde httpx en échec répète",),
+        signal="Échecs répétés de la sonde de disponibilité",
         prescribed_actions=(
-            "Redemarrage du service si sous controle, "
-            "bascule vers un noeud de secours si disponible"
+            "Redémarrage du service si sous contrôle, bascule vers un nœud de secours si disponible"
         ),
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         priority=Priority.HIGH,
         priority_rationale="haute si service critique",
         base_severity=Severity.HIGH,
         dangerousness=6,
-        residual_effect="interruption pendant le redemarrage",
+        residual_effect="interruption pendant le redémarrage",
     ),
     AttackType(
         code="D4",
         family=AttackFamily.INFRASTRUCTURE,
-        label="Derive de configuration (drift)",
+        label="Dérive de configuration (drift)",
         category="config_drift",
-        detection_sources=("Comparaison a la configuration de reference",),
-        signal="Ecart entre configuration observee et configuration de reference",
+        detection_sources=("Comparaison à la configuration de référence",),
+        signal="Écart entre configuration observée et configuration de référence",
         prescribed_actions=(
-            "Alerte + restauration automatique de la configuration de reference "
+            "Alerte + restauration automatique de la configuration de référence "
             "si le delta est mineur"
         ),
         reversibility=Reversibility.REVERSIBLE,

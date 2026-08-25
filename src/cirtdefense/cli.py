@@ -1,4 +1,4 @@
-"""Interface en ligne de commande : exploitation, recette et demonstration."""
+"""Interface en ligne de commande : exploitation, recette et démonstration."""
 
 from __future__ import annotations
 
@@ -17,22 +17,22 @@ from .platform import build_platform
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="cirtd",
-        description="CIRTDEFENSE — orchestration autonome de la reponse aux incidents",
+        description="CIRTDEFENSE — orchestration autonome de la réponse aux incidents",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("status", help="Afficher la posture d'autonomie et l'etat du systeme")
+    sub.add_parser("status", help="Afficher la posture d'autonomie et l'état du système")
 
-    serve = sub.add_parser("serve", help="Demarrer l'API")
+    serve = sub.add_parser("serve", help="Démarrer l'API")
     serve.add_argument("--host", default=None)
     serve.add_argument("--port", type=int, default=None)
     serve.add_argument("--reload", action="store_true")
 
-    ingest = sub.add_parser("ingest", help="Ingerer un evenement et executer la reponse")
+    ingest = sub.add_parser("ingest", help="Ingerer un événement et exécuter la réponse")
     ingest.add_argument("source", help="wazuh, suricata, syslog, generic_json")
-    ingest.add_argument("file", help="Fichier JSON (ou '-' pour l'entree standard)")
+    ingest.add_argument("file", help="Fichier JSON (ou '-' pour l'entrée standard)")
 
-    loop = sub.add_parser("control-loop", help="Executer un passage de la boucle EF-25")
+    loop = sub.add_parser("control-loop", help="Exécuter un passage de la boucle EF-25")
     loop.add_argument("--json", action="store_true")
 
     compile_cmd = sub.add_parser(
@@ -41,17 +41,17 @@ def main(argv: list[str] | None = None) -> int:
     compile_cmd.add_argument("file", help="Fichier texte contenant la politique")
     compile_cmd.add_argument("--activate", action="store_true")
 
-    catalog = sub.add_parser("catalog", help="Afficher le catalogue de reversibilite")
+    catalog = sub.add_parser("catalog", help="Afficher le catalogue de réversibilité")
     catalog.add_argument("--autonomous-only", action="store_true")
 
-    audit = sub.add_parser("audit", help="Consulter et verifier le journal d'audit")
+    audit = sub.add_parser("audit", help="Consulter et vérifier le journal d'audit")
     audit.add_argument("--incident", default=None)
     audit.add_argument("--verify", action="store_true")
     audit.add_argument("--limit", type=int, default=30)
 
     breaker = sub.add_parser("breaker", help="Coupe-circuit global (EF-26)")
     breaker.add_argument("action", choices=["status", "trip", "reset"])
-    breaker.add_argument("--reason", default="operation manuelle en ligne de commande")
+    breaker.add_argument("--reason", default="opération manuelle en ligne de commande")
 
     args = parser.parse_args(argv)
     configure_logging()
@@ -74,7 +74,7 @@ def _dispatch(args: argparse.Namespace, platform: Any) -> int:
             payload = _read_json(args.file)
             result = platform.ingest_and_respond(args.source, payload)
             if result is None:
-                print("Evenement non traite : duplique, ou mis en file (mode degrade).")
+                print("Événement non traite : duplique, ou mis en file (mode dégrade).")
                 return 0
             _print(result.to_dict())
         case "control-loop":
@@ -85,7 +85,7 @@ def _dispatch(args: argparse.Namespace, platform: Any) -> int:
             if report.unparsed_sentences:
                 print(
                     f"\nATTENTION : {len(report.unparsed_sentences)} consigne(s) non "
-                    "compilee(s), sans aucun effet sur le moteur.",
+                    "compilée(s), sans aucun effet sur le moteur.",
                     file=sys.stderr,
                 )
             if args.activate:

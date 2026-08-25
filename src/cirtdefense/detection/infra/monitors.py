@@ -1,8 +1,8 @@
-"""Detection de degradation subie (EF-21 a EF-23).
+"""Détection de dégradation subie (EF-21 a EF-23).
 
-Produit un `DetectionEvent` de categorie `infrastructure_degradation` quand
-une cible sort de ses seuils de service. Ces evenements empruntent la meme
-chaine que les alertes de securite : l'indisponibilite est traitee comme un
+Produit un `DetectionEvent` de catégorie `infrastructure_degradation` quand
+une cible sort de ses seuils de service. Ces événements empruntent la même
+chaîne que les alertes de sécurité : l'indisponibilité est traitée comme un
 incident a part entiere, ce qui est le sens de l'Axe 5.
 """
 
@@ -38,7 +38,7 @@ class ServiceThresholds:
                 f"taux d'erreur {snapshot.error_rate:.1%} > seuil {self.max_error_rate:.1%}"
             )
         if self.min_throughput and snapshot.throughput < self.min_throughput:
-            problems.append(f"debit {snapshot.throughput:.1f} < seuil {self.min_throughput:.1f}")
+            problems.append(f"débit {snapshot.throughput:.1f} < seuil {self.min_throughput:.1f}")
         return problems
 
 
@@ -70,7 +70,7 @@ class InfrastructureMonitor:
             severity=_severity_for(snapshot, thresholds),
             confidence=0.9,  # une mesure directe, pas une inference
             asset=Asset(asset_id=target, hostname=target, criticality=thresholds.criticality),
-            title=f"Degradation de service sur {target}",
+            title=f"Dégradation de service sur {target}",
             description="; ".join(problems),
             indicators={"health": snapshot.to_dict(), "breaches": problems},
             raw=snapshot.to_dict(),

@@ -1,7 +1,7 @@
-"""Actions executees et annulation manuelle a posteriori.
+"""Actions exécutées et annulation manuelle a posteriori.
 
-Il n'existe ici **aucun** point d'entree de validation prealable. C'est
-volontaire et central : l'analyste consulte ce qui a ete fait et peut
+Il n'existe ici **aucun** point d'entrée de validation préalable. C'est
+volontaire et central : l'analyste consulte ce qui a été fait et peut
 l'annuler, jamais l'autoriser.
 """
 
@@ -30,7 +30,7 @@ def rollback(
     platform: PlatformDep,
     role: AnalystDep,
 ) -> dict:
-    """Porte de sortie humaine : annulation apres coup, jamais en amont."""
+    """Porte de sortie humaine : annulation après coup, jamais en amont."""
     outcome = platform.rollback.rollback_by_id(
         action_id, request.reason, actor=f"human:{role.value}"
     )
@@ -41,9 +41,9 @@ def rollback(
 
 @router.post("/control-loop/run")
 def run_control_loop(platform: PlatformDep, role: AnalystDep) -> dict:
-    """Declenche un passage de la boucle EF-25.
+    """Déclenche un passage de la boucle EF-25.
 
-    En exploitation, ce passage est declenche par le planificateur periodique ;
+    En exploitation, ce passage est déclenché par le planificateur périodique ;
     l'exposer permet de le rejouer en recette et en soutenance.
     """
     return platform.engine.run_control_loop().to_dict()

@@ -1,4 +1,4 @@
-"""Administration : coupe-circuit (EF-26), mode degrade, sondes de sante."""
+"""Administration : coupe-circuit (EF-26), mode dégrade, sondes de santé."""
 
 from __future__ import annotations
 
@@ -18,16 +18,16 @@ def breaker_status(platform: PlatformDep) -> dict:
 
 @router.post("/breaker/trip")
 def trip(request: BreakerRequest, platform: PlatformDep, role: AdminDep) -> dict:
-    """Arret d'urgence global de l'autonomie (EF-26).
+    """Arrêt d'urgence global de l'autonomie (EF-26).
 
-    Suspend toute execution ; n'introduit aucune validation par action.
+    Suspend toute exécution ; n'introduit aucune validation par action.
     """
     return platform.breaker.trip(request.reason, actor=f"human:{role.value}").to_dict()
 
 
 @router.post("/breaker/reset")
 def reset(request: BreakerRequest, platform: PlatformDep, role: AdminDep) -> dict:
-    """Rearmement. Le systeme ne se rearme jamais seul : il ne peut pas juger
+    """Réarmement. Le système ne se rearme jamais seul : il ne peut pas juger
     que la cause de son propre emballement a disparu."""
     return platform.breaker.reset(actor=f"human:{role.value}", reason=request.reason).to_dict()
 
@@ -56,16 +56,16 @@ def spool(platform: PlatformDep) -> dict:
 
 @router.post("/health-report")
 def report_health(request: HealthReportRequest, platform: PlatformDep, role: AdminDep) -> dict:
-    """Alimente la sonde de sante depuis l'exterieur.
+    """Alimente la sonde de santé depuis l'extérieur.
 
-    Utile en recette et en soutenance pour rejouer une degradation post-action
-    sans casser un service reel.
+    Utile en recette et en soutenance pour rejouer une dégradation post-action
+    sans casser un service réel.
     """
     if not isinstance(platform.probe, StaticProbe):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            "la sonde active n'est pas alimentee de l'exterieur ; ce point "
-            "d'entree n'a de sens qu'avec la sonde statique",
+            "la sonde active n'est pas alimentee de l'extérieur ; ce point "
+            "d'entrée n'a de sens qu'avec la sonde statique",
         )
     platform.probe.set(
         HealthSnapshot(

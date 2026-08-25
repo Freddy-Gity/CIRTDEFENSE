@@ -1,14 +1,14 @@
-"""Actuateur de simulation : applique l'etat en memoire, sans effet reel.
+"""Actuateur de simulation : applique l'état en mémoire, sans effet réel.
 
-Sert a trois choses, toutes indispensables au projet :
-- la recette et la demonstration en soutenance, ou aucun equipement reel
+Sert à trois choses, toutes indispensables au projet :
+- la recette et la démonstration en soutenance, ou aucun équipement réel
   n'est mobilise ;
 - les tests automatises de la boucle EF-25 ;
 - l'exploitation en mode `simulation`, ou la plateforme raisonne et journalise
   exactement comme en production mais n'agit pas.
 
-Le mode d'actionnement est une donnee de configuration journalisee : un
-auditeur doit pouvoir dire si une action tracee a reellement eu lieu.
+Le mode d'actionnement est une donnée de configuration journalisée : un
+auditeur doit pouvoir dire si une action tracee a réellement eu lieu.
 """
 
 from __future__ import annotations
@@ -30,11 +30,11 @@ class AppliedState:
     applied_at: datetime
     rolled_back_at: datetime | None = None
     previous_state: dict[str, Any] = field(default_factory=dict)
-    """Etat d'avant, memorise pour permettre une annulation exacte."""
+    """État d'avant, memorise pour permettre une annulation exacte."""
 
 
 class SimulatedActuator(Actuator):
-    """Implantation de reference du contrat, tenant un etat coherent."""
+    """Implantation de référence du contrat, tenant un état cohérent."""
 
     def __init__(self, name: str, verbs: tuple[str, ...], healthy: bool = True) -> None:
         self.name = name
@@ -43,14 +43,14 @@ class SimulatedActuator(Actuator):
         self._state: dict[str, AppliedState] = {}
         self._by_key: dict[str, str] = {}
         self.failure_verbs: set[str] = set()
-        """Verbes forces en echec : sert a eprouver le traitement d'erreur."""
+        """Verbes forces en échec : sert à eprouver le traitement d'erreur."""
         self.rollback_failure_verbs: set[str] = set()
 
     # -- contrat ------------------------------------------------------------
 
     def execute(self, verb: str, target: str, parameters: dict[str, Any]) -> ActuationOutcome:
         if verb in self.failure_verbs:
-            return ActuationOutcome(success=False, message=f"echec simule de '{verb}' sur {target}")
+            return ActuationOutcome(success=False, message=f"échec simule de '{verb}' sur {target}")
 
         key = f"{verb}:{target}"
         existing_token = self._by_key.get(key)
@@ -61,7 +61,7 @@ class SimulatedActuator(Actuator):
                 success=True,
                 rollback_token=existing_token,
                 already_applied=True,
-                message=f"'{verb}' deja applique sur {target}",
+                message=f"'{verb}' déjà applique sur {target}",
                 details={"target": target, "verb": verb},
             )
 
@@ -86,7 +86,7 @@ class SimulatedActuator(Actuator):
         self, verb: str, target: str, token: str, parameters: dict[str, Any]
     ) -> ActuationOutcome:
         if verb in self.rollback_failure_verbs:
-            return ActuationOutcome(success=False, message=f"echec simule d'annulation de '{verb}'")
+            return ActuationOutcome(success=False, message=f"échec simule d'annulation de '{verb}'")
 
         state = self._state.get(token)
         if state is None:
@@ -97,7 +97,7 @@ class SimulatedActuator(Actuator):
             return ActuationOutcome(
                 success=True,
                 already_applied=True,
-                message="action deja annulee",
+                message="action déjà annulée",
                 details={"token": token},
             )
         state.rolled_back_at = datetime.now(UTC)
@@ -126,7 +126,7 @@ class SimulatedActuator(Actuator):
     def _capture_previous(
         self, verb: str, target: str, parameters: dict[str, Any]
     ) -> dict[str, Any]:
-        """Memorise ce qu'il faudra retablir. Une annulation qui ne sait pas
+        """Memorise ce qu'il faudra rétablir. Une annulation qui ne sait pas
         d'ou elle vient n'est pas une annulation."""
         if verb == "move_to_vlan":
             return {"vlan": parameters.get("previous_vlan", "vlan-production")}

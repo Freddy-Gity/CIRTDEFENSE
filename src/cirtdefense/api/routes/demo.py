@@ -1,13 +1,13 @@
-"""Mode demonstration : declenchement des attaques du catalogue depuis l'interface.
+"""Mode démonstration : déclenchement des attaques du catalogue depuis l'interface.
 
-Ces points d'entree ne fabriquent pas d'attaque : ils fabriquent la charge
+Ces points d'entrée ne fabriquent pas d'attaque : ils fabriquent la charge
 utile qu'un collecteur emettrait pour l'attaque decrite, puis la remettent a
 l'adaptateur d'ingestion nominal. La plateforme ne fait aucune difference
-entre une attaque declenchee ici et une alerte venue d'un Wazuh de production.
+entre une attaque déclenchée ici et une alerte venue d'un Wazuh de production.
 
-Ils sont volontairement accessibles sans role : le mode demonstration est
+Ils sont volontairement accessibles sans rôle : le mode démonstration est
 inoffensif tant que `CIRT_ACTUATION_MODE` vaut `simulation`. En posture
-`live`, les actions seraient reelles — un garde-fou l'interdit alors.
+`live`, les actions seraient réelles — un garde-fou l'interdit alors.
 """
 
 from __future__ import annotations
@@ -40,20 +40,20 @@ def catalog() -> dict:
 
 @router.get("/assets")
 def assets() -> dict:
-    """Parc fictif utilise par les scenarios."""
+    """Parc fictif utilise par les scénarios."""
     return {"count": len(ASSETS), "assets": {k: dict(v) for k, v in ASSETS.items()}}
 
 
 @router.post("/run/{code}", status_code=status.HTTP_202_ACCEPTED)
 def run(code: str, platform: PlatformDep) -> dict:
-    """Simule l'attaque `code` et rend la chaine complete de traitement."""
+    """Simule l'attaque `code` et rend la chaîne complète de traitement."""
     _refuse_in_live_mode(platform)
 
     scenario = get_scenario(code)
     if scenario is None:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
-            f"scenario '{code}' inconnu ; consulter /api/v1/demo/scenarios",
+            f"scénario '{code}' inconnu ; consulter /api/v1/demo/scénarios",
         )
 
     payload = build_payload(scenario.code)
@@ -63,7 +63,7 @@ def run(code: str, platform: PlatformDep) -> dict:
         return {
             "code": scenario.code,
             "accepted": False,
-            "reason": "evenement duplique (deduplication EF-19), ou plateforme en mode degrade",
+            "reason": "événement dupliqué (deduplication EF-19), ou plateforme en mode dégrade",
             "scenario": scenario.to_dict(),
         }
 
@@ -125,12 +125,12 @@ def run_all(platform: PlatformDep, family: str | None = None) -> dict:
 
 @router.post("/reset")
 def reset(platform: PlatformDep) -> dict:
-    """Remet le mode demonstration a zero.
+    """Remet le mode démonstration à zero.
 
     Le journal d'audit n'est **pas** efface : il est immuable par construction,
-    et une remise a zero qui le viderait contredirait le mecanisme meme qu'il
-    incarne. Seuls les incidents, decisions, actions et notifications sont
-    retires, et l'operation est elle-meme journalisee.
+    et une remise à zero qui le viderait contredirait le mécanisme même qu'il
+    incarne. Seuls les incidents, décisions, actions et notifications sont
+    retirés, et l'opération est elle-même journalisée.
     """
     _refuse_in_live_mode(platform)
 
@@ -160,12 +160,12 @@ def reset(platform: PlatformDep) -> dict:
 
 
 def _refuse_in_live_mode(platform: PlatformDep) -> None:
-    """Le mode demonstration est inoffensif en simulation ; en posture reelle
-    il declencherait de vraies actions sur les equipements."""
+    """Le mode démonstration est inoffensif en simulation ; en posture réelle
+    il declencherait de vraies actions sur les équipements."""
     if platform.settings.autonomy.is_live:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            "mode demonstration refuse : la plateforme est en actionnement "
-            "'live' et les actions simulees auraient des effets reels sur les "
-            "equipements. Repasser CIRT_ACTUATION_MODE a 'simulation'.",
+            "mode démonstration refuse : la plateforme est en actionnement "
+            "'live' et les actions simulées auraient des effets réels sur les "
+            "équipements. Repasser CIRT_ACTUATION_MODE a 'simulation'.",
         )

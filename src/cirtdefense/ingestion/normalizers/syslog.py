@@ -34,7 +34,7 @@ _USER = re.compile(r"(?:for\s+user|user|for)\s+(?P<user>[\w.\-\\]+)", re.IGNOREC
 
 
 def normalize(payload: dict[str, Any]) -> DetectionEvent:
-    """Accepte {"line": "<134>1 ..."} ou directement une chaine sous `message`."""
+    """Accepte {"line": "<134>1 ..."} ou directement une chaîne sous `message`."""
     line = str(payload.get("line") or payload.get("message") or "")
     match = _RFC5424.match(line) or _RFC3164.match(line)
     fields: dict[str, str] = match.groupdict() if match else {}

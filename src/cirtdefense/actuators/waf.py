@@ -1,11 +1,11 @@
 """Actuateur pare-feu applicatif (WAF).
 
-Couvre les reponses applicatives du catalogue : blocage de motif (B1, B4),
-blocage de requete (B2), limitation de debit par IP ou session (A2, B6).
+Couvre les réponses applicatives du catalogue : blocage de motif (B1, B4),
+blocage de requête (B2), limitation de débit par IP ou session (A2, B6).
 
-Une regle WAF est toujours reversible — elle se retire — mais son rayon
-d'impact est plus large qu'une regle reseau : un motif trop general bloque du
-trafic legitime. Le rayon declare dans les playbooks doit le refleter.
+Une règle WAF est toujours réversible — elle se retire — mais son rayon
+d'impact est plus large qu'une règle réseau : un motif trop général bloque du
+trafic légitime. Le rayon déclare dans les playbooks doit le refleter.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ class SimulatedWaf(SimulatedActuator):
 
 
 class LiveWaf(Actuator):
-    """Squelette d'integration (ModSecurity, Cloudflare, AWS WAF, NAXSI)."""
+    """Squelette d'intégration (ModSecurity, Cloudflare, AWS WAF, NAXSI)."""
 
     name = "waf"
     supported_verbs = VERBS
@@ -43,23 +43,23 @@ class LiveWaf(Actuator):
 
     def execute(self, verb: str, target: str, parameters: dict[str, Any]) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur WAF en mode reel sans client configure")
+            raise RuntimeError("actuateur WAF en mode réel sans client configure")
         if verb == "block_pattern" and len(target) < 4:
             # Un motif trop court bloquerait une part enorme du trafic
             # legitime. Le refus est prefere a une coupure de service.
             return ActuationOutcome(
                 success=False,
-                message=f"motif '{target}' trop general : blocage refuse, "
+                message=f"motif '{target}' trop général : blocage refuse, "
                 "le rayon d'impact serait indetermine",
             )
-        raise NotImplementedError("LiveWaf.execute : brancher le client WAF du site.")
+        raise NotImplementedError("LiveWaf.exécute : brancher le client WAF du site.")
 
     def rollback(
         self, verb: str, target: str, token: str, parameters: dict[str, Any]
     ) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur WAF en mode reel sans client configure")
-        raise NotImplementedError("LiveWaf.rollback : retirer la regle identifiee par `token`.")
+            raise RuntimeError("actuateur WAF en mode réel sans client configure")
+        raise NotImplementedError("LiveWaf.rollback : retirer la règle identifiée par `token`.")
 
     def health(self) -> bool:
         return self._client is not None

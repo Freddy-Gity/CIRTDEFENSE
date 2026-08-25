@@ -1,11 +1,11 @@
-"""Mode degrade (Axe 5) : fonctionnement en perte de connectivite.
+"""Mode dégrade (Axe 5) : fonctionnement en perte de connectivite.
 
-L'Axe 5 gagne en importance avec le pivot v3.0. Un systeme qui agit seul doit
-savoir ce qu'il fait quand il ne voit plus ses equipements : continuer a agir
-a l'aveugle serait le pire comportement, puisque la boucle de controle EF-25
+L'Axe 5 gagne en importance avec le pivot v3.0. Un système qui agit seul doit
+savoir ce qu'il fait quand il ne voit plus ses équipements : continuer a agir
+a l'aveugle serait le pire comportement, puisque la boucle de contrôle EF-25
 ne pourrait plus constater ses propres degats.
 
-La regle retenue est donc : en mode degrade, le systeme **observe et met en
-file**, il n'agit pas. Il rejoue a la reprise, apres avoir verifie que les
-evenements en file sont toujours d'actualite.
+La règle retenue est donc : en mode dégrade, le système **observe et met en
+file**, il n'agit pas. Il rejoue à la reprise, après avoir vérifié que les
+événements en file sont toujours d'actualite.
 """

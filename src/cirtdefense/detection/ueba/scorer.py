@@ -1,7 +1,7 @@
-"""Scoreur UEBA : transforme un ecart au profil en `DetectionEvent` (EF-09/EF-10).
+"""Scoreur UEBA : transforme un écart au profil en `DetectionEvent` (EF-09/EF-10).
 
 Deux garde-fous, directement lies a l'autonomie totale :
-- une entite sans profil etabli ne produit jamais d'alerte (on ne qualifie pas
+- une entité sans profil etabli ne produit jamais d'alerte (on ne qualifie pas
   d'anormal ce qu'on n'a jamais observe) ;
 - le score est accompagne des attributs qui l'ont produit, pour que l'action
   qui en decoulera reste explicable a posteriori.
@@ -18,7 +18,7 @@ from .baseline import BaselineStore
 from .features import BehaviourFeatures, entity_of, extract, summarize
 
 ALERT_THRESHOLD = 3.0
-"""Ecart-type cumule au-dela duquel un comportement est signale."""
+"""Écart-type cumule au-delà duquel un comportement est signalé."""
 
 _SEVERITY_BANDS: tuple[tuple[float, Severity], ...] = (
     (8.0, Severity.CRITICAL),
@@ -56,7 +56,7 @@ class AnomalyScore:
     def explain(self) -> list[str]:
         ordered = sorted(self.contributions.items(), key=lambda kv: abs(kv[1]), reverse=True)
         return [
-            f"{name} s'ecarte de {deviation:+.1f} ecart-type du profil habituel"
+            f"{name} s'écarte de {deviation:+.1f} écart-type du profil habituel"
             for name, deviation in ordered[:4]
             if abs(deviation) >= 1.0
         ]
@@ -85,11 +85,11 @@ class UebaScorer:
         self._store.get(entity).learn(extract(entity, events))
 
     def evaluate(self, events: list[DetectionEvent]) -> DetectionEvent | None:
-        """Produit un evenement UEBA si le lot observe sort du profil.
+        """Produit un événement UEBA si le lot observe sort du profil.
 
-        Le profil est mis a jour *seulement* quand le comportement est juge
+        Le profil est mis à jour *seulement* quand le comportement est juge
         normal : sinon une attaque prolongee deviendrait progressivement la
-        nouvelle reference de l'entite (empoisonnement de la ligne de base).
+        nouvelle référence de l'entité (empoisonnement de la ligne de base).
         """
         if not events:
             return None
@@ -118,7 +118,7 @@ class UebaScorer:
                 zone=reference.asset.zone,
             ),
             title=f"Comportement inhabituel de {entity} (score {result.score})",
-            description="; ".join(explanation) or "Ecart global au profil de reference",
+            description="; ".join(explanation) or "Écart global au profil de référence",
             indicators={
                 "ueba_score": result.score,
                 "ueba_threshold": ALERT_THRESHOLD,

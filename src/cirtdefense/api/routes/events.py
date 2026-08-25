@@ -1,4 +1,4 @@
-"""Ingestion d'evenements (EF-18) et declenchement de la chaine autonome."""
+"""Ingestion d'événements (EF-18) et déclenchement de la chaîne autonome."""
 
 from __future__ import annotations
 
@@ -13,10 +13,10 @@ router = APIRouter(prefix="/api/v1/events", tags=["evenements"])
 
 @router.post("", status_code=status.HTTP_202_ACCEPTED)
 def ingest(request: IngestRequest, platform: PlatformDep) -> dict:
-    """Ingere un evenement et execute immediatement la reponse qui en decoule.
+    """Ingere un événement et exécute immédiatement la réponse qui en decoule.
 
-    Le code 202 est deliberé : la reponse rend compte de ce qui a *deja* ete
-    fait, elle n'annonce pas une action a venir soumise a validation.
+    Le code 202 est deliberé : la réponse rend compte de ce qui a *déjà* été
+    fait, elle n'annonce pas une action à venir soumise a validation.
     """
     try:
         result = platform.ingest_and_respond(request.source, request.payload)
@@ -26,8 +26,8 @@ def ingest(request: IngestRequest, platform: PlatformDep) -> dict:
     if result is None:
         return {
             "accepted": False,
-            "reason": "evenement duplique, ou plateforme en mode degrade "
-            "(l'evenement a ete mis en file)",
+            "reason": "événement dupliqué, ou plateforme en mode dégrade "
+            "(l'événement a été mis en file)",
             "degraded_mode": platform.degraded,
         }
     return {"accepted": True, **result.to_dict()}

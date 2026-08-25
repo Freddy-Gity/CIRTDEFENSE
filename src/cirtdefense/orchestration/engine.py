@@ -1,21 +1,21 @@
-"""Moteur d'orchestration autonome : la chaine complete.
+"""Moteur d'orchestration autonome : la chaîne complète.
 
-Enchainement, pour tout evenement, sans aucune interruption humaine :
+Enchainement, pour tout événement, sans aucune interruption humaine :
 
     ingestion -> enrichissement -> planification -> politique -> coupe-circuit
-      -> execution -> notification a posteriori -> surveillance -> rollback
+      -> exécution -> notification a posteriori -> surveillance -> rollback
 
-Le moteur ne connait pas les details de chaque etape ; il en connait l'ordre
-et les conditions d'arret. Quatre motifs peuvent interrompre la chaine avant
-l'execution, et chacun est journalise avec son motif :
+Le moteur ne connaît pas les détails de chaque étape ; il en connaît l'ordre
+et les conditions d'arrêt. Quatre motifs peuvent interrompre la chaîne avant
+l'exécution, et chacun est journalisé avec son motif :
 
 - contexte non fonde (EF-04) ;
-- aucune action au catalogue de reversibilite (EF-14) ;
+- aucune action au catalogue de réversibilité (EF-14) ;
 - politique de l'administrateur (EF-15) ;
 - coupe-circuit ouvert (EF-26).
 
 Aucun de ces motifs n'est une attente de validation : ce sont des refus. Le
-systeme n'a pas d'etat « en attente d'un humain ».
+système n'a pas d'état « en attente d'un humain ».
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass(slots=True)
 class OrchestrationResult:
-    """Ce qui s'est passe pour un evenement, de bout en bout."""
+    """Ce qui s'est passe pour un événement, de bout en bout."""
 
     event: DetectionEvent
     incident: Incident
@@ -107,7 +107,7 @@ class OrchestrationEngine:
         self._autonomy_enabled = autonomy_enabled
 
     def set_policy(self, policy: ResponsePolicy) -> None:
-        """Rechargement a chaud d'une politique recompilee."""
+        """Rechargement à chaud d'une politique recompilee."""
         self._policy = policy
 
     @property
@@ -176,7 +176,7 @@ class OrchestrationEngine:
         return result
 
     def run_control_loop(self) -> ControlLoopReport:
-        """EF-25. A appeler periodiquement, apres le delai de surveillance."""
+        """EF-25. à appeler periodiquement, après le délai de surveillance."""
         report = self._rollback.run_control_loop()
         if report.rolled_back or report.rollback_failures:
             self._breaker.evaluate_auto_trip()
@@ -205,8 +205,8 @@ class OrchestrationEngine:
         if not self._autonomy_enabled:
             decision.outcome = DecisionOutcome.POLICY_DENIED
             decision.rationale = (
-                "autonomie desactivee par configuration (CIRT_AUTONOMY_ENABLED=false) : "
-                "le systeme raisonne et journalise mais n'execute pas"
+                "autonomie désactivée par configuration (CIRT_AUTONOMY_ENABLED=false) : "
+                "le système raisonne et journalise mais n'exécute pas"
             )
             return decision
 
@@ -215,7 +215,7 @@ class OrchestrationEngine:
             decision.outcome = DecisionOutcome.BREAKER_OPEN
             decision.rationale = (
                 f"coupe-circuit ouvert (EF-26) : {status.reason}. "
-                "Aucune action n'est executee jusqu'au rearmement par l'administrateur."
+                "Aucune action n'est exécutée jusqu'au réarmement par l'administrateur."
             )
             return decision
 
@@ -226,7 +226,7 @@ class OrchestrationEngine:
             decision.rationale = (
                 "contexte non fonde documentairement : "
                 f"{context.grounding.reason if context.grounding else 'aucune source'}. "
-                "Agir reviendrait a agir sur une hypothese."
+                "Agir reviendrait a agir sur une hypothèse."
             )
             return decision
 
@@ -241,10 +241,10 @@ class OrchestrationEngine:
             decision.outcome = (
                 DecisionOutcome.OUT_OF_CATALOG if plan.skipped else DecisionOutcome.NO_ACTION_NEEDED
             )
-            decision.rationale = "aucune action executable : " + (
+            decision.rationale = "aucune action exécutable : " + (
                 "; ".join(s["reason"] for s in plan.skipped)
                 if plan.skipped
-                else "aucune regle de playbook ne correspond a cet evenement"
+                else "aucune règle de playbook ne correspond à cet événement"
             )
             return decision
 
@@ -255,8 +255,8 @@ class OrchestrationEngine:
             decision.outcome = DecisionOutcome.POLICY_DENIED
             denied = [v["rule_text"] or v["reason"] for v in verdicts if not v["allowed"]]
             decision.rationale = (
-                "toutes les actions candidates sont refusees par la politique de "
-                f"reponse : {'; '.join(denied)}"
+                "toutes les actions candidates sont refusées par la politique de "
+                f"réponse : {'; '.join(denied)}"
             )
             return decision
 
@@ -265,14 +265,14 @@ class OrchestrationEngine:
         qualification = (
             f"{classification.code} — {classification.label} "
             f"[{classification.family_label_or_blank()}] ; "
-            f"criticite {classification.severity.value}, "
-            f"dangerosite {classification.dangerousness:.1f}/10 "
-            f"({classification.danger_band}), priorite {classification.priority.value}"
+            f"criticité {classification.severity.value}, "
+            f"dangerosité {classification.dangerousness:.1f}/10 "
+            f"({classification.danger_band}), priorité {classification.priority.value}"
         )
         decision.rationale = (
             f"{qualification}. Playbook {plan.playbook_id} v{plan.playbook_version}, "
-            f"regles {', '.join(plan.matched_rules)} ; "
-            f"{len(allowed)} action(s) autorisee(s) par la politique "
+            f"règles {', '.join(plan.matched_rules)} ; "
+            f"{len(allowed)} action(s) autorisée(s) par la politique "
             f"{self._policy.policy_id} v{self._policy.version} "
             f"(empreinte {self._policy.checksum()})"
         )
@@ -310,7 +310,7 @@ class OrchestrationEngine:
     def _notify_after_the_fact(
         self, incident: Incident, decision: Decision, report: ExecutionReport
     ) -> list[str]:
-        """Informe l'analyste de ce qui a ete fait, sans jamais l'attendre."""
+        """Informe l'analyste de ce qui a été fait, sans jamais l'attendre."""
         if self._notifier is None:
             return []
         sent = self._notifier.notify_actions(incident, decision, report)

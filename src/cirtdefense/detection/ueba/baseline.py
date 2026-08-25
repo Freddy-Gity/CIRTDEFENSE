@@ -1,8 +1,8 @@
-"""Profil de reference par entite : moyenne et ecart-type glissants.
+"""Profil de référence par entité : moyenne et écart-type glissants.
 
-Un modele statistique simple est retenu a dessein. Il est reproductible d'une
-execution a l'autre, ce qu'un modele reentraine en continu ne garantit pas —
-propriete indispensable pour rejuger une action apres coup.
+Un modèle statistique simple est retenu a dessein. Il est reproductible d'une
+exécution a l'autre, ce qu'un modèle reentraine en continu ne garantit pas —
+propriété indispensable pour rejuger une action après coup.
 """
 
 from __future__ import annotations
@@ -17,8 +17,8 @@ from typing import Any
 from .features import BehaviourFeatures
 
 MIN_OBSERVATIONS = 7
-"""En deca, l'entite est declaree « sans reference » : le scoreur s'abstient
-plutot que de qualifier d'anormal ce qu'il n'a simplement jamais vu."""
+"""En deca, l'entité est déclarée « sans référence » : le scoreur s'abstient
+plutôt que de qualifier d'anormal ce qu'il n'a simplement jamais vu."""
 
 
 @dataclass(slots=True)
@@ -89,8 +89,8 @@ class EntityBaseline:
 
 
 class BaselineStore:
-    """Stockage fichier des profils. Suffisant a l'echelle d'un CIRT national
-    sur le perimetre du projet, et trivialement inspectable pendant la recette."""
+    """Stockage fichier des profils. Suffisant a l'échelle d'un CIRT national
+    sur le périmètre du projet, et trivialement inspectable pendant la recette."""
 
     def __init__(self, path: Path | str) -> None:
         self._path = Path(path)

@@ -1,9 +1,9 @@
-"""Sondes de sante : mesure de l'etat d'un service ou d'une machine.
+"""Sondes de santé : mesure de l'état d'un service ou d'une machine.
 
 Ces mesures ont deux usages distincts qu'il faut garder separes :
-detecter une degradation *subie* (EF-21) et detecter une degradation
-*provoquee par nos propres actions* (EF-25). Le mecanisme de mesure est le
-meme, l'interpretation ne l'est pas.
+détecter une dégradation *subie* (EF-21) et détecter une dégradation
+*provoquee par nos propres actions* (EF-25). Le mécanisme de mesure est le
+même, l'interpretation ne l'est pas.
 """
 
 from __future__ import annotations
@@ -16,14 +16,14 @@ from typing import Any
 
 @dataclass(frozen=True, slots=True)
 class HealthSnapshot:
-    """Photographie instantanee de l'etat d'une cible."""
+    """Photographie instantanee de l'état d'une cible."""
 
     target: str
     taken_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     reachable: bool = True
     latency_ms: float = 0.0
     error_rate: float = 0.0
-    """Part de requetes en erreur, 0.0 a 1.0."""
+    """Part de requêtes en erreur, 0.0 a 1.0."""
     throughput: float = 0.0
     active_sessions: int = 0
     metrics: dict[str, float] = field(default_factory=dict)
@@ -42,8 +42,8 @@ class HealthSnapshot:
 
 
 class HealthProbe(ABC):
-    """Contrat d'une sonde. L'implantation reelle (ICMP, HTTP, SNMP, agent)
-    depend du site ; la plateforme ne connait que cette interface."""
+    """Contrat d'une sonde. L'implantation réelle (ICMP, HTTP, SNMP, agent)
+    depend du site ; la plateforme ne connaît que cette interface."""
 
     name: str = "probe"
 
@@ -52,10 +52,10 @@ class HealthProbe(ABC):
 
 
 class StaticProbe(HealthProbe):
-    """Sonde alimentee par un dictionnaire : recette, tests et demonstration.
+    """Sonde alimentee par un dictionnaire : recette, tests et démonstration.
 
-    C'est aussi le point d'injection utilise pour rejouer un scenario de
-    degradation post-action sans casser un service reel.
+    C'est aussi le point d'injection utilise pour rejouer un scénario de
+    dégradation post-action sans casser un service réel.
     """
 
     name = "static"

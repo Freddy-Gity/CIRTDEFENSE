@@ -1,4 +1,4 @@
-"""Classification : type, famille, criticite, dangerosite."""
+"""Classification : type, famille, criticité, dangerosité."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ class TestResolutionDuType:
         assert result.code == attack.code
 
     def test_categorie_hors_catalogue_reste_qualifiee(self, classifier):
-        """Un type inconnu doit etre declare tel quel, pas laisse sans
+        """Un type inconnu doit être déclaré tel quel, pas laisse sans
         qualification : le portefeuille doit pouvoir l'afficher."""
         result = classifier.classify(_event("menace_inedite"))
         assert not result.is_catalogued
@@ -67,7 +67,7 @@ class TestCriticite:
 
 class TestDangerosite:
     def test_distincte_de_la_criticite(self, classifier):
-        """Un scan est de criticite basse mais pas de dangerosite nulle ; une
+        """Un scan est de criticité basse mais pas de dangerosité nulle ; une
         panne de service est l'inverse."""
         scan = classifier.classify(_event("scan", severity=Severity.LOW))
         panne = classifier.classify(_event("service_unavailable", criticality=5))
@@ -81,7 +81,7 @@ class TestDangerosite:
         assert fort.dangerousness > faible.dangerousness
 
     def test_la_confiance_module_sans_annuler(self, classifier):
-        """Une detection incertaine de rancongiciel reste plus dangereuse
+        """Une détection incertaine de rancongiciel reste plus dangereuse
         qu'un scan certain."""
         incertain = classifier.classify(_event("ransomware", confidence=0.3))
         certain = classifier.classify(_event("scan", confidence=1.0))
@@ -98,7 +98,7 @@ class TestDangerosite:
         pas justifier ne vaut rien."""
         result = classifier.classify(_event("ransomware", criticality=5))
         assert result.factors
-        assert any("dangerosite de base" in f for f in result.factors)
+        assert any("dangerosité de base" in f for f in result.factors)
         assert any("confiance" in f for f in result.factors)
 
 
@@ -108,7 +108,7 @@ class TestPriorite:
         assert classifier.classify(_event("scan")).priority is Priority.LOW
 
     def test_actif_vital_porte_la_priorite_a_critique(self, classifier):
-        """Le document laisse des priorites conditionnelles (« haute si
+        """Le document laisse des priorités conditionnelles (« haute si
         service critique ») : l'actif tranche ce qui reste ouvert."""
         normal = classifier.classify(_event("exfiltration", criticality=3))
         vital = classifier.classify(_event("exfiltration", criticality=5))

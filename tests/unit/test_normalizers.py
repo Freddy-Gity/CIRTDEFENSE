@@ -14,7 +14,7 @@ class TestClassification:
         assert classify_category("ET TROJAN Beacon", "command and control") == "c2"
 
     def test_repli_explicite_sur_inconnu(self):
-        assert classify_category("evenement sans rapport") == "unknown"
+        assert classify_category("événement sans rapport") == "unknown"
 
     def test_deterministe(self):
         libelle = "SQL injection attempt detected"
@@ -41,7 +41,7 @@ class TestWazuh:
         assert event.indicators["srcip"] == "41.202.1.9"
 
     def test_confiance_plafonnee(self):
-        """Une source ne s'auto-declare jamais certaine a 100 %."""
+        """Une source ne s'auto-déclare jamais certaine a 100 %."""
         event = registry.get("wazuh")({"rule": {"level": 15, "description": "x"}, "agent": {}})
         assert event.confidence <= 0.9
 
@@ -67,7 +67,7 @@ class TestSyslog:
         assert event.indicators["srcip"] == "41.202.1.9"
 
     def test_ligne_non_conforme_reste_exploitable(self):
-        event = registry.get("syslog")({"line": "texte libre sans en-tete"})
+        event = registry.get("syslog")({"line": "texte libre sans en-tête"})
         assert event.category == "unknown"
         assert event.confidence < 0.5
 

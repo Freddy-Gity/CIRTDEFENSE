@@ -1,13 +1,13 @@
-"""Actuateur de bordure : attenuation volumetrique en amont (A1).
+"""Actuateur de bordure : attenuation volumétrique en amont (A1).
 
-Contre un DDoS volumetrique, aucune action locale ne suffit : le lien est
-sature avant d'atteindre nos equipements. L'attenuation se joue chez
-l'operateur de transit ou le fournisseur de scrubbing.
+Contre un DDoS volumétrique, aucune action locale ne suffit : le lien est
+sature avant d'atteindre nos équipements. L'attenuation se joue chez
+l'opérateur de transit ou le fournisseur de scrubbing.
 
-Cet actuateur est donc, plus encore que les autres, un **point d'integration**
-avec un tiers. Les regles qu'il pose portent une duree de vie courte (TTL),
-conformement au catalogue qui qualifie l'action de reversible precisement
-parce qu'elle expire d'elle-meme.
+Cet actuateur est donc, plus encore que les autres, un **point d'intégration**
+avec un tiers. Les règles qu'il pose portent une durée de vie courte (TTL),
+conformement au catalogue qui qualifie l'action de réversible précisément
+parce qu'elle expire d'elle-même.
 """
 
 from __future__ import annotations
@@ -27,8 +27,8 @@ VERBS: tuple[str, ...] = (
 )
 
 DEFAULT_TTL_SECONDS = 900
-"""Duree de vie par defaut d'une regle de bordure. Une regle qui n'expire pas
-cesserait d'etre reversible en pratique : personne ne penserait a la retirer."""
+"""Durée de vie par défaut d'une règle de bordure. Une règle qui n'expire pas
+cesserait d'être réversible en pratique : personne ne penserait à la retirer."""
 
 
 class SimulatedEdge(SimulatedActuator):
@@ -42,7 +42,7 @@ class SimulatedEdge(SimulatedActuator):
 
 
 class LiveEdge(Actuator):
-    """Squelette d'integration (operateur de transit, Cloudflare Magic Transit,
+    """Squelette d'intégration (opérateur de transit, Cloudflare Magic Transit,
     OVH VAC, annonce BGP FlowSpec)."""
 
     name = "edge"
@@ -53,23 +53,23 @@ class LiveEdge(Actuator):
 
     def execute(self, verb: str, target: str, parameters: dict[str, Any]) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur de bordure en mode reel sans client configure")
+            raise RuntimeError("actuateur de bordure en mode réel sans client configure")
         if verb == "blackhole_ip" and not parameters.get("ttl_seconds"):
             # Un blackhole sans expiration devient un blocage definitif que
             # personne ne retire : ce serait une action irreversible deguisee.
             return ActuationOutcome(
                 success=False,
-                message="blackhole refuse sans duree de vie : une regle qui "
-                "n'expire pas n'est pas reversible en pratique",
+                message="blackhole refuse sans durée de vie : une règle qui "
+                "n'expire pas n'est pas réversible en pratique",
             )
-        raise NotImplementedError("LiveEdge.execute : brancher l'API de l'operateur.")
+        raise NotImplementedError("LiveEdge.exécute : brancher l'API de l'opérateur.")
 
     def rollback(
         self, verb: str, target: str, token: str, parameters: dict[str, Any]
     ) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur de bordure en mode reel sans client configure")
-        raise NotImplementedError("LiveEdge.rollback : retirer l'annonce identifiee par `token`.")
+            raise RuntimeError("actuateur de bordure en mode réel sans client configure")
+        raise NotImplementedError("LiveEdge.rollback : retirer l'annonce identifiée par `token`.")
 
     def health(self) -> bool:
         return self._client is not None

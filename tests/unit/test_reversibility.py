@@ -1,4 +1,4 @@
-"""Catalogue de reversibilite (EF-14) : la condition de l'autonomie."""
+"""Catalogue de réversibilité (EF-14) : la condition de l'autonomie."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ class TestPerimetreAutonome:
         "actuator,verb", [("edr", "wipe_disk"), ("iam", "delete_account"), ("edr", "shutdown_host")]
     )
     def test_action_irreversible_exclue(self, catalog, actuator, verb):
-        """Ces entrees figurent au catalogue pour rendre visible ce que
+        """Ces entrées figurent au catalogue pour rendre visible ce que
         l'autonomie ne couvre pas."""
         assert not catalog.is_autonomously_executable(actuator, verb)
 
@@ -50,7 +50,7 @@ class TestMetadonnees:
             assert entry.rollback_verb, f"{entry.key} sans verbe d'annulation"
 
     def test_delai_d_annulation_borne(self, catalog):
-        """Un rollback sans delai maximal ne prouve rien (CDCF §5.3)."""
+        """Un rollback sans délai maximal ne prouve rien (CDCF §5.3)."""
         for entry in catalog.autonomous_subset():
             assert 0 < entry.max_rollback_seconds <= 300
 

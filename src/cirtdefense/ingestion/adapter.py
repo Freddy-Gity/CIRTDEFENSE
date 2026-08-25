@@ -1,6 +1,6 @@
 """Adaptateur d'ingestion : normalisation, deduplication, correlation (EF-18/19/20).
 
-L'adaptateur ne decide de rien. Il produit un `DetectionEvent` rattache a un
+L'adaptateur ne decide de rien. Il produit un `DetectionEvent` rattache à un
 incident et le remet au moteur. Cette separation compte : en autonomie totale,
 le point ou une observation devient un ordre doit rester unique et identifiable.
 """
@@ -67,7 +67,7 @@ class IngestionAdapter:
             log_with(
                 logger,
                 logging.INFO,
-                "evenement duplique ignore",
+                "événement dupliqué ignore",
                 fingerprint=fingerprint,
                 source=source,
             )
@@ -75,7 +75,7 @@ class IngestionAdapter:
                 event=event,
                 incident=None,
                 duplicate=True,
-                reason="empreinte deja connue (deduplication EF-19)",
+                reason="empreinte déjà connue (deduplication EF-19)",
             )
 
         incident = self._correlate(event)
@@ -103,7 +103,7 @@ class IngestionAdapter:
         return [self.ingest(source, p) for p in payloads]
 
     def _correlate(self, event: DetectionEvent) -> Incident:
-        """EF-20 : rattache l'evenement a un incident ouvert ou en cree un."""
+        """EF-20 : rattache l'événement à un incident ouvert ou en cree un."""
         key = Incident.key_for(event)
         existing = self._incidents.find_open_by_key(key)
         now = datetime.now(UTC)

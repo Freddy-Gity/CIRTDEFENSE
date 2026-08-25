@@ -1,4 +1,4 @@
-"""Boucle de controle fermee (EF-25) et coupe-circuit (EF-26)."""
+"""Boucle de contrôle fermee (EF-25) et coupe-circuit (EF-26)."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def _degrader(probe, cible="srv-web-01"):
 class TestBoucleDeControle:
     def test_action_saine_est_conservee(self, platform, probe, bruteforce_payload):
         """Le risque symetrique du rollback autonome : annuler un confinement
-        qui fonctionne. La boucle ne doit rien defaire sans motif."""
+        qui fonctionne. La boucle ne doit rien défaire sans motif."""
         platform.ingest_and_respond("wazuh", bruteforce_payload)
         report = platform.engine.run_control_loop()
 
@@ -41,11 +41,11 @@ class TestBoucleDeControle:
         _degrader(probe)
         report = platform.engine.run_control_loop()
 
-        assert all("degradation constatee" in o.reason for o in report.outcomes)
+        assert all("dégradation constatée" in o.reason for o in report.outcomes)
         assert platform.ledger.query(event_type="rollback.completed")
 
     def test_degradation_imputee_a_la_bonne_cible(self, platform, probe, bruteforce_payload):
-        """Regression : la boucle comparait la sante de la machine surveillee
+        """Régression : la boucle comparait la santé de la machine surveillée
         a celle de la cible de l'action (une adresse IP, un compte), deux
         grandeurs sans rapport, et annulait donc a peu pres tout."""
         platform.ingest_and_respond("wazuh", bruteforce_payload)
@@ -55,7 +55,7 @@ class TestBoucleDeControle:
         assert all(v["target"] == "srv-web-01" for v in report.verdicts)
 
     def test_sans_mesure_de_reference_la_boucle_s_abstient(self, platform, probe):
-        """Sans reference, on ne peut pas imputer une degradation a l'action."""
+        """Sans référence, on ne peut pas imputer une dégradation a l'action."""
         _degrader(probe)
         report = platform.engine.run_control_loop()
         assert report.rolled_back == 0
@@ -73,7 +73,7 @@ class TestRollbackManuel:
         assert platform.actions.get(action_id).status is ActionStatus.ROLLED_BACK
 
     def test_annulation_idempotente(self, platform, bruteforce_payload):
-        """La boucle et l'analyste peuvent viser la meme action."""
+        """La boucle et l'analyste peuvent viser la même action."""
         result = platform.ingest_and_respond("wazuh", bruteforce_payload)
         action_id = result.execution.results[0].action_id
 
@@ -97,7 +97,7 @@ class TestCoupeCircuit:
     def test_declenchement_automatique_sur_annulations_en_rafale(
         self, platform, probe, bruteforce_payload
     ):
-        """La voie qui protege reellement : personne n'est devant l'ecran."""
+        """La voie qui protege réellement : personne n'est devant l'ecran."""
         for i in range(3):
             platform.ingest_and_respond(
                 "generic_json",
@@ -126,13 +126,13 @@ class TestCoupeCircuit:
 
     def test_rearmement_par_administrateur_journalise(self, platform):
         platform.breaker.trip("emballement", actor="system:breaker")
-        platform.breaker.reset(actor="human:admin", reason="cause traitee")
+        platform.breaker.reset(actor="human:admin", reason="cause traitée")
 
         assert platform.breaker.status().autonomy_active
         assert platform.ledger.query(event_type="breaker.reset")
 
     def test_etat_persistant_entre_redemarrages(self, settings, probe):
-        """Un simple redemarrage ne doit pas relancer l'autonomie qu'on
+        """Un simple redémarrage ne doit pas relancer l'autonomie qu'on
         venait d'interrompre."""
         from cirtdefense.platform import build_platform
 

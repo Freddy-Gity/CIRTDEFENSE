@@ -1,8 +1,8 @@
-"""Actuateur DNS : sinkhole et blocage de resolution.
+"""Actuateur DNS : sinkhole et blocage de résolution.
 
-Le sinkhole (A7) redirige la resolution d'un domaine de commande et controle
-vers une adresse controlee. Il coupe le canal tout en permettant d'observer
-quels hotes tentent encore de le joindre — ce qui vaut mieux qu'un blocage
+Le sinkhole (A7) redirige la résolution d'un domaine de commande et contrôle
+vers une adresse contrôlée. Il coupe le canal tout en permettant d'observer
+quels hôtes tentent encore de le joindre — ce qui vaut mieux qu'un blocage
 aveugle pour l'investigation qui suivra.
 """
 
@@ -28,8 +28,8 @@ PROTECTED_DOMAINS = frozenset(
         "cirt.cm",
     }
 )
-"""Domaines dont le detournement automatique paralyserait l'administration
-ou couperait des services de l'Etat."""
+"""Domaines dont le détournement automatique paralyserait l'administration
+ou couperait des services de l'État."""
 
 
 class SimulatedDns(SimulatedActuator):
@@ -40,7 +40,7 @@ class SimulatedDns(SimulatedActuator):
         if self._is_protected(target):
             return ActuationOutcome(
                 success=False,
-                message=f"domaine '{target}' protege : detournement automatique refuse",
+                message=f"domaine '{target}' protege : détournement automatique refuse",
             )
         return super().execute(verb, target, parameters)
 
@@ -51,7 +51,7 @@ class SimulatedDns(SimulatedActuator):
 
 
 class LiveDns(Actuator):
-    """Squelette d'integration (BIND RPZ, Unbound, Pi-hole, resolveur du site)."""
+    """Squelette d'intégration (BIND RPZ, Unbound, Pi-hole, resolveur du site)."""
 
     name = "dns"
     supported_verbs = VERBS
@@ -61,17 +61,17 @@ class LiveDns(Actuator):
 
     def execute(self, verb: str, target: str, parameters: dict[str, Any]) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur DNS en mode reel sans client configure")
+            raise RuntimeError("actuateur DNS en mode réel sans client configure")
         if SimulatedDns._is_protected(target):
             return ActuationOutcome(success=False, message=f"domaine '{target}' protege : refus")
-        raise NotImplementedError("LiveDns.execute : brancher le resolveur du site.")
+        raise NotImplementedError("LiveDns.exécute : brancher le resolveur du site.")
 
     def rollback(
         self, verb: str, target: str, token: str, parameters: dict[str, Any]
     ) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur DNS en mode reel sans client configure")
-        raise NotImplementedError("LiveDns.rollback : retirer l'entree identifiee par `token`.")
+            raise RuntimeError("actuateur DNS en mode réel sans client configure")
+        raise NotImplementedError("LiveDns.rollback : retirer l'entrée identifiée par `token`.")
 
     def health(self) -> bool:
         return self._client is not None

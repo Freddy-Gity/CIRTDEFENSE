@@ -1,7 +1,7 @@
-"""Politique de reponse (EF-15) et catalogue de reversibilite (EF-14).
+"""Politique de réponse (EF-15) et catalogue de réversibilité (EF-14).
 
-Reserves a l'administrateur, dont le role est renforce en v3.0 : ce qu'il
-ecrit ici determine ce que le systeme s'autorise a faire seul.
+Reserves a l'administrateur, dont le rôle est renforce en v3.0 : ce qu'il
+ecrit ici determine ce que le système s'autorise à faire seul.
 """
 
 from __future__ import annotations
@@ -29,11 +29,11 @@ def history(platform: PlatformDep) -> dict:
 
 @router.post("/compile")
 def compile_policy(request: PolicyCompileRequest, platform: PlatformDep, role: AdminDep) -> dict:
-    """Compile une politique en langage naturel en contraintes deterministes.
+    """Compile une politique en langage naturel en contraintes déterministes.
 
-    La reponse expose explicitement les phrases **non compilees** : elles
+    La réponse expose explicitement les phrases **non compilées** : elles
     n'auront aucun effet, et l'administrateur doit le savoir avant de croire
-    sa consigne appliquee.
+    sa consigne appliquée.
     """
     report = PolicyCompiler().compile(
         request.text,
@@ -59,7 +59,7 @@ def compile_policy(request: PolicyCompileRequest, platform: PlatformDep, role: A
 
 @router.post("/preview")
 def preview(request: PolicyCompileRequest) -> dict:
-    """Compile sans activer : permet de verifier ce qu'une consigne produira."""
+    """Compile sans activer : permet de vérifier ce qu'une consigne produira."""
     return PolicyCompiler().compile(request.text, default_effect=request.default_effect).to_dict()
 
 
@@ -73,7 +73,7 @@ def list_catalog(platform: PlatformDep) -> dict:
 
 @catalog_router.get("/autonomous")
 def autonomous_subset(platform: PlatformDep) -> dict:
-    """Le perimetre exact de ce que le systeme peut faire seul."""
+    """Le périmètre exact de ce que le système peut faire seul."""
     entries = platform.catalog.autonomous_subset()
     return {"count": len(entries), "entries": [e.to_dict() for e in entries]}
 
@@ -85,14 +85,14 @@ def add_entry(request: CatalogEntryRequest, platform: PlatformDep, role: AdminDe
     except ValueError as exc:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            f"reversibilite invalide ; valeurs admises : {[r.value for r in Reversibility]}",
+            f"réversibilité invalide ; valeurs admises : {[r.value for r in Reversibility]}",
         ) from exc
 
     if reversibility is not Reversibility.IRREVERSIBLE and not request.rollback_verb:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "une action declaree reversible doit porter un verbe d'annulation, "
-            "sans quoi la boucle de controle ne pourrait pas la retirer",
+            "une action déclarée réversible doit porter un verbe d'annulation, "
+            "sans quoi la boucle de contrôle ne pourrait pas la retirer",
         )
 
     entry = CatalogEntry(

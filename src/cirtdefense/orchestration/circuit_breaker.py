@@ -1,26 +1,26 @@
 """Coupe-circuit global de l'autonomie (EF-26).
 
-**Ce mecanisme ne reintroduit aucune validation par action.** C'est un
-interrupteur systeme, a l'echelle de la plateforme entiere, pas un point de
-controle sur le chemin d'une action donnee : quand il est ferme, chaque action
+**Ce mécanisme ne reintroduit aucune validation par action.** C'est un
+interrupteur système, a l'échelle de la plateforme entiere, pas un point de
+contrôle sur le chemin d'une action donnée : quand il est ferme, chaque action
 part sans qu'aucun humain ne l'ait vue ; quand il est ouvert, plus aucune ne
 part du tout. L'autonomie totale est donc preservee au sens du CDCF §1.4.3.
 
-Il repond a la question que la soutenance posera : « comment arretez-vous le
-systeme s'il se trompe en boucle ? ». Sans lui, la seule reponse serait
-d'eteindre le service, ce qui ferait aussi perdre la journalisation et la
-capacite d'annuler les actions deja engagees — c'est-a-dire exactement les
+Il répond à la question que la soutenance posera : « comment arretez-vous le
+système s'il se trompe en boucle ? ». Sans lui, la seule réponse serait
+d'éteindre le service, ce qui ferait aussi perdre la journalisation et la
+capacité d'annuler les actions déjà engagees — c'est-a-dire exactement les
 moyens dont on a besoin au pire moment.
 
-Deux voies de declenchement :
+Deux voies de déclenchement :
 
 - **manuelle** : l'administrateur actionne l'interrupteur ;
-- **automatique** : le systeme se coupe lui-meme quand il constate qu'il se
-  trompe de facon repetee (annulations en rafale, echecs d'actuateurs en
-  serie). Cette seconde voie est celle qui compte reellement, l'humain
+- **automatique** : le système se coupe lui-même quand il constate qu'il se
+  trompe de façon répétée (annulations en rafale, échecs d'actuateurs en
+  série). Cette seconde voie est celle qui compte réellement, l'humain
   n'etant par construction pas devant l'ecran.
 
-L'etat est persistant : un redemarrage ne doit pas relancer l'autonomie que
+L'état est persistant : un redémarrage ne doit pas relancer l'autonomie que
 l'on venait d'interrompre.
 """
 
@@ -42,9 +42,9 @@ logger = logging.getLogger(__name__)
 
 class BreakerState(StrEnum):
     CLOSED = "closed"
-    """Autonomie active : les actions partent sans validation prealable."""
+    """Autonomie active : les actions partent sans validation préalable."""
     OPEN = "open"
-    """Autonomie suspendue : plus aucune action n'est executee."""
+    """Autonomie suspendue : plus aucune action n'est exécutée."""
 
 
 @dataclass(slots=True)
@@ -102,8 +102,8 @@ class CircuitBreaker:
 
     @property
     def enabled(self) -> bool:
-        """Si le coupe-circuit est desactive par configuration, l'exclusion du
-        perimetre doit etre explicite et journalisee, jamais implicite."""
+        """Si le coupe-circuit est désactivé par configuration, l'exclusion du
+        périmètre doit être explicite et journalisée, jamais implicite."""
         return self._enabled
 
     def status(self) -> BreakerStatus:
@@ -131,8 +131,8 @@ class CircuitBreaker:
     # -- declenchement ------------------------------------------------------
 
     def trip(self, reason: str, actor: str = "system:breaker") -> BreakerStatus:
-        """Ouvre le circuit. Idempotent : re-declencher n'ecrase pas le motif
-        d'origine, qui est celui qui interesse l'enquete."""
+        """Ouvre le circuit. Idempotent : re-déclencher n'écrase pas le motif
+        d'origine, qui est celui qui interesse l'enquête."""
         current = self.status()
         if current.state is BreakerState.OPEN:
             return current
@@ -150,17 +150,17 @@ class CircuitBreaker:
         log_with(
             logger,
             logging.CRITICAL,
-            "COUPE-CIRCUIT OUVERT : execution autonome suspendue",
+            "COUPE-CIRCUIT OUVERT : exécution autonome suspendue",
             reason=reason,
             actor=actor,
         )
         return self.status()
 
     def reset(self, actor: str, reason: str = "") -> BreakerStatus:
-        """Referme le circuit. Reservee a l'administrateur : le systeme ne se
+        """Referme le circuit. Reservee a l'administrateur : le système ne se
         readmet jamais tout seul, faute de pouvoir juger que la cause a
         disparu."""
-        self._repository.write(BreakerState.CLOSED.value, reason or "rearmement manuel", actor)
+        self._repository.write(BreakerState.CLOSED.value, reason or "réarmement manuel", actor)
         self._ledger.record(AuditEventType.BREAKER_RESET, {"reason": reason}, actor=actor)
         log_with(
             logger,
@@ -172,10 +172,10 @@ class CircuitBreaker:
         return self.status()
 
     def evaluate_auto_trip(self) -> BreakerStatus:
-        """A appeler apres chaque annulation ou echec.
+        """à appeler après chaque annulation ou échec.
 
-        C'est la voie qui protege reellement : elle constate que le systeme se
-        trompe en rafale et l'arrete, sans attendre qu'un humain s'en apercoive.
+        C'est la voie qui protege réellement : elle constate que le système se
+        trompe en rafale et l'arrête, sans attendre qu'un humain s'en apercoive.
         """
         status = self.status()
         if not self._enabled or not status.autonomy_active:
@@ -190,9 +190,9 @@ class CircuitBreaker:
             )
         if status.failures_in_window >= self._failure_threshold:
             return self.trip(
-                f"{status.failures_in_window} echecs d'execution en "
-                f"{status.window_seconds} s : les actuateurs ne repondent pas "
-                "de facon fiable",
+                f"{status.failures_in_window} échecs d'exécution en "
+                f"{status.window_seconds} s : les actuateurs ne répondent pas "
+                "de façon fiable",
                 actor="system:breaker",
             )
         return status

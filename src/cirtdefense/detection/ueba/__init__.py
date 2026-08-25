@@ -1,1 +1,1 @@
-"""UEBA : detection d'ecart au comportement habituel (EF-08 a EF-10)."""
+"""UEBA : détection d'écart au comportement habituel (EF-08 a EF-10)."""

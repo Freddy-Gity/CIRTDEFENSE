@@ -1,12 +1,12 @@
-"""Criteres de recette du CDCF §5, version v3.0.
+"""Critères de recette du CDCF §5, version v3.0.
 
-Chaque test porte le numero du critere qu'il demontre. La suite tient lieu de
-proces-verbal de recette reproductible : elle peut etre rejouee devant le jury
-et son resultat ne depend d'aucun equipement reel.
+Chaque test porte le numéro du critère qu'il demontre. La suite tient lieu de
+proces-verbal de recette reproductible : elle peut être rejouee devant le jury
+et son résultat ne depend d'aucun équipement réel.
 
-Les criteres CR-01 a CR-10 heritent de la v2.1 mais ont ete **reformules** :
-plusieurs supposaient une etape de validation humaine qui n'existe plus. Les
-criteres CR-11 a CR-15 sont propres au pivot d'autonomie totale.
+Les critères CR-01 a CR-10 heritent de la v2.1 mais ont été **reformules** :
+plusieurs supposaient une étape de validation humaine qui n'existe plus. Les
+critères CR-11 a CR-15 sont propres au pivot d'autonomie totale.
 """
 
 from __future__ import annotations
@@ -74,9 +74,9 @@ class TestCR01_NormalisationMultiSources:
 
 
 class TestCR02_Deduplication:
-    """CR-02 — Une meme observation remontee deux fois ne produit qu'un seul
-    traitement (EF-19). En autonomie totale, ce critere devient critique :
-    un doublon non filtre est une action executee deux fois."""
+    """CR-02 — Une même observation remontee deux fois ne produit qu'un seul
+    traitement (EF-19). En autonomie totale, ce critère devient critique :
+    un doublon non filtre est une action exécutée deux fois."""
 
     def test_second_envoi_ignore(self, platform, bruteforce_payload):
         assert platform.ingest_and_respond("wazuh", bruteforce_payload) is not None
@@ -84,7 +84,7 @@ class TestCR02_Deduplication:
 
 
 class TestCR03_Correlation:
-    """CR-03 — Les evenements portant sur la meme cible et la meme famille de
+    """CR-03 — Les événements portant sur la même cible et la même famille de
     menace sont regroupes en un incident unique (EF-20)."""
 
     def test_regroupement(self, platform):
@@ -106,7 +106,7 @@ class TestCR04_EnrichissementFonde:
     """CR-04 — Aucune action n'est engagee sur un contexte non fonde
     documentairement (EF-04). Reformulation v3.0 : en v2.1 le contexte
     halluciner produisait une recommandation douteuse qu'un humain filtrait ;
-    il produirait desormais une action reelle."""
+    il produirait desormais une action réelle."""
 
     def test_menace_documentee_permet_d_agir(self, platform, bruteforce_payload):
         result = platform.ingest_and_respond("wazuh", bruteforce_payload)
@@ -128,8 +128,8 @@ class TestCR04_EnrichissementFonde:
 
 
 class TestCR05_ExecutionAutonome:
-    """CR-05 — L'action retenue est executee sans validation humaine prealable
-    (EF-07, revisee). Remplace le critere v2.1 « Valider recommandation »."""
+    """CR-05 — L'action retenue est exécutée sans validation humaine préalable
+    (EF-07, revisee). Remplace le critère v2.1 « Valider recommandation »."""
 
     def test_action_executee_immediatement(self, platform, bruteforce_payload):
         result = platform.ingest_and_respond("wazuh", bruteforce_payload)
@@ -151,7 +151,7 @@ class TestCR05_ExecutionAutonome:
 
 
 class TestCR06_PerimetreReversible:
-    """CR-06 — Aucune action irreversible n'est executee en autonomie (EF-14).
+    """CR-06 — Aucune action irréversible n'est exécutée en autonomie (EF-14).
     C'est la mesure compensatoire principale du CDCF §1.4.3."""
 
     def test_le_catalogue_borne_le_perimetre(self, platform):
@@ -161,7 +161,7 @@ class TestCR06_PerimetreReversible:
         assert all(e.rollback_verb for e in autonomes)
 
     def test_action_irreversible_refusee_a_l_execution(self, platform):
-        """Verification au point de non-retour, et non seulement a la
+        """Vérification au point de non-retour, et non seulement à la
         planification : une action peut arriver par un autre chemin."""
         from cirtdefense.domain.action import ActionSpec
 
@@ -171,7 +171,7 @@ class TestCR06_PerimetreReversible:
             decision_id="dec_test",
         )
         assert result.status is ActionStatus.BLOCKED_BY_POLICY
-        assert "hors du perimetre" in (result.error or "")
+        assert "hors du périmètre" in (result.error or "")
 
     def test_toute_action_executee_reste_annulable(self, platform, bruteforce_payload):
         result = platform.ingest_and_respond("wazuh", bruteforce_payload)
@@ -193,8 +193,8 @@ class TestCR07_PolitiqueCompilee:
         assert "block_ip" not in verbes
 
     def test_une_consigne_non_comprise_est_signalee(self, platform):
-        """Une politique qui parait appliquee sans l'etre serait le pire
-        resultat possible."""
+        """Une politique qui parait appliquée sans l'être serait le pire
+        résultat possible."""
         from cirtdefense.orchestration.policy_compiler import PolicyCompiler
 
         report = PolicyCompiler().compile("Soyez raisonnables avec la production")
@@ -203,8 +203,8 @@ class TestCR07_PolitiqueCompilee:
 
 
 class TestCR08_NotificationAPosteriori:
-    """CR-08 — L'analyste est informe de toute action executee, sans que cette
-    information ne conditionne l'execution (EF-13, revisee)."""
+    """CR-08 — L'analyste est informe de toute action exécutée, sans que cette
+    information ne conditionne l'exécution (EF-13, revisee)."""
 
     def test_notification_emise_et_exploitable(self, platform, bruteforce_payload):
         result = platform.ingest_and_respond("wazuh", bruteforce_payload)
@@ -213,12 +213,12 @@ class TestCR08_NotificationAPosteriori:
         assert notifications
         corps = notifications[0]["body"]
         assert result.incident.incident_id in corps
-        assert "MOTIF DE LA DECISION" in corps
+        assert "MOTIF DE LA DÉCISION" in corps
         assert "POUR ANNULER" in corps
 
     def test_echec_de_notification_ne_bloque_pas_l_action(self, platform, bruteforce_payload):
-        """L'action a deja eu lieu : un canal indisponible ne peut pas la
-        defaire, et ne doit surtout pas la retenir."""
+        """L'action a déjà eu lieu : un canal indisponible ne peut pas la
+        défaire, et ne doit surtout pas la retenir."""
         actuateur = platform.registry.require("notify")
         actuateur.sinks.append(lambda payload: (_ for _ in ()).throw(RuntimeError("canal HS")))
 
@@ -228,7 +228,7 @@ class TestCR08_NotificationAPosteriori:
 
 class TestCR09_PortefeuillePriorise:
     """CR-09 — Le portefeuille classe les incidents par enjeu decroissant
-    (Axe 4). Sa sortie change en v3.0 : il montre ce qui a ete traite."""
+    (Axe 4). Sa sortie change en v3.0 : il montre ce qui a été traité."""
 
     def test_ordre_par_score_de_risque(self, platform):
         platform.ingest_and_respond(
@@ -263,7 +263,7 @@ class TestCR09_PortefeuillePriorise:
 
 
 class TestCR10_ModeDegrade:
-    """CR-10 — En perte de connectivite, la plateforme met en file et rejoue a
+    """CR-10 — En perte de connectivite, la plateforme met en file et rejoue à
     la reprise (Axe 5). Precision v3.0 : elle n'agit pas, faute de pouvoir
     observer l'effet de ses actions."""
 
@@ -277,8 +277,8 @@ class TestCR10_ModeDegrade:
 
 
 class TestCR11_RollbackAutonome:
-    """CR-11 (nouveau) — Une action suivie d'une degradation de la cible est
-    annulee automatiquement, sans intervention humaine (EF-25)."""
+    """CR-11 (nouveau) — Une action suivie d'une dégradation de la cible est
+    annulée automatiquement, sans intervention humaine (EF-25)."""
 
     def test_annulation_automatique(self, platform, probe, bruteforce_payload):
         platform.ingest_and_respond("wazuh", bruteforce_payload)
@@ -293,11 +293,11 @@ class TestCR11_RollbackAutonome:
 
 
 class TestCR12_CoupeCircuit:
-    """CR-12 (nouveau) — L'autonomie peut etre suspendue globalement, par
-    l'administrateur ou par le systeme lui-meme (EF-26).
+    """CR-12 (nouveau) — L'autonomie peut être suspendue globalement, par
+    l'administrateur ou par le système lui-même (EF-26).
 
-    Le critere repond a la question de soutenance : « comment arretez-vous le
-    systeme s'il se trompe en boucle ? »."""
+    Le critère répond à la question de soutenance : « comment arretez-vous le
+    système s'il se trompe en boucle ? »."""
 
     def test_suspension_manuelle(self, platform, bruteforce_payload):
         platform.breaker.trip("comportement anormal constate", actor="human:admin")
@@ -328,8 +328,8 @@ class TestCR12_CoupeCircuit:
 class TestCR13_JournalImmuable:
     """CR-13 — Le journal d'audit est complet, immuable et verifiable.
 
-    Repositionne comme mecanisme CENTRAL en v3.0 : c'est la seule trace de ce
-    que le systeme a fait sans intervention humaine."""
+    Repositionne comme mécanisme CENTRAL en v3.0 : c'est la seule trace de ce
+    que le système a fait sans intervention humaine."""
 
     def test_chaine_complete_et_verifiable(self, platform, bruteforce_payload):
         result = platform.ingest_and_respond("wazuh", bruteforce_payload)
@@ -349,12 +349,12 @@ class TestCR13_JournalImmuable:
 
 
 class TestCR14_NonRegressionSecuritaire:
-    """CR-14 (CDCF §5.3) — Une action erronee est detectee ET annulee dans un
-    delai borne.
+    """CR-14 (CDCF §5.3) — Une action erronee est détectée ET annulée dans un
+    délai borne.
 
-    C'est le critere que le jury interrogera en premier : il ne suffit pas que
+    C'est le critère que le jury interrogera en premier : il ne suffit pas que
     le rollback fonctionne, il faut demontrer qu'il aboutit dans un temps
-    connu. Un rollback dont on ignore la duree ne compense rien.
+    connu. Un rollback dont on ignore la durée ne compense rien.
     """
 
     def test_scenario_de_demonstration_complet(self, platform, probe, bruteforce_payload):
@@ -375,15 +375,15 @@ class TestCR14_NonRegressionSecuritaire:
         report = platform.engine.run_control_loop()
         duree = time.monotonic() - debut
 
-        assert report.degraded >= 1, "la degradation n'a pas ete detectee"
-        assert report.rolled_back == report.degraded, "toutes n'ont pas ete annulees"
+        assert report.degraded >= 1, "la dégradation n'a pas été détectée"
+        assert report.rolled_back == report.degraded, "toutes n'ont pas été annulées"
         assert report.rollback_failures == 0
 
         # 4. Le delai est borne, et mesure pour chaque action.
         borne = platform.settings.autonomy.rollback_max_latency_seconds
         assert duree < borne
         assert all(o.within_bound for o in report.outcomes), (
-            "une annulation a depasse le delai maximal admis pour son type d'action"
+            "une annulation a depasse le délai maximal admis pour son type d'action"
         )
 
         # 5. L'etat reel de l'equipement est retabli.
@@ -395,12 +395,12 @@ class TestCR14_NonRegressionSecuritaire:
 
 
 class TestCR15_AbsenceDeValidationPrealable:
-    """CR-15 (nouveau) — Le systeme ne comporte aucun point de validation
-    humaine en amont d'une execution.
+    """CR-15 (nouveau) — Le système ne comporte aucun point de validation
+    humaine en amont d'une exécution.
 
     Contrepartie de la checklist du CDCF §5 : « le diagramme revise ne montre
-    plus aucun cas de validation cote Analyste en amont d'une execution ».
-    Ce critere le verifie sur le code, pas seulement sur le diagramme.
+    plus aucun cas de validation cote Analyste en amont d'une exécution ».
+    Ce critère le vérifie sur le code, pas seulement sur le diagramme.
     """
 
     def test_aucune_route_de_validation_exposee(self, client):
@@ -410,17 +410,17 @@ class TestCR15_AbsenceDeValidationPrealable:
 
     def test_la_porte_de_sortie_humaine_existe_bien(self, client):
         """L'autonomie totale n'est pas l'absence de recours : elle deplace le
-        recours apres l'action."""
+        recours après l'action."""
         chemins = client.get("/openapi.json").json()["paths"]
         assert any("rollback" in c for c in chemins)
 
 
 class TestCR16_ClassificationDesAttaques:
     """CR-16 (nouveau) — Toute attaque du catalogue CIRT est qualifiee selon
-    son type, sa famille, sa criticite et sa dangerosite.
+    son type, sa famille, sa criticité et sa dangerosité.
 
-    Reponse a l'exigence du document de classification : la reponse autonome
-    ne suffit pas, encore faut-il que le systeme sache dire a quoi il a eu
+    Réponse a l'exigence du document de classification : la réponse autonome
+    ne suffit pas, encore faut-il que le système sache dire a quoi il a eu
     affaire et avec quel enjeu.
     """
 
@@ -457,9 +457,9 @@ class TestCR16_ClassificationDesAttaques:
         """Les deux mesurent des choses differentes, et les confondre
         conduirait a mal prioriser.
 
-        Un balayage (A3) casse peu — criticite basse — mais annonce une
-        intrusion : sa dangerosite n'est pas nulle. Une panne de service (D3)
-        est l'inverse : elle gene fortement sans donner la main a un
+        Un balayage (A3) casse peu — criticité basse — mais annonce une
+        intrusion : sa dangerosité n'est pas nulle. Une panne de service (D3)
+        est l'inverse : elle gêne fortement sans donner la main à un
         attaquant.
         """
         from cirtdefense.domain.events import Asset, DetectionEvent
@@ -491,7 +491,7 @@ class TestCR16_ClassificationDesAttaques:
 
 class TestCR17_ModeDemonstration:
     """CR-17 (nouveau) — Les competences de la plateforme sont eprouvables
-    depuis l'interface, sans mener d'attaque reelle."""
+    depuis l'interface, sans mener d'attaque réelle."""
 
     def test_le_catalogue_est_simulable(self, client):
         body = client.get("/api/v1/demo/scenarios").json()
@@ -503,8 +503,8 @@ class TestCR17_ModeDemonstration:
         assert body["execution"]["executed"] >= 1
 
     def test_le_mode_demonstration_est_refuse_en_actionnement_reel(self, settings, probe):
-        """En posture `live`, une attaque simulee declencherait de vraies
-        actions sur les equipements."""
+        """En posture `live`, une attaque simulée declencherait de vraies
+        actions sur les équipements."""
         from dataclasses import replace
 
         from fastapi.testclient import TestClient
@@ -520,15 +520,15 @@ class TestCR17_ModeDemonstration:
             with TestClient(create_app()) as client:
                 response = client.post("/api/v1/demo/run/A1")
             assert response.status_code == 409
-            assert "effets reels" in response.json()["detail"]
+            assert "effets réels" in response.json()["detail"]
         finally:
             set_platform(None)
             platform.close()
 
 
 class TestCR18_AssistantEtRapports:
-    """CR-18 (nouveau) — L'assistant rend compte des operations a partir des
-    seules donnees observees, et produit un rapport transmissible."""
+    """CR-18 (nouveau) — L'assistant rend compte des opérations à partir des
+    seules données observées, et produit un rapport transmissible."""
 
     def test_le_bilan_repose_sur_des_faits_verifiables(self, platform):
         from cirtdefense.demo import build_payload
@@ -540,12 +540,12 @@ class TestCR18_AssistantEtRapports:
         assert answer.sources
 
     def test_l_assistant_refuse_ce_qu_il_ne_sait_pas(self, platform):
-        """Un bilan de securite comportant un fait invente serait pire
-        qu'une absence de reponse."""
+        """Un bilan de sécurité comportant un fait invente serait pire
+        qu'une absence de réponse."""
         answer = platform.assistant.ask("Quel temps fera-t-il demain ?")
-        assert "ne sais pas repondre" in answer.text.lower()
+        assert "ne sais pas répondre" in answer.text.lower()
 
     def test_le_rapport_est_exportable(self, client):
         response = client.get("/api/v1/assistant/report.md?hours=24")
         assert response.status_code == 200
-        assert response.text.startswith("# Rapport d'operations")
+        assert response.text.startswith("# Rapport d'opérations")

@@ -1,9 +1,9 @@
-"""Module d'enrichissement (EF-03) : contexte documente pour la decision.
+"""Module d'enrichissement (EF-03) : contexte documente pour la décision.
 
 Le contrat est strict et volontairement pauvre : le module rend des extraits
-sourc..es et un verdict de fondement. Il ne resume pas, ne conclut pas, ne
-recommande pas. Le choix de l'action revient au planificateur, a partir de
-playbooks ecrits par des humains — pas d'un texte genere.
+sourc..es et un verdict de fondement. Il ne résumé pas, ne conclut pas, ne
+recommande pas. Le choix de l'action revient au planificateur, à partir de
+playbooks ecrits par des humains — pas d'un texte génère.
 """
 
 from __future__ import annotations
@@ -30,22 +30,22 @@ class EnrichedContext:
     relevance: float = 0.0
     threat_notes: list[str] = field(default_factory=list)
     covering_documents: list[str] = field(default_factory=list)
-    """Documents declarant explicitement couvrir la categorie de l'evenement."""
+    """Documents declarant explicitement couvrir la catégorie de l'événement."""
 
     @property
     def category_is_documented(self) -> bool:
-        """Critere decisif de la garde EF-04.
+        """Critère decisif de la garde EF-04.
 
-        Une fiche du corpus declare-t-elle couvrir cette famille de menace ?
-        C'est une question binaire, insensible a la taille du corpus.
+        Une fiche du corpus déclare-t-elle couvrir cette famille de menace ?
+        C'est une question binaire, insensible à la taille du corpus.
 
-        Le controle lexical seul s'etait revele fragile : lorsque le corpus
+        Le contrôle lexical seul s'était révèle fragile : lorsque le corpus
         est passe de 11 a 28 fiches, les mots de liaison de la phrase de
-        controle (« menace », « type ») ont cesse d'etre presents dans la
-        majorite des documents, ont donc ete comptes comme discriminants, et
-        une menace parfaitement inconnue est repassee pour documentee. Faire
-        dependre l'autorisation d'agir d'un seuil de frequence de mots etait
-        une erreur de conception : la composition du corpus evolue, le critere
+        contrôle (« menace », « type ») ont cesse d'être presents dans la
+        majorite des documents, ont donc été comptes comme discriminants, et
+        une menace parfaitement inconnue est repassee pour documentée. Faire
+        dependre l'autorisation d'agir d'un seuil de fréquence de mots était
+        une erreur de conception : la composition du corpus évolue, le critère
         doit rester stable.
         """
         return bool(self.covering_documents)
@@ -90,7 +90,7 @@ class EnrichedContext:
 
 def _excerpt(hit: SearchHit, width: int = 320) -> str:
     """Extrait centre sur le premier terme retrouve, pour que l'analyste voie
-    le passage qui a reellement pese et non le debut du document."""
+    le passage qui a réellement pese et non le debut du document."""
     text = hit.document.text
     lowered = text.lower()
     position = min(
@@ -158,7 +158,7 @@ class EnrichmentService:
                 event_id=event.event_id,
                 category=event.category,
                 reason=(
-                    f"aucune fiche du corpus ne declare couvrir la categorie '{event.category}'"
+                    f"aucune fiche du corpus ne déclare couvrir la catégorie '{event.category}'"
                     if not context.category_is_documented
                     else report.reason
                 ),

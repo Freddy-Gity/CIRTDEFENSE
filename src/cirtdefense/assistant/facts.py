@@ -1,4 +1,4 @@
-"""Collecte des faits, uniquement a partir des donnees de la plateforme."""
+"""Collecte des faits, uniquement à partir des données de la plateforme."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from ..persistence.repositories import ActionRepository, IncidentRepository
 
 @dataclass(slots=True)
 class OperationsFacts:
-    """Photographie factuelle d'une periode d'exploitation."""
+    """Photographie factuelle d'une période d'exploitation."""
 
     period_label: str
     since: datetime
@@ -82,7 +82,7 @@ class OperationsFacts:
 
 
 class FactCollector:
-    """Interroge les depots. Ne calcule rien qu'il ne puisse justifier."""
+    """Interroge les dépôts. Ne calcule rien qu'il ne puisse justifier."""
 
     def __init__(
         self,
@@ -102,7 +102,7 @@ class FactCollector:
         self._breaker = breaker
         self._settings = settings
 
-    def collect(self, hours: int = 24, label: str = "dernieres 24 heures") -> OperationsFacts:
+    def collect(self, hours: int = 24, label: str = "dernières 24 heures") -> OperationsFacts:
         until = datetime.now(UTC)
         since = until - timedelta(hours=hours)
 
@@ -187,15 +187,15 @@ class FactCollector:
         """Compte les refus d'agir par motif.
 
         Ce compteur merite autant d'attention que celui des actions : un taux
-        de refus eleve signale une base de connaissance en retard sur les
-        menaces observees, pas un dysfonctionnement.
+        de refus élève signale une base de connaissance en retard sur les
+        menaces observées, pas un dysfonctionnement.
         """
         motifs = Counter()
         libelles = {
             "no_grounded_context": "contexte non fonde documentairement",
-            "policy_denied": "refuse par la politique de reponse",
+            "policy_denied": "refuse par la politique de réponse",
             "breaker_open": "coupe-circuit ouvert",
-            "out_of_catalog": "action hors catalogue de reversibilite",
+            "out_of_catalog": "action hors catalogue de réversibilité",
             "no_action_needed": "aucune action requise",
         }
         for entry in entries:

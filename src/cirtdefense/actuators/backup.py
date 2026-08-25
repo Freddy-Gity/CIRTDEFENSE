@@ -1,11 +1,11 @@
-"""Actuateur de sauvegarde : declenchement de snapshot (A6).
+"""Actuateur de sauvegarde : déclenchement de snapshot (A6).
 
-Face a un rancongiciel, le catalogue prescrit le declenchement d'un
+Face à un rancongiciel, le catalogue prescrit le déclenchement d'un
 snapshot « si disponible ». C'est la seule action du catalogue qui *cree*
-quelque chose au lieu de restreindre, et sa reversibilite est particuliere :
-annuler revient a supprimer le snapshot, ce qu'on ne fait jamais
+quelque chose au lieu de restreindre, et sa réversibilité est particulière :
+annuler revient à supprimer le snapshot, ce qu'on ne fait jamais
 automatiquement. L'annulation est donc un simple demarquage — le snapshot
-reste, il cesse seulement d'etre rattache a l'incident.
+reste, il cesse seulement d'être rattaché a l'incident.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ class SimulatedBackup(SimulatedActuator):
 
 
 class LiveBackup(Actuator):
-    """Squelette d'integration (Veeam, Bacula, snapshots LVM/ZFS, API du
+    """Squelette d'intégration (Veeam, Bacula, snapshots LVM/ZFS, API du
     fournisseur de virtualisation)."""
 
     name = "backup"
@@ -35,14 +35,14 @@ class LiveBackup(Actuator):
 
     def execute(self, verb: str, target: str, parameters: dict[str, Any]) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur de sauvegarde en mode reel sans client configure")
-        raise NotImplementedError("LiveBackup.execute : brancher le client de sauvegarde.")
+            raise RuntimeError("actuateur de sauvegarde en mode réel sans client configure")
+        raise NotImplementedError("LiveBackup.exécute : brancher le client de sauvegarde.")
 
     def rollback(
         self, verb: str, target: str, token: str, parameters: dict[str, Any]
     ) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur de sauvegarde en mode reel sans client configure")
+            raise RuntimeError("actuateur de sauvegarde en mode réel sans client configure")
         # Volontairement : on ne supprime jamais un snapshot automatiquement.
         raise NotImplementedError(
             "LiveBackup.rollback : detacher le snapshot de l'incident SANS le supprimer."

@@ -1,9 +1,9 @@
-"""Actuateur de configuration : restauration d'une reference (D4).
+"""Actuateur de configuration : restauration d'une référence (D4).
 
-Le catalogue conditionne la restauration automatique a un delta **mineur**.
+Le catalogue conditionne la restauration automatique à un delta **mineur**.
 Cette condition n'est pas decorative : restaurer une configuration de
-reference obsolete ecraserait un changement legitime recent. L'actuateur
-refuse donc au-dela d'un seuil de delta, et l'incident part alors en
+référence obsolete ecraserait un changement légitime recent. L'actuateur
+refuse donc au-delà d'un seuil de delta, et l'incident part alors en
 notification.
 """
 
@@ -22,7 +22,7 @@ VERBS: tuple[str, ...] = (
 )
 
 MAX_MINOR_DELTA = 5
-"""Nombre d'ecarts au-dela duquel la derive cesse d'etre « mineure »."""
+"""Nombre d'écarts au-delà duquel la dérive cesse d'être « mineure »."""
 
 
 class SimulatedConfiguration(SimulatedActuator):
@@ -35,16 +35,16 @@ class SimulatedConfiguration(SimulatedActuator):
             if delta > MAX_MINOR_DELTA:
                 return ActuationOutcome(
                     success=False,
-                    message=f"restauration refusee : {delta} ecarts constates, "
-                    f"au-dela du seuil de {MAX_MINOR_DELTA} qui definit une derive "
-                    "mineure ; un changement legitime recent serait ecrase",
+                    message=f"restauration refusée : {delta} écarts constatés, "
+                    f"au-delà du seuil de {MAX_MINOR_DELTA} qui définit une dérive "
+                    "mineure ; un changement légitime recent serait écrasé",
                 )
         return super().execute(verb, target, parameters)
 
 
 class LiveConfiguration(Actuator):
-    """Squelette d'integration (Ansible, Puppet, SaltStack, gestionnaire de
-    configuration reseau du site)."""
+    """Squelette d'intégration (Ansible, Puppet, SaltStack, gestionnaire de
+    configuration réseau du site)."""
 
     name = "config"
     supported_verbs = VERBS
@@ -54,24 +54,24 @@ class LiveConfiguration(Actuator):
 
     def execute(self, verb: str, target: str, parameters: dict[str, Any]) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur de configuration en mode reel sans client configure")
+            raise RuntimeError("actuateur de configuration en mode réel sans client configure")
         if verb == "restore_baseline" and int(parameters.get("delta_count", 0)) > MAX_MINOR_DELTA:
             return ActuationOutcome(
-                success=False, message="restauration refusee : derive non mineure"
+                success=False, message="restauration refusée : dérive non mineure"
             )
         raise NotImplementedError(
-            "LiveConfiguration.execute : brancher le gestionnaire de configuration. "
+            "LiveConfiguration.exécute : brancher le gestionnaire de configuration. "
             "Relever imperativement la configuration courante AVANT restauration, "
-            "faute de quoi `revert_restore` n'aurait rien a retablir."
+            "faute de quoi `revert_restore` n'aurait rien à rétablir."
         )
 
     def rollback(
         self, verb: str, target: str, token: str, parameters: dict[str, Any]
     ) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur de configuration en mode reel sans client configure")
+            raise RuntimeError("actuateur de configuration en mode réel sans client configure")
         raise NotImplementedError(
-            "LiveConfiguration.rollback : retablir la configuration relevee sous `token`."
+            "LiveConfiguration.rollback : rétablir la configuration relevee sous `token`."
         )
 
     def health(self) -> bool:

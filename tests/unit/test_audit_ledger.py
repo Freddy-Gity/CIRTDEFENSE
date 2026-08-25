@@ -1,4 +1,4 @@
-"""Journal d'audit : la seule trace de ce que le systeme a fait seul."""
+"""Journal d'audit : la seule trace de ce que le système a fait seul."""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ class TestImmuabilite:
             ledger._conn.execute("UPDATE audit_log SET actor = 'pirate'")
 
     def test_alteration_detectee_si_les_declencheurs_sont_contournes(self, ledger):
-        """Defense en profondeur : meme avec un acces direct au fichier de
+        """Defense en profondeur : même avec un accès direct au fichier de
         base, l'alteration reste detectable."""
         for i in range(3):
             ledger.record("action.executed", {"i": i})

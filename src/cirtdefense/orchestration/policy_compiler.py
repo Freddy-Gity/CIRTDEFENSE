@@ -1,19 +1,19 @@
 """Compilation d'une politique en langage naturel (EF-15, version v3.0).
 
-En v2.1, l'intention en langage naturel filtrait des recommandations deja
-produites, en temps reel. En v3.0 elle est compilee **a priori** en contraintes
-deterministes que le moteur applique ensuite seul.
+En v2.1, l'intention en langage naturel filtrait des recommandations déjà
+produites, en temps réel. En v3.0 elle est compilée **a priori** en contraintes
+déterministes que le moteur applique ensuite seul.
 
 Le deplacement n'est pas cosmetique. Il garantit que le langage naturel ne se
-trouve jamais sur le chemin d'execution : au moment ou une action est evaluee,
-il n'y a plus que des predicats. Une meme phrase compilee une fois produit le
-meme comportement a chaque incident, et cette compilation est relisible,
+trouve jamais sur le chemin d'exécution : au moment ou une action est évaluée,
+il n'y a plus que des predicats. Une même phrase compilée une fois produit le
+même comportement à chaque incident, et cette compilation est relisible,
 versionnee et signee par une empreinte.
 
 **Ce que le compilateur refuse de faire.** Une phrase qu'il ne reconnait pas
-n'est pas approximee : elle est rapportee comme non compilee et l'administrateur
-en est informe. Deviner l'intention d'une consigne de securite mal comprise
-serait le pire des comportements possibles — la politique paraitrait appliquee
+n'est pas approximee : elle est rapportee comme non compilée et l'administrateur
+en est informe. Deviner l'intention d'une consigne de sécurité mal comprise
+serait le pire des comportements possibles — la politique paraitrait appliquée
 alors qu'elle ne le serait pas.
 """
 
@@ -56,7 +56,7 @@ class CompilationReport:
 def _fold(text: str) -> str:
     """Supprime les accents et normalise la casse pour la reconnaissance.
 
-    L'administrateur ecrit « criticité » ou « criticite » indifferemment ;
+    L'administrateur écrit « criticite » ou « criticité » indifféremment ;
     la politique ne doit pas dependre de la saisie des accents.
     """
     decomposed = unicodedata.normalize("NFKD", text.lower())
@@ -76,26 +76,26 @@ VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
     ),
     "rate_limit_ip": ("limiter le rythme", "limitation de rythme", "brider le rythme"),
     "block_domain": ("bloquer un domaine", "blocage de domaine"),
-    "throttle_egress": ("limiter le debit", "limitation de debit", "brider"),
+    "throttle_egress": ("limiter le débit", "limitation de débit", "brider"),
     "cut_egress_connection": (
         "couper la connexion",
         "coupure de connexion",
         "couper une connexion",
     ),
-    "block_lateral": ("bloquer les mouvements lateraux", "blocage lateral"),
+    "block_lateral": ("bloquer les mouvements latéraux", "blocage latéral"),
     "move_to_vlan": (
         "basculer le vlan",
         "changer de vlan",
-        "quarantaine reseau",
-        "mettre en quarantaine reseau",
+        "quarantaine réseau",
+        "mettre en quarantaine réseau",
     ),
     # Bordure / operateur
     "enable_scrubbing": ("activer le nettoyage", "nettoyage de trafic", "scrubbing"),
     "blackhole_ip": ("trou noir", "blackhole", "blackholing"),
     "edge_rate_limit": ("limiter en bordure", "limitation en bordure"),
     # Poste et serveur
-    "isolate_host": ("isoler", "isolement", "isole", "isoler un hote", "isoler une machine"),
-    "kill_process": ("tuer un processus", "arreter un processus", "terminer un processus"),
+    "isolate_host": ("isoler", "isolement", "isole", "isoler un hôte", "isoler une machine"),
+    "kill_process": ("tuer un processus", "arrêter un processus", "terminer un processus"),
     "quarantine_file": (
         "mettre en quarantaine un fichier",
         "quarantaine de fichier",
@@ -103,8 +103,8 @@ VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
     ),
     # Comptes et acces
     "disable_account": (
-        "desactiver un compte",
-        "desactivation de compte",
+        "désactiver un compte",
+        "désactivation de compte",
         "desactiver",
         "desactivation",
     ),
@@ -116,9 +116,9 @@ VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
         "suspension de compte",
     ),
     "revoke_sessions": (
-        "revoquer les sessions",
-        "revoquer de sessions",
-        "revocation de session",
+        "révoquer les sessions",
+        "révoquer de sessions",
+        "révocation de session",
         "deconnecter",
         "invalider les sessions",
     ),
@@ -126,36 +126,36 @@ VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
     "force_mfa": (
         "forcer mfa",
         "forcer le second facteur",
-        "authentification renforcee",
+        "authentification renforcée",
         "forcage mfa",
     ),
-    "revoke_token": ("revoquer un jeton", "revoquer le jeton", "revocation de jeton"),
+    "revoke_token": ("révoquer un jeton", "révoquer le jeton", "révocation de jeton"),
     "revoke_privilege": (
-        "revoquer un privilege",
-        "revoquer le privilege",
-        "revocation de privilege",
-        "retirer un privilege",
+        "révoquer un privilège",
+        "révoquer le privilège",
+        "révocation de privilège",
+        "retirer un privilège",
     ),
-    "block_resource_access": ("bloquer l'acces", "blocage d'acces", "bloquer un acces"),
+    "block_resource_access": ("bloquer l'accès", "blocage d'accès", "bloquer un accès"),
     "restrict_export": ("restreindre l'export", "restriction d'export", "restreindre les droits"),
     # Applicatif
-    "block_pattern": ("bloquer un motif", "blocage de motif", "regle waf"),
-    "block_request": ("bloquer la requete", "bloquer une requete", "blocage de requete"),
-    "rate_limit_rule": ("limiter le debit applicatif", "limitation applicative"),
+    "block_pattern": ("bloquer un motif", "blocage de motif", "règle waf"),
+    "block_request": ("bloquer la requête", "bloquer une requête", "blocage de requête"),
+    "rate_limit_rule": ("limiter le débit applicatif", "limitation applicative"),
     "sanitize_field": ("sanitiser", "sanitisation", "filtrer un champ"),
     # DNS
-    "sinkhole_domain": ("sinkhole", "detourner un domaine", "detournement de domaine"),
-    "block_resolution": ("bloquer la resolution", "blocage de resolution"),
+    "sinkhole_domain": ("sinkhole", "détourner un domaine", "détournement de domaine"),
+    "block_resolution": ("bloquer la résolution", "blocage de résolution"),
     # Infrastructure
-    "trigger_snapshot": ("declencher un instantane", "snapshot", "instantane de sauvegarde"),
-    "restart_service": ("redemarrer", "redemarrage", "redemarrer un service"),
+    "trigger_snapshot": ("déclencher un instantané", "snapshot", "instantané de sauvegarde"),
+    "restart_service": ("redemarrer", "redemarrage", "redémarrer un service"),
     "failover": ("basculer", "bascule", "basculer vers le secours"),
     "close_idle_connections": ("fermer les connexions inactives", "fermeture des connexions"),
     "close_port": ("fermer un port", "fermeture de port", "fermer le port"),
     "restore_baseline": (
         "restaurer la configuration",
         "restauration de configuration",
-        "restaurer la reference",
+        "restaurer la référence",
     ),
     # Information
     "notify": ("notifier", "notification", "avertir", "prevenir"),
@@ -177,6 +177,16 @@ DENY_MARKERS = (
 )
 ALLOW_MARKERS = ("autoriser", "permettre", "toujours autoriser", "accepter")
 
+# Le vocabulaire est replie a son tour : la phrase de l'administrateur est
+# comparee sans accents, le dictionnaire doit l'etre aussi, sinon un synonyme
+# ecrit « revoquer les sessions » ne reconnaitrait jamais « revoquer les
+# sessions » saisi correctement.
+VERB_SYNONYMS = {
+    verb: tuple(_fold(s) for s in synonyms) for verb, synonyms in VERB_SYNONYMS.items()
+}
+DENY_MARKERS = tuple(_fold(m) for m in DENY_MARKERS)
+ALLOW_MARKERS = tuple(_fold(m) for m in ALLOW_MARKERS)
+
 _CIDR = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}/\d{1,2}\b")
 _IP = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
 _CRITICALITY = re.compile(
@@ -188,10 +198,10 @@ _ZONE = re.compile(r"zone\s+([a-z0-9_\-]+)")
 
 
 class PolicyCompiler:
-    """Reconnait une grammaire documentee de consignes de securite.
+    """Reconnait une grammaire documentée de consignes de sécurité.
 
     La grammaire est volontairement etroite. Elle couvre les formes qu'un
-    administrateur emploie effectivement pour borner une reponse automatique,
+    administrateur emploie effectivement pour borner une réponse automatique,
     et rejette explicitement le reste.
     """
 
@@ -216,7 +226,7 @@ class PolicyCompiler:
                 log_with(
                     logger,
                     logging.WARNING,
-                    "phrase de politique non compilee : elle ne sera pas appliquee",
+                    "phrase de politique non compilée : elle ne sera pas appliquée",
                     sentence=sentence,
                 )
                 continue
@@ -226,12 +236,12 @@ class PolicyCompiler:
         if unparsed:
             warnings.append(
                 f"{len(unparsed)} phrase(s) non reconnue(s) : elles n'ont AUCUN effet sur "
-                "le moteur. Les reformuler ou les traduire en regles explicites."
+                "le moteur. Les reformuler ou les traduire en règles explicites."
             )
         if default_effect == "allow" and not any(r.effect == "deny" for r in rules[1:]):
             warnings.append(
-                "aucune restriction compilee au-dela du garde-fou d'irreversibilite : "
-                "toute action reversible du catalogue sera executee."
+                "aucune restriction compilée au-delà du garde-fou d'irréversibilité : "
+                "toute action réversible du catalogue sera exécutée."
             )
 
         policy = ResponsePolicy(
@@ -256,8 +266,8 @@ class PolicyCompiler:
         """Decoupe en phrases sans casser les adresses.
 
         Un decoupage naif sur le point pulverise « 10.0.0.0/8 » en fragments
-        inexploitables : la plage disparaissait silencieusement de la regle
-        compilee. Le separateur est donc un point qui n'est pas suivi d'un
+        inexploitables : la plage disparaissait silencieusement de la règle
+        compilée. Le separateur est donc un point qui n'est pas suivi d'un
         chiffre.
         """
         raw = re.split(r"[;\n]+|\.(?!\d)", text)
@@ -285,7 +295,7 @@ class PolicyCompiler:
 
     @staticmethod
     def _effect_of(folded: str) -> str | None:
-        """Une interdiction prime sur une autorisation dans la meme phrase :
+        """Une interdiction prime sur une autorisation dans la même phrase :
         « autoriser le blocage mais jamais en interne » est une restriction."""
         if any(marker in folded for marker in DENY_MARKERS):
             return "deny"
@@ -333,7 +343,7 @@ class PolicyCompiler:
             constraints.append(Constraint("asset.zone", "eq", zone.group(1)))
 
         for severity in Severity:
-            if f"gravite {severity.value}" in folded or f"severite {severity.value}" in folded:
+            if f"gravité {severity.value}" in folded or f"sévérité {severity.value}" in folded:
                 constraints.append(Constraint("incident.severity", "lte", severity.value))
                 break
 
@@ -341,7 +351,7 @@ class PolicyCompiler:
             constraints.append(
                 Constraint("action.reversibility", "eq", Reversibility.IRREVERSIBLE.value)
             )
-        elif "partiellement reversible" in folded:
+        elif "partiellement réversible" in folded:
             constraints.append(
                 Constraint("action.reversibility", "eq", Reversibility.PARTIALLY_REVERSIBLE.value)
             )
@@ -362,11 +372,11 @@ class PolicyCompiler:
 
 
 def _cidr_to_regex(cidr: str) -> str:
-    """Traduit un prefixe en expression reguliere sur les octets pleins.
+    """Traduit un prefixe en expression régulière sur les octets pleins.
 
     Seuls les prefixes /8, /16 et /24 sont traduits exactement ; les autres
-    sont ramenes au prefixe plein inferieur, ce qui elargit la regle. Un
-    elargissement d'une regle d'interdiction reste du cote sur.
+    sont ramenes au prefixe plein inferieur, ce qui elargit la règle. Un
+    elargissement d'une règle d'interdiction reste du cote sur.
     """
     network, _, bits = cidr.partition("/")
     octets = network.split(".")

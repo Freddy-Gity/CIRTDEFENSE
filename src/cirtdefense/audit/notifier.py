@@ -1,13 +1,13 @@
 """Notification a posteriori de l'analyste (EF-13, version v3.0).
 
-L'analyste ne valide plus rien en amont : son role devient celui d'un
-superviseur qui constate, verifie et peut annuler apres coup. Cette
-notification est donc son unique point d'entree dans la boucle, ce qui impose
-qu'elle soit exploitable telle quelle : ce qui a ete fait, sur quoi, pourquoi,
+L'analyste ne valide plus rien en amont : son rôle devient celui d'un
+superviseur qui constate, vérifie et peut annuler après coup. Cette
+notification est donc son unique point d'entrée dans la boucle, ce qui impose
+qu'elle soit exploitable telle quelle : ce qui a été fait, sur quoi, pourquoi,
 et comment l'annuler.
 
-Une notification qui obligerait a ouvrir trois ecrans pour comprendre serait
-un echec fonctionnel, pas un detail de presentation.
+Une notification qui obligerait à ouvrir trois ecrans pour comprendre serait
+un échec fonctionnel, pas un détail de presentation.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ class AnalystNotifier:
             log_with(
                 logger,
                 logging.ERROR,
-                "la notification a posteriori a echoue : l'action reste executee",
+                "la notification a posteriori a echoue : l'action reste exécutée",
                 incident_id=incident.incident_id,
                 error=outcome.message,
             )
@@ -67,18 +67,18 @@ class AnalystNotifier:
                 "subject": (
                     "Annulation automatique effectuee"
                     if outcome.success
-                    else "ECHEC d'annulation automatique"
+                    else "ÉCHEC d'annulation automatique"
                 ),
                 "body": (
                     f"Action {outcome.action_id}\n"
                     f"Motif : {outcome.reason}\n"
-                    f"Delai d'annulation : {outcome.latency_seconds:.1f} s "
-                    f"({'dans' if outcome.within_bound else 'HORS'} le delai admis)\n"
+                    f"Délai d'annulation : {outcome.latency_seconds:.1f} s "
+                    f"({'dans' if outcome.within_bound else 'HORS'} le délai admis)\n"
                     + (
                         ""
                         if outcome.success
-                        else "\nATTENTION : l'action reste appliquee. Une intervention "
-                        "manuelle sur l'equipement est necessaire."
+                        else "\nATTENTION : l'action reste appliquée. Une intervention "
+                        "manuelle sur l'équipement est nécessaire."
                     )
                 ),
                 "incident_id": incident_id,
@@ -91,15 +91,15 @@ class AnalystNotifier:
 
     def render(self, incident: Incident, decision: Decision, report: Any) -> str:
         lines: list[str] = [
-            "Le systeme a execute une reponse automatique. Cette notification "
-            "vous informe apres coup : aucune validation n'etait requise.",
+            "Le système a exécuté une réponse automatique. Cette notification "
+            "vous informe après coup : aucune validation n'était requise.",
             "",
             f"Incident   : {incident.incident_id}",
-            f"Categorie  : {incident.category} (gravite {incident.severity.value})",
+            f"Catégorie  : {incident.category} (gravité {incident.severity.value})",
             f"Cible      : {incident.correlation_key}",
             f"Score de risque : {incident.risk_score()}",
             "",
-            "MOTIF DE LA DECISION",
+            "MOTIF DE LA DÉCISION",
             f"  {decision.rationale}",
         ]
 
@@ -109,7 +109,7 @@ class AnalystNotifier:
                 + ", ".join(s.split("/")[-1] for s in decision.trace.context_sources)
             )
 
-        lines += ["", "ACTIONS EXECUTEES"]
+        lines += ["", "ACTIONS EXÉCUTÉES"]
         for result in report.results:
             lines.append(f"  {self._describe(result)}")
 
@@ -138,9 +138,9 @@ class AnalystNotifier:
         if irreversible_note:
             lines += [
                 "",
-                "EFFETS RESIDUELS APRES ANNULATION",
-                "  Certaines actions ne sont que partiellement reversibles : les "
-                "sessions et etats en memoire perdus ne seront pas restaures.",
+                "EFFETS RESIDUELS APRÈS ANNULATION",
+                "  Certaines actions ne sont que partiellement réversibles : les "
+                "sessions et états en mémoire perdus ne seront pas restaurés.",
             ]
         return "\n".join(lines)
 
@@ -162,12 +162,12 @@ class AnalystNotifier:
     def _subject(incident: Incident, report: Any) -> str:
         if report.failed or report.blocked:
             return (
-                f"Reponse automatique partielle sur {incident.correlation_key} "
-                f"({report.executed} executee(s), {report.failed} echec(s), "
-                f"{report.blocked} refusee(s))"
+                f"Réponse automatique partielle sur {incident.correlation_key} "
+                f"({report.executed} exécutée(s), {report.failed} échec(s), "
+                f"{report.blocked} refusée(s))"
             )
         return (
-            f"Reponse automatique executee sur {incident.correlation_key} "
+            f"Réponse automatique exécutée sur {incident.correlation_key} "
             f"({report.executed} action(s))"
         )
 

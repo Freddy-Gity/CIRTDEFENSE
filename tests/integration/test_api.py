@@ -1,4 +1,4 @@
-"""Interface applicative : contrat public et separation des roles."""
+"""Interface applicative : contrat public et separation des rôles."""
 
 from __future__ import annotations
 
@@ -163,3 +163,45 @@ class TestConsultation:
 
     def test_incident_inconnu(self, client):
         assert client.get("/api/v1/incidents/inc_inexistant").status_code == 404
+
+
+class TestSurveillance:
+    """EF-21 a EF-23 : la vue de surveillance rend compte du parc supervisé."""
+
+    def test_le_parc_surveille_est_expose(self, client):
+        body = client.get("/api/v1/monitoring").json()
+
+        assert body["summary"]["total"] == len(body["targets"])
+        assert body["summary"]["total"] > 0
+        # Chaque ligne porte de quoi juger : mesure, seuil, verdict.
+        ligne = body["targets"][0]
+        assert {"health", "thresholds", "breaches", "state"} <= set(ligne)
+        assert ligne["state"] in {"nominal", "degrade", "injoignable"}
+
+    def test_l_incident_est_rattache_a_son_actif(self, client, bruteforce_payload):
+        """Un incident traite doit apparaitre sur l'actif concerne, et non sur
+        l'adresse de l'attaquant : c'est ce rattachement qui rend la vue
+        exploitable."""
+        client.post("/api/v1/events", json={"source": "wazuh", "payload": bruteforce_payload})
+
+        cibles = {t["target"]: t for t in client.get("/api/v1/monitoring").json()["targets"]}
+
+        assert cibles["srv-web-01"]["incidents"] >= 1
+        assert "41.202.1.9" not in cibles
+
+    def test_la_degradation_simulee_change_l_etat(self, client):
+        """Le point d'entrée de simulation sert à eprouver la boucle EF-25 sans
+        casser un service réel."""
+        avant = client.get("/api/v1/monitoring").json()
+        etats = {t["target"]: t["state"] for t in avant["targets"]}
+        assert etats["srv-web-01"] != "injoignable"
+
+        assert client.post("/api/v1/monitoring/simulate/srv-web-01").status_code == 200
+
+        apres = client.get("/api/v1/monitoring").json()
+        etats = {t["target"]: t["state"] for t in apres["targets"]}
+        assert etats["srv-web-01"] == "injoignable"
+        assert apres["summary"]["injoignable"] >= 1
+
+    def test_la_simulation_refuse_une_cible_inconnue(self, client):
+        assert client.post("/api/v1/monitoring/simulate/inexistant").status_code == 404

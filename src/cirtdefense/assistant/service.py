@@ -1,12 +1,12 @@
 """Assistant conversationnel adosse aux faits.
 
-La reconnaissance d'intention est **deterministe** : un ensemble ferme de
-questions reconnues, chacune servie par une collecte de faits precise. C'est
-un choix, pas une limitation technique — il garantit qu'une meme question
-donne la meme reponse, et qu'aucune question ne recoit une reponse fabriquee.
+La reconnaissance d'intention est **déterministe** : un ensemble ferme de
+questions reconnues, chacune servie par une collecte de faits précise. C'est
+un choix, pas une limitation technique — il garantit qu'une même question
+donne la même réponse, et qu'aucune question ne reçoit une réponse fabriquée.
 
-Une question non reconnue est declaree telle quelle, avec la liste de ce que
-l'assistant sait faire. Le modele de langage, quand il est configure,
+Une question non reconnue est déclarée telle quelle, avec la liste de ce que
+l'assistant sait faire. Le modèle de langage, quand il est configuré,
 intervient uniquement pour la mise en forme, jamais pour produire un fait.
 """
 
@@ -41,7 +41,7 @@ class Answer:
     text: str
     facts: dict[str, Any] = field(default_factory=dict)
     sources: list[str] = field(default_factory=list)
-    """Origine des chiffres cites : journal, portefeuille, catalogue."""
+    """Origine des chiffrés cités : journal, portefeuille, catalogue."""
     provider: str = "offline"
 
     def to_dict(self) -> dict[str, Any]:
@@ -133,18 +133,18 @@ class AssistantService:
                 return self._compose(intent, question, facts)
 
     def daily_brief(self) -> Answer:
-        """Bilan des operations du jour — l'usage principal de l'assistant."""
-        facts = self._collector.collect(hours=24, label="dernieres 24 heures")
-        return self._compose(Intent.DAILY_BRIEF, "Bilan des operations du jour", facts)
+        """Bilan des opérations du jour — l'usage principal de l'assistant."""
+        facts = self._collector.collect(hours=24, label="dernières 24 heures")
+        return self._compose(Intent.DAILY_BRIEF, "Bilan des opérations du jour", facts)
 
     def suggestions(self) -> list[str]:
         return [
-            "Fais le bilan des operations du jour",
-            "Combien d'actions ont ete annulees ?",
-            "Pourquoi le systeme a-t-il refuse d'agir ?",
+            "Fais le bilan des opérations du jour",
+            "Combien d'actions ont été annulées ?",
+            "Pourquoi le système a-t-il refuse d'agir ?",
             "Quelle est la posture d'autonomie actuelle ?",
             "Quels types d'attaques sais-tu traiter ?",
-            "Genere un rapport des operations sur 7 jours",
+            "Génère un rapport des opérations sur 7 jours",
         ]
 
     # -- reconnaissance ------------------------------------------------------
@@ -160,7 +160,7 @@ class AssistantService:
     def _period(folded: str) -> tuple[int, str]:
         match = _PERIODE.search(folded)
         if not match:
-            return 24, "dernieres 24 heures"
+            return 24, "dernières 24 heures"
         quantite, unite = int(match.group(1)), match.group(2)
         heures = {"heure": 1, "jour": 24, "semaine": 168}[unite] * quantite
         pluriel = "s" if quantite > 1 else ""
@@ -191,11 +191,11 @@ class AssistantService:
 
     @staticmethod
     def _texte_bilan(f: OperationsFacts) -> str:
-        lignes = [f"**Bilan des operations — {f.period_label}**", ""]
+        lignes = [f"**Bilan des opérations — {f.period_label}**", ""]
 
         if not f.incidents_total:
             lignes += [
-                "Aucun incident traite sur la periode.",
+                "Aucun incident traité sur la période.",
                 "",
                 f"Posture : autonomie {'active' if f.autonomy_effective else 'SUSPENDUE'}, "
                 f"actionnement « {f.actuation_mode} ».",
@@ -203,17 +203,17 @@ class AssistantService:
             return "\n".join(lignes)
 
         lignes += [
-            f"{f.incidents_total} incident(s) traite(s), "
-            f"{f.actions_executed} action(s) executee(s) sans validation prealable.",
+            f"{f.incidents_total} incident(s) traité(s), "
+            f"{f.actions_executed} action(s) exécutée(s) sans validation préalable.",
         ]
 
         if f.incidents_by_family:
             repartition = ", ".join(f"{k} : {v}" for k, v in sorted(f.incidents_by_family.items()))
-            lignes.append(f"Repartition par famille — {repartition}.")
+            lignes.append(f"Répartition par famille — {repartition}.")
 
         if f.incidents_by_priority:
             prio = ", ".join(f"{k} : {v}" for k, v in sorted(f.incidents_by_priority.items()))
-            lignes.append(f"Repartition par priorite (Axe 4) — {prio}.")
+            lignes.append(f"Répartition par priorité (Axe 4) — {prio}.")
 
         if f.most_dangerous:
             m = f.most_dangerous
@@ -225,21 +225,21 @@ class AssistantService:
         lignes.append("")
         if f.actions_rolled_back:
             lignes.append(
-                f"**{f.actions_rolled_back} action(s) annulee(s)** "
-                f"({f.autonomous_rollbacks} par la boucle de controle, "
+                f"**{f.actions_rolled_back} action(s) annulée(s)** "
+                f"({f.autonomous_rollbacks} par la boucle de contrôle, "
                 f"{f.manual_rollbacks} par un analyste) — "
                 f"taux d'annulation {f.rollback_ratio:.0%}."
             )
             if f.rollback_ratio > 0.2:
                 lignes.append(
-                    "Ce taux est anormalement eleve : le systeme defait une part "
-                    "importante de ce qu'il fait. A analyser avant de poursuivre."
+                    "Ce taux est anormalement élevé : le système défait une part "
+                    "importante de ce qu'il fait. à analyser avant de poursuivre."
                 )
         else:
-            lignes.append("Aucune action annulee : tous les confinements ont tenu.")
+            lignes.append("Aucune action annulée : tous les confinements ont tenu.")
 
         if f.actions_failed:
-            lignes.append(f"{f.actions_failed} action(s) en echec d'execution.")
+            lignes.append(f"{f.actions_failed} action(s) en échec d'exécution.")
 
         if f.refusals_total:
             motifs = ", ".join(f"{k} ({v})" for k, v in sorted(f.refusals.items()))
@@ -247,22 +247,22 @@ class AssistantService:
 
         if f.breaker_trips:
             lignes.append(
-                f"**Coupe-circuit declenche {f.breaker_trips} fois** ; "
-                f"etat actuel : {f.breaker_state}."
+                f"**Coupe-circuit déclenche {f.breaker_trips} fois** ; "
+                f"état actuel : {f.breaker_state}."
             )
 
         lignes += [
             "",
-            f"Journal d'audit : {f.audit_entries} entree(s) sur la periode, "
-            f"chaine {'intacte' if f.audit_chain_valid else 'ROMPUE'}.",
+            f"Journal d'audit : {f.audit_entries} entrée(s) sur la période, "
+            f"chaîne {'intacte' if f.audit_chain_valid else 'ROMPUE'}.",
         ]
         if not f.audit_chain_valid:
             lignes.append(
-                "La rupture de chaine est un incident de securite sur la "
-                "plateforme elle-meme et demande une enquete."
+                "La rupture de chaîne est un incident de sécurité sur la "
+                "plateforme elle-même et demande une enquête."
             )
         if f.notifications_pending:
-            lignes.append(f"{f.notifications_pending} notification(s) non acquittee(s).")
+            lignes.append(f"{f.notifications_pending} notification(s) non acquittée(s).")
         return "\n".join(lignes)
 
     @staticmethod
@@ -271,15 +271,15 @@ class AssistantService:
             [
                 f"**Indicateurs — {f.period_label}**",
                 "",
-                f"- Incidents traites : {f.incidents_total}",
-                f"- Actions executees : {f.actions_executed}",
-                f"- Actions annulees : {f.actions_rolled_back} "
+                f"- Incidents traités : {f.incidents_total}",
+                f"- Actions exécutées : {f.actions_executed}",
+                f"- Actions annulées : {f.actions_rolled_back} "
                 f"(dont {f.autonomous_rollbacks} autonomes)",
-                f"- Actions en echec : {f.actions_failed}",
-                f"- Actions refusees par la politique : {f.actions_blocked}",
+                f"- Actions en échec : {f.actions_failed}",
+                f"- Actions refusées par la politique : {f.actions_blocked}",
                 f"- Taux d'annulation : {f.rollback_ratio:.0%}",
                 f"- Refus d'agir : {f.refusals_total}",
-                f"- Entrees de journal : {f.audit_entries}",
+                f"- Entrées de journal : {f.audit_entries}",
             ]
         )
 
@@ -291,18 +291,18 @@ class AssistantService:
             f"- Autonomie effective : {'OUI' if f.autonomy_effective else 'NON'}",
             f"- Mode d'actionnement : {f.actuation_mode}"
             + (
-                "  (aucun effet reel sur les equipements)"
+                "  (aucun effet réel sur les équipements)"
                 if f.actuation_mode != "live"
-                else "  (actions reelles)"
+                else "  (actions réelles)"
             ),
             f"- Coupe-circuit : {f.breaker_state}",
-            f"- Chaine d'audit : {'intacte' if f.audit_chain_valid else 'ROMPUE'}",
+            f"- Chaîne d'audit : {'intacte' if f.audit_chain_valid else 'ROMPUE'}",
         ]
         if not f.autonomy_effective:
             lignes += [
                 "",
-                "Aucune action n'est executee tant que l'administrateur n'a pas "
-                "rearme le coupe-circuit. Le systeme ne se rearme jamais seul : "
+                "Aucune action n'est exécutée tant que l'administrateur n'a pas "
+                "rearme le coupe-circuit. Le système ne se rearme jamais seul : "
                 "il ne peut pas juger que la cause de son emballement a disparu.",
             ]
         return "\n".join(lignes)
@@ -311,22 +311,22 @@ class AssistantService:
     def _texte_refus(f: OperationsFacts) -> str:
         if not f.refusals:
             return (
-                f"Aucun refus d'agir sur la periode ({f.period_label}) : "
-                "chaque evenement traite a donne lieu a une reponse."
+                f"Aucun refus d'agir sur la période ({f.period_label}) : "
+                "chaque événement traité a donne lieu à une réponse."
             )
         lignes = [f"**Refus d'agir — {f.period_label}**", ""]
         for motif, nombre in sorted(f.refusals.items(), key=lambda kv: -kv[1]):
             lignes.append(f"- {nombre} × {motif}")
         lignes += [
             "",
-            "Un refus n'est pas un dysfonctionnement. Le systeme s'abstient "
+            "Un refus n'est pas un dysfonctionnement. Le système s'abstient "
             "lorsqu'il ne dispose pas d'un fondement documentaire, lorsque la "
             "politique l'interdit, ou lorsque le coupe-circuit est ouvert.",
         ]
         if any("non fonde" in m for m in f.refusals):
             lignes.append(
                 "Les refus pour contexte non fonde signalent une base de "
-                "connaissance en retard sur les menaces observees : la reponse "
+                "connaissance en retard sur les menaces observées : la réponse "
                 "est d'enrichir le corpus, pas d'abaisser le seuil."
             )
         return "\n".join(lignes)
@@ -335,21 +335,21 @@ class AssistantService:
     def _texte_annulations(f: OperationsFacts) -> str:
         if not f.actions_rolled_back:
             return (
-                f"Aucune action annulee sur la periode ({f.period_label}). "
+                f"Aucune action annulée sur la période ({f.period_label}). "
                 "Tous les confinements engages ont tenu."
             )
         return "\n".join(
             [
                 f"**Annulations — {f.period_label}**",
                 "",
-                f"- {f.actions_rolled_back} action(s) annulee(s) au total",
-                f"- dont {f.autonomous_rollbacks} par la boucle de controle (EF-25)",
+                f"- {f.actions_rolled_back} action(s) annulée(s) au total",
+                f"- dont {f.autonomous_rollbacks} par la boucle de contrôle (EF-25)",
                 f"- dont {f.manual_rollbacks} par un analyste, a posteriori",
                 f"- taux d'annulation : {f.rollback_ratio:.0%}",
                 "",
-                "Le taux d'annulation mesure la frequence a laquelle le systeme "
-                "doit defaire ce qu'il vient de faire. Au-dela de 20 %, il nuit "
-                "plus qu'il ne protege sur une partie du perimetre.",
+                "Le taux d'annulation mesure la fréquence à laquelle le système "
+                "doit défaire ce qu'il vient de faire. Au-delà de 20 %, il nuit "
+                "plus qu'il ne protege sur une partie du périmètre.",
             ]
         )
 
@@ -374,19 +374,19 @@ class AssistantService:
             "",
             f"- Type : {i.get('attack_code') or '?'} — {i.get('attack_label') or i['category']}",
             f"- Famille : {i.get('family_label') or 'non classifiee'}",
-            f"- Criticite : {i['severity']} · Dangerosite : {i.get('dangerousness', 0)}/10",
-            f"- Priorite (Axe 4) : {i.get('priority') or '—'}"
+            f"- Criticité : {i['severity']} · Dangerosité : {i.get('dangerousness', 0)}/10",
+            f"- Priorité (Axe 4) : {i.get('priority') or '—'}"
             f" · Score de risque : {i['risk_score']}",
-            f"- Etat : {i['status']} · {i['event_count']} evenement(s)",
+            f"- État : {i['status']} · {i['event_count']} événement(s)",
             "",
             f"**Actions ({len(detail['actions'])})**",
         ]
         for a in detail["actions"]:
             lignes.append(
                 f"- `{a['actuator']}:{a['verb']}` sur {a['target']} — {a['status']}"
-                + (f" (annulee : {a['rollback_reason']})" if a.get("rollback_reason") else "")
+                + (f" (annulée : {a['rollback_reason']})" if a.get("rollback_reason") else "")
             )
-        lignes += ["", f"**Chronologie ({len(detail['chronologie'])} entrees)**"]
+        lignes += ["", f"**Chronologie ({len(detail['chronologie'])} entrées)**"]
         for e in detail["chronologie"]:
             lignes.append(f"- {e['seq']}. {e['type']} — {e['acteur']}")
 
@@ -407,19 +407,19 @@ class AssistantService:
                 f"La plateforme traite **{facts['types_catalogues']} types d'attaques** "
                 "codifies au catalogue CIRT.",
                 "",
-                f"Repartition par famille — {familles} "
-                "(A : reseau, B : applicatif, C : comportemental/insider, D : infrastructure).",
+                f"Répartition par famille — {familles} "
+                "(A : réseau, B : applicatif, C : comportemental/insider, D : infrastructure).",
                 "",
-                "Une menace absente de ce catalogue ne declenche aucune action : le "
-                "contexte est declare non fonde et le systeme s'abstient. C'est une "
-                "limite assumee du perimetre autonome.",
+                "Une menace absente de ce catalogue ne déclenche aucune action : le "
+                "contexte est déclaré non fonde et le système s'abstient. C'est une "
+                "limite assumee du périmètre autonome.",
             ]
         )
         if facts["hors_perimetre_autonome"]:
             texte += (
                 "\n\nSans action corrective directe : "
                 + ", ".join(facts["hors_perimetre_autonome"])
-                + " — la reponse s'y limite au constat et a la notification."
+                + " — la réponse s'y limite au constat et à la notification."
             )
         return Answer(
             intent=Intent.CATALOG,
@@ -432,11 +432,11 @@ class AssistantService:
     def _unknown(self, question: str) -> Answer:
         texte = "\n".join(
             [
-                "Je ne sais pas repondre a cette question.",
+                "Je ne sais pas répondre à cette question.",
                 "",
-                "Je m'appuie exclusivement sur les donnees de la plateforme — "
+                "Je m'appuie exclusivement sur les données de la plateforme — "
                 "journal d'audit, portefeuille d'incidents, catalogue — et je ne "
-                "complete jamais un fait manquant.",
+                "complète jamais un fait manquant.",
                 "",
                 "Voici ce que je sais faire :",
                 *[f"- {s}" for s in self.suggestions()],

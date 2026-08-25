@@ -13,28 +13,28 @@ logger = logging.getLogger(__name__)
 
 
 class ActuatorError(RuntimeError):
-    """Echec d'execution cote equipement."""
+    """Échec d'exécution cote équipement."""
 
 
 class RollbackError(RuntimeError):
-    """Echec d'annulation. Situation la plus grave du systeme : une action a
-    ete appliquee sans pouvoir etre retiree."""
+    """Échec d'annulation. Situation la plus grave du système : une action a
+    été appliquée sans pouvoir être retirée."""
 
 
 @dataclass(slots=True)
 class ActuationOutcome:
-    """Ce que rend un actuateur apres execution."""
+    """Ce que rend un actuateur après exécution."""
 
     success: bool
     rollback_token: str | None = None
     details: dict[str, Any] = field(default_factory=dict)
     message: str = ""
     already_applied: bool = False
-    """Vrai si l'etat cible etait deja en place (idempotence)."""
+    """Vrai si l'état cible était déjà en place (idempotence)."""
 
 
 class Actuator(ABC):
-    """Un connecteur vers un equipement ou un service."""
+    """Un connecteur vers un équipement ou un service."""
 
     name: str = "abstract"
     supported_verbs: tuple[str, ...] = ()
@@ -44,16 +44,16 @@ class Actuator(ABC):
 
     @abstractmethod
     def execute(self, verb: str, target: str, parameters: dict[str, Any]) -> ActuationOutcome:
-        """Applique le verbe. Doit etre idempotent."""
+        """Applique le verbe. Doit être idempotent."""
 
     @abstractmethod
     def rollback(
         self, verb: str, target: str, token: str, parameters: dict[str, Any]
     ) -> ActuationOutcome:
-        """Annule une execution identifiee par son jeton."""
+        """Annule une exécution identifiée par son jeton."""
 
     def health(self) -> bool:
-        """L'equipement repond-il ? Un actuateur en panne doit etre connu du
+        """L'équipement répond-il ? Un actuateur en panne doit être connu du
         moteur *avant* qu'il ne planifie une action qui en depend."""
         return True
 

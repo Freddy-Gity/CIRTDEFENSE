@@ -1,9 +1,9 @@
 """Fixtures partagees.
 
-Chaque test recoit une plateforme isolee, en base memoire et en mode
+Chaque test reçoit une plateforme isolée, en base mémoire et en mode
 simulation. C'est deliberé : une suite de tests qui partagerait une base
-laisserait le coupe-circuit d'un test ouvert pour le suivant, et les echecs
-seraient impossibles a interpreter.
+laisserait le coupe-circuit d'un test ouvert pour le suivant, et les échecs
+seraient impossibles à interpreter.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from cirtdefense.platform import Platform, build_platform  # noqa: E402
 
 @pytest.fixture
 def probe() -> StaticProbe:
-    """Sonde alimentee a la main : l'etat de sante est un parametre du test."""
+    """Sonde alimentee à la main : l'état de santé est un paramètre du test."""
     p = StaticProbe()
     p.set(
         HealthSnapshot(

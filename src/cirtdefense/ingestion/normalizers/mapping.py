@@ -1,6 +1,6 @@
 """Tables de correspondance partagees par les normaliseurs.
 
-Regrouper ces tables evite que deux sources classent differemment la meme
+Regrouper ces tables évite que deux sources classent differemment la même
 menace, ce qui casserait la correlation des incidents.
 """
 
@@ -20,13 +20,13 @@ CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
     "malware": ("malware", "trojan", "ransomware", "virus", "backdoor", "cryptolocker"),
     "exfiltration": ("exfiltration", "data transfer", "large upload", "dns tunnel"),
     "lateral_movement": (
-        "lateral movement",
+        "latéral movement",
         "psexec",
         "smb admin",
         "pass the hash",
-        "remote service creation",
+        "remote service création",
     ),
-    "privilege_escalation": ("privilege escalation", "sudo", "uac bypass", "token manipulation"),
+    "privilege_escalation": ("privilège escalation", "sudo", "uac bypass", "token manipulation"),
     "c2": ("command and control", "c2", "beacon", "callback"),
     "web_attack": ("sql injection", "sqli", "xss", "path traversal", "web shell"),
     "scan": ("port scan", "nmap", "reconnaissance", "sweep"),
@@ -74,16 +74,16 @@ SEVERITY_ALIASES: dict[str, Severity] = {
 
 
 def classify_category(*texts: str) -> str:
-    """Deduit la famille de menace a partir des libelles de la source.
+    """Deduit la famille de menace à partir des libelles de la source.
 
-    La correspondance la plus longue l'emporte, et non la premiere trouvee :
+    La correspondance la plus longue l'emporte, et non la première trouvee :
     « command and control » doit primer sur « trojan » dans un libelle qui
     contient les deux, sans quoi le classement dependrait de l'ordre de
-    declaration du dictionnaire. A egalite de longueur, l'ordre alphabetique
-    tranche pour que la fonction reste deterministe.
+    déclaration du dictionnaire. A egalite de longueur, l'ordre alphabetique
+    tranche pour que la fonction reste déterministe.
 
-    Le repli est `unknown` et non une categorie plausible : une categorie
-    inventee orienterait le choix du playbook sur une base non fondee.
+    Le repli est `unknown` et non une catégorie plausible : une catégorie
+    inventee orienterait le choix du playbook sur une base non fondée.
     """
     haystack = " ".join(t.lower() for t in texts if t)
     best: tuple[int, str] | None = None

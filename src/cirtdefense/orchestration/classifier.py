@@ -3,18 +3,18 @@
 Produit, pour tout `DetectionEvent`, les quatre qualifications demandees :
 
 - **type** : la ligne du catalogue (A1 a D4) ;
-- **categorie** : la famille (reseau, applicative, insider, infrastructure) ;
-- **criticite** : la gravite effective, croisee avec la criticite de l'actif ;
-- **dangerosite** : le dommage potentiel si l'attaque aboutit, sur 10.
+- **catégorie** : la famille (réseau, applicative, insider, infrastructure) ;
+- **criticité** : la gravité effective, croisee avec la criticité de l'actif ;
+- **dangerosité** : le dommage potentiel si l'attaque aboutit, sur 10.
 
-Criticite et dangerosite mesurent deux choses differentes, et les confondre
-conduirait a mal prioriser. Un scan de reconnaissance (A3) est de criticite
-basse — il ne casse rien — mais annonce une intrusion : sa dangerosite reste
-moderee et non nulle. Un service indisponible (D3) est de criticite haute sur
-un actif vital alors que sa dangerosite intrinseque est moyenne : la panne
-gene, elle ne donne pas la main a un attaquant.
+Criticité et dangerosité mesurent deux choses differentes, et les confondre
+conduirait a mal prioriser. Un scan de reconnaissance (A3) est de criticité
+basse — il ne casse rien — mais annonce une intrusion : sa dangerosité reste
+moderee et non nulle. Un service indisponible (D3) est de criticité haute sur
+un actif vital alors que sa dangerosité intrinseque est moyenne : la panne
+gêne, elle ne donne pas la main à un attaquant.
 
-La classification est **deterministe et explicable** : chaque score
+La classification est **déterministe et explicable** : chaque score
 s'accompagne des facteurs qui l'ont produit. Sans validation humaine en amont,
 une qualification qu'on ne sait pas justifier a posteriori ne vaut rien.
 """
@@ -44,12 +44,12 @@ LEGACY_ALIASES: dict[str, str] = {
 
 @dataclass(slots=True)
 class Classification:
-    """Qualification complete d'un evenement."""
+    """Qualification complète d'un événement."""
 
     attack_type: AttackType | None
     category: str
     severity: Severity
-    """Criticite effective : plancher du catalogue releve par la source et l'actif."""
+    """Criticité effective : plancher du catalogue releve par la source et l'actif."""
     asset_criticality: int
     dangerousness: float
     """0 a 10. Dommage potentiel si l'attaque aboutit."""
@@ -58,7 +58,7 @@ class Classification:
     factors: list[str] = field(default_factory=list)
     """Facteurs ayant produit les scores, en clair."""
     aliased_from: str | None = None
-    """Categorie d'origine si un rapprochement a ete necessaire."""
+    """Catégorie d'origine si un rapprochement a été nécessaire."""
 
     @property
     def is_catalogued(self) -> bool:
@@ -121,7 +121,7 @@ class Classification:
 
 
 class Classifier:
-    """Rattache un evenement au catalogue et calcule ses scores."""
+    """Rattache un événement au catalogue et calcule ses scores."""
 
     def classify(self, event: DetectionEvent) -> Classification:
         attack_type, aliased_from = self._resolve(event.category)
@@ -133,7 +133,7 @@ class Classifier:
 
         if aliased_from:
             factors.append(
-                f"categorie '{aliased_from}' rapprochee du type {attack_type.code} "
+                f"catégorie '{aliased_from}' rapprochee du type {attack_type.code} "
                 "faute de qualification plus fine par la source"
             )
 
@@ -167,7 +167,7 @@ class Classifier:
     def _effective_severity(
         event: DetectionEvent, attack_type: AttackType | None, factors: list[str]
     ) -> Severity:
-        """La gravite du catalogue est un plancher, pas un plafond.
+        """La gravité du catalogue est un plancher, pas un plafond.
 
         Une source peut remonter plus grave que le plancher — elle observe le
         cas concret. Elle ne peut pas remonter moins grave : le catalogue
@@ -176,13 +176,13 @@ class Classifier:
         severity = event.severity
         if attack_type is not None and attack_type.base_severity > severity:
             factors.append(
-                f"gravite relevee de {severity.value} a {attack_type.base_severity.value} "
+                f"gravité relevee de {severity.value} a {attack_type.base_severity.value} "
                 f"(plancher du type {attack_type.code})"
             )
             severity = attack_type.base_severity
         if event.asset.criticality >= 5 and severity < Severity.CRITICAL:
             promoted = Severity.CRITICAL if severity is Severity.HIGH else Severity.HIGH
-            factors.append(f"gravite relevee a {promoted.value} : actif de criticite maximale")
+            factors.append(f"gravité relevee a {promoted.value} : actif de criticité maximale")
             severity = promoted
         return severity
 
@@ -195,21 +195,21 @@ class Classifier:
         """Dommage potentiel si l'attaque aboutit, sur 10.
 
         Trois facteurs, tous explicites :
-        base du catalogue, criticite de l'actif, confiance de la source.
+        base du catalogue, criticité de l'actif, confiance de la source.
         Un type hors catalogue part d'une base moyenne : on ne sait pas, on ne
         prejuge donc ni dans un sens ni dans l'autre.
         """
         if attack_type is None:
             base = 5.0
-            factors.append("dangerosite de base 5/10 : type hors catalogue, aucune reference")
+            factors.append("dangerosité de base 5/10 : type hors catalogue, aucune référence")
         else:
             base = float(attack_type.dangerousness)
-            factors.append(f"dangerosite de base {base:.0f}/10 pour le type {attack_type.code}")
+            factors.append(f"dangerosité de base {base:.0f}/10 pour le type {attack_type.code}")
 
         criticality_bonus = (event.asset.criticality - 3) * 0.5
         if criticality_bonus:
             factors.append(
-                f"{criticality_bonus:+.1f} : actif de criticite {event.asset.criticality}/5"
+                f"{criticality_bonus:+.1f} : actif de criticité {event.asset.criticality}/5"
             )
 
         # La confiance module sans jamais annuler : une detection incertaine
@@ -233,17 +233,17 @@ class Classifier:
 
         priority = attack_type.priority
         if attack_type.priority_rationale:
-            factors.append(f"priorite {priority.value} — {attack_type.priority_rationale}")
+            factors.append(f"priorité {priority.value} — {attack_type.priority_rationale}")
         else:
-            factors.append(f"priorite {priority.value} au catalogue")
+            factors.append(f"priorité {priority.value} au catalogue")
 
         # Le document prevoit explicitement des priorites conditionnelles
         # (« moyenne a haute selon le compte cible », « haute si service
         # critique »). L'actif tranche ce que le catalogue laisse ouvert.
         if event.asset.criticality >= 5 and priority is Priority.HIGH:
-            factors.append("priorite portee a critique : actif de criticite maximale")
+            factors.append("priorité portee a critique : actif de criticité maximale")
             return Priority.CRITICAL
         if event.asset.criticality <= 1 and priority is Priority.MEDIUM:
-            factors.append("priorite abaissee a basse : actif accessoire")
+            factors.append("priorité abaissee a basse : actif accessoire")
             return Priority.LOW
         return priority

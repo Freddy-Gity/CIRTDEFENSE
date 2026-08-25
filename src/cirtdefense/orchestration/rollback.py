@@ -1,12 +1,12 @@
 """Annulation d'action : autonome (EF-25) et manuelle a posteriori (Analyste).
 
-EF-25 ferme la boucle : la surveillance observe la cible apres l'action et,
-si l'etat s'est degrade par rapport a la mesure prise avant, l'action est
-annulee sans intervention humaine.
+EF-25 ferme la boucle : la surveillance observe la cible après l'action et,
+si l'état s'est dégradé par rapport à la mesure prise avant, l'action est
+annulée sans intervention humaine.
 
-Le delai d'annulation est **borne et mesure**. C'est l'objet du critere de
-recette de non-regression securitaire (CDCF §5.3) : demontrer qu'une action
-erronee est detectee et annulee dans un delai connu. Un rollback qui
+Le délai d'annulation est **borne et mesure**. C'est l'objet du critère de
+recette de non-régression securitaire (CDCF §5.3) : demontrer qu'une action
+erronee est détectée et annulée dans un délai connu. Un rollback qui
 fonctionne mais dont personne ne sait combien de temps il prend ne prouve rien.
 """
 
@@ -37,7 +37,7 @@ class RollbackOutcome:
     actor: str
     latency_seconds: float = 0.0
     within_bound: bool = True
-    """Faux si l'annulation a depasse le delai maximal admis pour cette action."""
+    """Faux si l'annulation a depasse le délai maximal admis pour cette action."""
     detail: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -54,7 +54,7 @@ class RollbackOutcome:
 
 @dataclass(slots=True)
 class ControlLoopReport:
-    """Bilan d'un passage de la boucle de controle."""
+    """Bilan d'un passage de la boucle de contrôle."""
 
     checked: int = 0
     degraded: int = 0
@@ -97,10 +97,10 @@ class RollbackService:
     # -- EF-25 : boucle de controle fermee ---------------------------------
 
     def run_control_loop(self, results: list[ActionResult] | None = None) -> ControlLoopReport:
-        """Examine les actions executees et annule celles qui ont nui.
+        """Examine les actions exécutées et annule celles qui ont nui.
 
-        Sans argument, la boucle balaye les actions reversibles encore
-        actives : c'est le mode d'appel du planificateur periodique.
+        Sans argument, la boucle balaye les actions réversibles encore
+        actives : c'est le mode d'appel du planificateur périodique.
         """
         report = ControlLoopReport()
         candidates = results if results is not None else self._actions.executed_reversible()
@@ -154,18 +154,18 @@ class RollbackService:
             return RollbackOutcome(
                 action_id=result.action_id,
                 success=True,
-                reason="action deja annulee",
+                reason="action déjà annulée",
                 actor=actor,
-                detail="aucune operation necessaire",
+                detail="aucune opération nécessaire",
             )
         if result.status is not ActionStatus.EXECUTED:
             return self._refuse(
-                result, f"action au statut '{result.status.value}' : rien a annuler", actor
+                result, f"action au statut '{result.status.value}' : rien à annuler", actor
             )
         if not result.is_reversible:
             return self._refuse(
                 result,
-                "action non reversible ou jeton d'annulation absent : "
+                "action non réversible ou jeton d'annulation absent : "
                 "aucune annulation automatique possible",
                 actor,
             )
@@ -231,7 +231,7 @@ class RollbackService:
             log_with(
                 logger,
                 logging.ERROR,
-                "annulation reussie mais hors du delai admis",
+                "annulation réussie mais hors du délai admis",
                 action_id=result.action_id,
                 latency=latency,
                 bound=bound,
@@ -240,7 +240,7 @@ class RollbackService:
             log_with(
                 logger,
                 logging.WARNING,
-                "action autonome annulee",
+                "action autonome annulée",
                 action_id=result.action_id,
                 actor=actor,
                 latency=latency,
@@ -272,14 +272,14 @@ class RollbackService:
 
     @staticmethod
     def _format_reason(verdict: WatchVerdict) -> str:
-        return f"degradation constatee sur {verdict.target} apres l'action : " + " ; ".join(
+        return f"dégradation constatée sur {verdict.target} après l'action : " + " ; ".join(
             verdict.reasons
         )
 
     def _refresh_incident_status(self, incident_id: str) -> None:
-        """Un incident dont tous les confinements ont ete annules n'est plus
-        « contenu ». Sans cette remise a jour, le portefeuille afficherait une
-        maitrise que la realite dement."""
+        """Un incident dont tous les confinements ont été annulés n'est plus
+        « contenu ». Sans cette remise à jour, le portefeuille afficherait une
+        maîtrise que la realite dement."""
         if not incident_id or self._incidents is None:
             return
         incident = self._incidents.get(incident_id)
@@ -291,7 +291,7 @@ class RollbackService:
 
     def _refuse(self, result: ActionResult, reason: str, actor: str) -> RollbackOutcome:
         log_with(
-            logger, logging.WARNING, "annulation refusee", action_id=result.action_id, reason=reason
+            logger, logging.WARNING, "annulation refusée", action_id=result.action_id, reason=reason
         )
         return RollbackOutcome(
             action_id=result.action_id, success=False, reason=reason, actor=actor
@@ -305,8 +305,8 @@ class RollbackService:
         started: datetime,
         bound: int,
     ) -> RollbackOutcome:
-        """Echec d'annulation : l'etat le plus grave que le systeme puisse
-        atteindre, puisqu'une action reste appliquee sans moyen de la retirer."""
+        """Échec d'annulation : l'état le plus grave que le système puisse
+        atteindre, puisqu'une action reste appliquée sans moyen de la retirer."""
         latency = (datetime.now(UTC) - started).total_seconds()
         result.status = ActionStatus.ROLLBACK_FAILED
         result.rollback_reason = message
@@ -327,7 +327,7 @@ class RollbackService:
         log_with(
             logger,
             logging.CRITICAL,
-            "ECHEC D'ANNULATION : une action reste appliquee sans retour arriere",
+            "ÉCHEC D'ANNULATION : une action reste appliquée sans retour arriere",
             action_id=result.action_id,
             error=message,
         )

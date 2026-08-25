@@ -1,7 +1,7 @@
-"""Actuateur pare-feu : blocage et limitation de debit par adresse ou domaine.
+"""Actuateur pare-feu : blocage et limitation de débit par adresse ou domaine.
 
 Deux implantations coexistent : une simulation fidele au contrat et un
-squelette d'integration reelle. Le choix est fait par la configuration, jamais
+squelette d'intégration réelle. Le choix est fait par la configuration, jamais
 par le code appelant — le moteur ne doit pas savoir s'il agit pour de vrai.
 """
 
@@ -27,7 +27,7 @@ PRIVATE_RANGES = ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8"
 
 def is_private(address: str) -> bool:
     """Une adresse interne demande davantage de prudence : le blocage y coupe
-    un usage legitime plus souvent qu'il n'arrete un attaquant."""
+    un usage légitime plus souvent qu'il n'arrête un attaquant."""
     try:
         ip = ipaddress.ip_address(address)
     except ValueError:
@@ -41,11 +41,11 @@ class SimulatedFirewall(SimulatedActuator):
 
 
 class LiveFirewall(Actuator):
-    """Squelette d'integration. A completer avec le client de l'equipement du
-    site (API REST du pare-feu, `nft`, `pf`, controleur SDN).
+    """Squelette d'intégration. à compléter avec le client de l'équipement du
+    site (API REST du pare-feu, `nft`, `pf`, contrôleur SDN).
 
-    Les verifications faites ici — validite de l'adresse, refus des verbes non
-    supportes — restent valables quel que soit l'equipement retenu et sont
+    Les vérifications faites ici — validite de l'adresse, refus des verbes non
+    supportes — restent valables quel que soit l'équipement retenu et sont
     donc conservees dans le squelette.
     """
 
@@ -67,9 +67,9 @@ class LiveFirewall(Actuator):
                     success=False, message=f"cible '{target}' n'est pas une adresse IP valide"
                 )
         raise NotImplementedError(
-            "LiveFirewall.execute : brancher ici le client du pare-feu du site. "
+            "LiveFirewall.exécute : brancher ici le client du pare-feu du site. "
             "Le retour doit imperativement porter un rollback_token identifiant "
-            "la regle creee, sans quoi la boucle EF-25 ne peut pas l'annuler."
+            "la règle créée, sans quoi la boucle EF-25 ne peut pas l'annuler."
         )
 
     def rollback(
@@ -77,7 +77,7 @@ class LiveFirewall(Actuator):
     ) -> ActuationOutcome:
         self._require_client()
         raise NotImplementedError(
-            "LiveFirewall.rollback : supprimer la regle identifiee par `token`."
+            "LiveFirewall.rollback : supprimer la règle identifiée par `token`."
         )
 
     def health(self) -> bool:
@@ -86,8 +86,8 @@ class LiveFirewall(Actuator):
     def _require_client(self) -> None:
         if self._client is None:
             raise RuntimeError(
-                "actuateur pare-feu en mode reel sans client configure ; "
-                "verifier CIRT_ACTUATION_MODE et l'injection du client"
+                "actuateur pare-feu en mode réel sans client configure ; "
+                "vérifier CIRT_ACTUATION_MODE et l'injection du client"
             )
 
 

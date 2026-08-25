@@ -1,17 +1,17 @@
 """Garde de non-invention (EF-04).
 
-Une seule question est tranchee ici : le contexte remonte est-il *reellement*
+Une seule question est tranchee ici : le contexte remonte est-il *réellement*
 soutenu par des documents, ou est-il une reconstruction plausible ?
 
-Le controle porte exclusivement sur les termes **discriminants** d'une
-affirmation. C'est le point delicat : une premiere version comparait tous les
-mots, si bien que les mots de liaison de la phrase de controle
-(« categorie », « menace », « documentee ») suffisaient a la valider — une
-menace parfaitement inconnue passait pour documentee. Un terme present dans
+Le contrôle porte exclusivement sur les termes **discriminants** d'une
+affirmation. C'est le point delicat : une première version comparait tous les
+mots, si bien que les mots de liaison de la phrase de contrôle
+(« catégorie », « menace », « documentée ») suffisaient à la valider — une
+menace parfaitement inconnue passait pour documentée. Un terme present dans
 la moitie des documents ne prouve rien ; seuls les termes rares le peuvent.
 
-Le controle reste deliberement lexical. Une verification par un modele
-reintroduirait le probleme qu'elle est censee resoudre : un modele peut
+Le contrôle reste deliberement lexical. Une vérification par un modèle
+reintroduirait le problème qu'elle est censee résoudre : un modèle peut
 halluciner la justification de sa propre hallucination.
 """
 
@@ -23,7 +23,7 @@ from typing import Any, Protocol
 from .vector_store import SearchHit, tokenize
 
 UBIQUITY_LIMIT = 0.5
-"""Au-dela de cette part de documents, un terme est juge non discriminant."""
+"""Au-delà de cette part de documents, un terme est juge non discriminant."""
 
 
 class CorpusStats(Protocol):
@@ -137,7 +137,7 @@ class GroundingGuard:
                 found_terms=[],
                 coverage=0.0,
                 supported=False,
-                note="aucun terme discriminant : affirmation invérifiable en l'etat",
+                note="aucun terme discriminant : affirmation invérifiable en l'état",
             )
         found = sorted(set(discriminating) & corpus_terms)
         coverage = len(found) / len(discriminating)
@@ -169,7 +169,7 @@ class GroundingGuard:
     def check_score(self, hits: list[SearchHit], normalizer: float = 6.0) -> float:
         """Score de pertinence brut de la recherche, normalise sur [0, 1].
 
-        `normalizer` correspond a un score BM25 deja franchement bon ; au-dela
+        `normalizer` correspond à un score BM25 déjà franchement bon ; au-delà
         on plafonne, la distinction n'ayant plus d'utilite decisionnelle.
         """
         if not hits:

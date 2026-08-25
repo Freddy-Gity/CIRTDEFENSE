@@ -1,4 +1,4 @@
-"""Mode demonstration : les 22 types simulables de bout en bout."""
+"""Mode démonstration : les 22 types simulables de bout en bout."""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ from cirtdefense.domain.taxonomy import BY_CODE
 
 @pytest.fixture
 def parc(platform, probe):
-    """Tout le parc fictif en bonne sante : sans cela, la boucle de controle
-    imputerait a nos actions une degradation preexistante."""
+    """Tout le parc fictif en bonne santé : sans cela, la boucle de contrôle
+    imputerait à nos actions une dégradation preexistante."""
     for nom in ASSETS:
         probe.set(
             HealthSnapshot(
@@ -44,11 +44,11 @@ class TestChaineComplete:
     def test_chaque_scenario_produit_une_reponse(self, parc, scenario):
         result = parc.ingest_and_respond(scenario.source, build_payload(scenario.code))
 
-        assert result is not None, f"{scenario.code} n'a produit aucun resultat"
+        assert result is not None, f"{scenario.code} n'a produit aucun résultat"
         assert result.decision.outcome is DecisionOutcome.AUTONOMOUS_EXECUTION, (
             f"{scenario.code} : {result.decision.rationale}"
         )
-        assert result.execution.executed >= 1, f"{scenario.code} n'a execute aucune action"
+        assert result.execution.executed >= 1, f"{scenario.code} n'a exécuté aucune action"
 
     @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s.code)
     def test_chaque_scenario_est_classifie(self, parc, scenario):
@@ -80,7 +80,7 @@ class TestChaineComplete:
 
 class TestConformiteAuCatalogue:
     def test_aucune_action_irreversible_sur_tout_le_catalogue(self, parc):
-        """Principe de conception du document, verifie a l'execution et non
+        """Principe de conception du document, vérifié a l'exécution et non
         seulement dans la taxonomie."""
         for scenario in SCENARIOS:
             result = parc.ingest_and_respond(scenario.source, build_payload(scenario.code))
@@ -88,7 +88,7 @@ class TestConformiteAuCatalogue:
                 continue
             for action in result.execution.results:
                 assert action.spec.reversibility.value != "irreversible", (
-                    f"{scenario.code} a execute une action irreversible : {action.spec.key}"
+                    f"{scenario.code} a exécuté une action irréversible : {action.spec.key}"
                 )
 
     def test_le_rancongiciel_ne_declenche_aucune_remediation(self, parc):
@@ -100,13 +100,13 @@ class TestConformiteAuCatalogue:
         assert not verbes & {"wipe_disk", "shutdown_host", "delete_account"}
 
     def test_le_certificat_tls_ne_declenche_que_la_notification(self, parc):
-        """D1 depend d'une autorite externe : la plateforme s'abstient."""
+        """D1 depend d'une autorité externe : la plateforme s'abstient."""
         result = parc.ingest_and_respond("generic_json", build_payload("D1"))
         assert {a.spec.verb for a in result.execution.results} == {"notify"}
 
     def test_l_acces_hors_profil_ne_revoque_pas_le_compte(self, parc):
-        """C2 : le document exclut la revocation, le risque de faux positif
-        y etant plus eleve qu'ailleurs."""
+        """C2 : le document exclut la révocation, le risque de faux positif
+        y etant plus élève qu'ailleurs."""
         result = parc.ingest_and_respond("generic_json", build_payload("C2"))
         verbes = {a.spec.verb for a in result.execution.results}
         assert not verbes & {"disable_account", "lock_account"}
@@ -134,8 +134,8 @@ class TestApiDemonstration:
         assert client.post("/api/v1/demo/run/Z9").status_code == 404
 
     def test_remise_a_zero_conserve_le_journal(self, client):
-        """Le journal est immuable par construction : une remise a zero qui
-        le viderait contredirait le mecanisme qu'il incarne."""
+        """Le journal est immuable par construction : une remise à zero qui
+        le viderait contredirait le mécanisme qu'il incarne."""
         client.post("/api/v1/demo/run/A1")
         avant = client.get("/api/v1/audit/verify").json()["entries_checked"]
 

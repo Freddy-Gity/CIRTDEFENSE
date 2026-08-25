@@ -1,10 +1,10 @@
-"""Politique de reponse compilee (EF-15, version v3.0).
+"""Politique de réponse compilée (EF-15, version v3.0).
 
-L'administrateur ecrit sa politique en langage naturel. Elle est compilee
-*une fois*, a priori, en contraintes deterministes ; le moteur autonome
-n'evalue ensuite que ces contraintes. Le langage naturel ne se trouve donc
-jamais sur le chemin d'execution : une reformulation du modele ne peut pas
-changer le comportement d'une action deja compilee.
+L'administrateur ecrit sa politique en langage naturel. Elle est compilée
+*une fois*, a priori, en contraintes déterministes ; le moteur autonome
+n'évalue ensuite que ces contraintes. Le langage naturel ne se trouve donc
+jamais sur le chemin d'exécution : une reformulation du modèle ne peut pas
+changer le comportement d'une action déjà compilée.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from .enums import Reversibility, Severity
 
 @dataclass(frozen=True, slots=True)
 class Constraint:
-    """Predicat elementaire evalue sur (action, contexte)."""
+    """Predicat elementaire évalue sur (action, contexte)."""
 
     field: str
     """action.verb, action.actuator, action.target, action.reversibility,
@@ -53,7 +53,7 @@ class Constraint:
             case "matches":
                 return bool(re.search(str(self.value), str(actual)))
             case _:
-                raise ValueError(f"operateur de contrainte inconnu : {self.operator}")
+                raise ValueError(f"opérateur de contrainte inconnu : {self.operator}")
 
     def describe(self) -> str:
         return f"{self.field} {self.operator} {self.value}"
@@ -72,11 +72,11 @@ def _as_number(value: Any) -> float:
 
 @dataclass(frozen=True, slots=True)
 class PolicyRule:
-    """Regle compilee. `effect` = allow | deny | require_approval_none.
+    """Règle compilée. `effect` = allow | deny | require_approval_none.
 
     Il n'existe volontairement pas d'effet « demander validation » : ce serait
     reintroduire EF-13 dans sa version anterieure. Une action que la politique
-    n'autorise pas est refusee, pas mise en attente d'un humain.
+    n'autorise pas est refusée, pas mise en attente d'un humain.
     """
 
     rule_id: str
@@ -84,11 +84,11 @@ class PolicyRule:
     constraints: tuple[Constraint, ...] = ()
     source_sentence: str = ""
     priority: int = 100
-    """Plus la valeur est basse, plus la regle est evaluee tot."""
+    """Plus la valeur est basse, plus la règle est évaluée tot."""
 
     def __post_init__(self) -> None:
         if self.effect not in ("allow", "deny"):
-            raise ValueError(f"effet de regle invalide : {self.effect}")
+            raise ValueError(f"effet de règle invalide : {self.effect}")
 
     def matches(self, ctx: dict[str, Any]) -> bool:
         return all(c.evaluate(ctx) for c in self.constraints)
@@ -100,26 +100,26 @@ class PolicyRule:
 
 @dataclass(slots=True)
 class ResponsePolicy:
-    """Politique complete, versionnee et empreinte pour l'audit."""
+    """Politique complète, versionnee et empreinte pour l'audit."""
 
     policy_id: str = "default"
     version: str = "1"
     rules: list[PolicyRule] = field(default_factory=list)
     source_text: str = ""
     default_effect: str = "allow"
-    """`allow` : tout ce qui n'est pas refuse est execute (posture v3.0).
+    """`allow` : tout ce qui n'est pas refuse est exécuté (posture v3.0).
     Passer a `deny` transforme la politique en liste blanche stricte."""
     compiled_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     author: str = "administrateur"
 
     def checksum(self) -> str:
-        """Empreinte du **comportement** de la politique, pas de sa redaction.
+        """Empreinte du **comportement** de la politique, pas de sa rédaction.
 
-        Seuls l'effet et les contraintes de chaque regle entrent dans le
+        Seuls l'effet et les contraintes de chaque règle entrent dans le
         calcul ; la phrase d'origine en est exclue. C'est ce qui rend
-        l'empreinte utile en audit : elle repond a « le comportement du moteur
+        l'empreinte utile en audit : elle répond à « le comportement du moteur
         a-t-il change ? », et deux redactions equivalentes — avec ou sans
-        accents, reformulees — donnent bien la meme empreinte. L'identite
+        accents, reformulees — donnent bien la même empreinte. L'identité
         documentaire de la politique, elle, est portee par `version` et
         `author`.
         """
@@ -139,7 +139,7 @@ class ResponsePolicy:
         return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
     def evaluate(self, action: ActionSpec, context: dict[str, Any]) -> PolicyVerdict:
-        """Premiere regle satisfaite qui tranche ; sinon `default_effect`."""
+        """Première règle satisfaite qui tranche ; sinon `default_effect`."""
         ctx = self._build_context(action, context)
         for rule in sorted(self.rules, key=lambda r: (r.priority, r.rule_id)):
             if rule.matches(ctx):
@@ -147,13 +147,13 @@ class ResponsePolicy:
                     allowed=rule.effect == "allow",
                     rule_id=rule.rule_id,
                     rule_text=rule.source_sentence or rule.describe(),
-                    reason=f"regle {rule.rule_id} appliquee ({rule.effect})",
+                    reason=f"règle {rule.rule_id} appliquée ({rule.effect})",
                 )
         return PolicyVerdict(
             allowed=self.default_effect == "allow",
             rule_id=None,
             rule_text=None,
-            reason=f"aucune regle applicable, effet par defaut = {self.default_effect}",
+            reason=f"aucune règle applicable, effet par défaut = {self.default_effect}",
         )
 
     @staticmethod
@@ -196,14 +196,14 @@ IRREVERSIBLE_GUARD = PolicyRule(
     effect="deny",
     constraints=(Constraint("action.reversibility", "eq", Reversibility.IRREVERSIBLE.value),),
     source_sentence=(
-        "Garde-fou structurel : aucune action irreversible n'est executee de facon "
+        "Garde-fou structurel : aucune action irréversible n'est exécutée de façon "
         "autonome, faute de pouvoir garantir le rollback exige par EF-25."
     ),
     priority=0,
 )
-"""Regle socle injectee dans toute politique compilee.
+"""Règle socle injectee dans toute politique compilée.
 
 C'est la limite assumee du CDCF 1.4.3 : l'autonomie totale s'exerce sur le
-catalogue reversible. Une action irreversible sort du perimetre autonome et
+catalogue réversible. Une action irréversible sort du périmètre autonome et
 reste un geste humain.
 """

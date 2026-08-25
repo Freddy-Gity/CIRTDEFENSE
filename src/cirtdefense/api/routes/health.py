@@ -1,4 +1,4 @@
-"""Etat de la plateforme : posture d'autonomie effective et sante technique."""
+"""État de la plateforme : posture d'autonomie effective et santé technique."""
 
 from __future__ import annotations
 
@@ -16,6 +16,6 @@ def health() -> dict:
 
 @router.get("/api/v1/status")
 def status(platform: PlatformDep) -> dict:
-    """Vue complete de la posture. C'est l'ecran qu'on ouvre en premier pour
-    savoir si le systeme agit reellement, et sous quelles contraintes."""
+    """Vue complète de la posture. C'est l'ecran qu'on ouvre en premier pour
+    savoir si le système agit réellement, et sous quelles contraintes."""
     return platform.status()

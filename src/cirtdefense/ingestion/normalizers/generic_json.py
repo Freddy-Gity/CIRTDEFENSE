@@ -1,6 +1,6 @@
-"""Normaliseur pivot : accepte deja la forme `DetectionEvent`.
+"""Normaliseur pivot : accepte déjà la forme `DetectionEvent`.
 
-Sert de porte d'entree aux sources maison et au rejeu du mode degrade.
+Sert de porte d'entrée aux sources maison et au rejeu du mode dégrade.
 """
 
 from __future__ import annotations

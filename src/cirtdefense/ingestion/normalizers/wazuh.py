@@ -39,7 +39,7 @@ def normalize(payload: dict[str, Any]) -> DetectionEvent:
             criticality=int((payload.get("cirt") or {}).get("criticality", 3)),
             zone=str((payload.get("cirt") or {}).get("zone", "unknown")),
         ),
-        title=description or f"Regle Wazuh {rule.get('id', '?')}",
+        title=description or f"Règle Wazuh {rule.get('id', '?')}",
         description=description,
         indicators=indicators,
         mitre_techniques=tuple((rule.get("mitre") or {}).get("id") or ()),
@@ -48,9 +48,9 @@ def normalize(payload: dict[str, Any]) -> DetectionEvent:
 
 
 def _confidence_from_level(level: Any) -> float:
-    """Wazuh n'exprime pas de confiance : on la derive du niveau de regle.
+    """Wazuh n'exprime pas de confiance : on la dérive du niveau de règle.
 
-    Volontairement plafonnee a 0.9 — une source ne s'auto-declare jamais
+    Volontairement plafonnee à 0.9 — une source ne s'auto-déclare jamais
     certaine a 100 % dans cette plateforme.
     """
     try:

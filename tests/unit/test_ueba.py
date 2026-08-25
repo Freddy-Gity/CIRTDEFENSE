@@ -1,4 +1,4 @@
-"""UEBA : detection d'ecart comportemental (EF-08 a EF-10)."""
+"""UEBA : détection d'écart comportemental (EF-08 a EF-10)."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ class TestDetection:
         assert alerte.confidence <= 0.85
 
     def test_l_alerte_porte_son_explication(self, scorer):
-        """Une action fondee sur ce score devra etre justifiee a posteriori."""
+        """Une action fondée sur ce score devra être justifiee a posteriori."""
         for _ in range(10):
             scorer.evaluate(journee(3))
         anormal = []
@@ -82,7 +82,7 @@ class TestDetection:
             anormal += journee(1, category="bruteforce", hour=3, ip=f"41.202.1.{i}")
 
         alerte = scorer.evaluate(anormal)
-        assert "ecart" in alerte.description.lower()
+        assert "écart" in alerte.description.lower()
         assert alerte.indicators["contributions"]
 
 

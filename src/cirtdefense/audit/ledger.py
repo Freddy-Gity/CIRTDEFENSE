@@ -66,7 +66,7 @@ class ChainVerification:
 
 
 class AuditLedger:
-    """Ecriture serialisee : la chaine impose un ordre total des entrees."""
+    """Écriture serialisee : la chaîne impose un ordre total des entrées."""
 
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
@@ -147,7 +147,7 @@ class AuditLedger:
         )
 
     def verify_chain(self) -> ChainVerification:
-        """Rejoue la chaine du debut : detecte toute alteration ou lacune."""
+        """Rejoue la chaîne du debut : détecte toute alteration ou lacune."""
         prev = GENESIS_HASH
         checked = 0
         for row in self._conn.execute("SELECT * FROM audit_log ORDER BY seq ASC"):
@@ -160,19 +160,19 @@ class AuditLedger:
                     valid=False,
                     entries_checked=checked,
                     first_broken_seq=row["seq"],
-                    detail="chainage rompu : prev_hash ne correspond pas a l'entree precedente",
+                    detail="chaînage rompu : prev_hash ne correspond pas a l'entrée précédente",
                 )
             if row["entry_hash"] != expected:
                 return ChainVerification(
                     valid=False,
                     entries_checked=checked,
                     first_broken_seq=row["seq"],
-                    detail="contenu altere : l'empreinte recalculee differe de l'empreinte stockee",
+                    detail="contenu altere : l'empreinte recalculée diffère de l'empreinte stockée",
                 )
             prev = row["entry_hash"]
             checked += 1
         return ChainVerification(
-            valid=True, entries_checked=checked, detail="chaine coherente de bout en bout"
+            valid=True, entries_checked=checked, detail="chaîne cohérente de bout en bout"
         )
 
     def query(
@@ -213,6 +213,6 @@ class AuditLedger:
         ]
 
     def incident_timeline(self, incident_id: str) -> list[AuditEntry]:
-        """Reconstitution chronologique de ce que le systeme a fait, pour un
+        """Reconstitution chronologique de ce que le système a fait, pour un
         incident donne. C'est la vue que l'analyste ouvre en premier."""
         return sorted(self.query(incident_id=incident_id, limit=1000), key=lambda e: e.seq)

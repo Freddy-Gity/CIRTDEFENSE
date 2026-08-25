@@ -1,13 +1,13 @@
-"""Connecteurs d'action : la frontiere entre la decision et le monde reel.
+"""Connecteurs d'action : la frontiere entre la décision et le monde réel.
 
 Chaque actuateur expose un ensemble de verbes et leur annulation. Deux
-proprietes sont exigees de toute implantation :
+propriétés sont exigees de toute implantation :
 
-- **idempotence** : rejouer une action deja appliquee ne doit pas echouer ;
-- **jeton d'annulation** : l'execution rend de quoi annuler *precisement* ce
-  qui a ete fait, et non de quoi appliquer un geste inverse approximatif.
+- **idempotence** : rejouer une action déjà appliquée ne doit pas echouer ;
+- **jeton d'annulation** : l'exécution rend de quoi annuler *précisément* ce
+  qui a été fait, et non de quoi appliquer un geste inverse approximatif.
 
-Sans ces deux proprietes, la boucle EF-25 ne peut rien garantir.
+Sans ces deux propriétés, la boucle EF-25 ne peut rien garantir.
 """
 
 from .base import ActuationOutcome, Actuator, ActuatorError, ActuatorRegistry

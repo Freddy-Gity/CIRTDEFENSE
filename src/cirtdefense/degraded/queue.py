@@ -1,4 +1,4 @@
-"""File de synchronisation persistante du mode degrade."""
+"""File de synchronisation persistante du mode dégrade."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from ..logging_setup import log_with
 logger = logging.getLogger(__name__)
 
 STALE_AFTER = timedelta(hours=6)
-"""Au-dela, un evenement en file est trop ancien pour justifier une action :
+"""Au-delà, un événement en file est trop ancien pour justifier une action :
 la situation qu'il decrit a probablement change."""
 
 
@@ -72,7 +72,7 @@ class ReplayReport:
 
 
 class DegradedSpool:
-    """File sur disque : elle doit survivre a un redemarrage, faute de quoi une
+    """File sur disque : elle doit survivre à un redémarrage, faute de quoi une
     coupure prolongee ferait perdre tout ce qui s'est produit pendant."""
 
     def __init__(self, directory: Path | str, max_items: int = 10000) -> None:
@@ -85,8 +85,8 @@ class DegradedSpool:
             # File pleine : on refuse le plus recent plutot que d'ecraser le
             # plus ancien, qui porte le debut de l'incident.
             raise SpoolFullError(
-                f"file du mode degrade pleine ({self._max_items} elements) ; "
-                "les plus anciens evenements sont conserves"
+                f"file du mode dégrade pleine ({self._max_items} éléments) ; "
+                "les plus anciens événements sont conserves"
             )
         item = SpoolItem(
             item_id=f"spl_{uuid.uuid4().hex[:12]}",
@@ -98,7 +98,7 @@ class DegradedSpool:
         log_with(
             logger,
             logging.INFO,
-            "evenement mis en file (mode degrade)",
+            "événement mis en file (mode dégrade)",
             item_id=item.item_id,
             source=source,
         )
@@ -113,7 +113,7 @@ class DegradedSpool:
                 log_with(
                     logger,
                     logging.ERROR,
-                    "element de file illisible, ignore",
+                    "élément de file illisible, ignore",
                     path=str(path),
                     error=str(exc),
                 )
@@ -141,7 +141,7 @@ class DegradedSpool:
                 log_with(
                     logger,
                     logging.WARNING,
-                    "evenement trop ancien : rejeu abandonne",
+                    "événement trop ancien : rejeu abandonne",
                     item_id=item.item_id,
                     queued_at=item.queued_at.isoformat(),
                 )
@@ -164,4 +164,4 @@ class DegradedSpool:
 
 
 class SpoolFullError(RuntimeError):
-    """File pleine : la plateforme ne peut plus memoriser ce qu'elle observe."""
+    """File pleine : la plateforme ne peut plus mémoriser ce qu'elle observe."""

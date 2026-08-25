@@ -1,4 +1,4 @@
-"""Mode degrade (Axe 5) : agir sans voir serait pire que ne pas agir."""
+"""Mode dégrade (Axe 5) : agir sans voir serait pire que ne pas agir."""
 
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ from cirtdefense.degraded.queue import DegradedSpool, SpoolFullError
 
 class TestComportementEnModeDegrade:
     def test_aucune_action_pendant_la_coupure(self, platform, bruteforce_payload):
-        """La boucle EF-25 ne pourrait pas constater les degats : le systeme
+        """La boucle EF-25 ne pourrait pas constater les degats : le système
         observe et met en file, il n'agit pas."""
-        platform.enter_degraded_mode("perte de connectivite avec les equipements")
+        platform.enter_degraded_mode("perte de connectivite avec les équipements")
 
         assert platform.ingest_and_respond("wazuh", bruteforce_payload) is None
         assert platform.spool.size() == 1
@@ -86,7 +86,7 @@ class TestFileDeSynchronisation:
         spool.enqueue("wazuh", {"a": 1})
 
         def handler(source, payload):
-            raise RuntimeError("equipement toujours injoignable")
+            raise RuntimeError("équipement toujours injoignable")
 
         report = spool.replay(handler)
         assert report.failed == 1

@@ -1,6 +1,6 @@
 """Registre des normaliseurs disponibles.
 
-Ajouter une source = deposer un normaliseur et l'enregistrer ici. Aucun autre
+Ajouter une source = déposer un normaliseur et l'enregistrer ici. Aucun autre
 fichier de la plateforme n'a besoin de le savoir (EF-20).
 """
 

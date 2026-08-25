@@ -1,4 +1,4 @@
-"""Portefeuille d'incidents (Axe 4) et consultation detaillee."""
+"""Portefeuille d'incidents (Axe 4) et consultation détaillée."""
 
 from __future__ import annotations
 

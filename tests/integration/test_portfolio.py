@@ -7,10 +7,10 @@ from cirtdefense.detection.infra.health import HealthSnapshot
 
 class TestIndicateurs:
     def test_le_taux_d_annulation_reflete_l_etat_reel(self, platform, probe, bruteforce_payload):
-        """Regression : les compteurs etaient lus dans l'instantane fige avec
-        l'incident, qui ignore les annulations survenues apres. Le taux
-        affichait 0 % alors que toutes les actions venaient d'etre annulees —
-        faux sur l'indicateur meme qui mesure la fiabilite de l'autonomie."""
+        """Régression : les compteurs étaient lus dans l'instantané fige avec
+        l'incident, qui ignore les annulations survenues après. Le taux
+        affichait 0 % alors que toutes les actions venaient d'être annulées —
+        faux sur l'indicateur même qui mesure la fiabilité de l'autonomie."""
         platform.ingest_and_respond("wazuh", bruteforce_payload)
         assert platform.portfolio.statistics()["actions_rolled_back"] == 0
 
@@ -38,7 +38,7 @@ class TestIndicateurs:
     def test_incident_sans_confinement_actif_n_est_plus_contenu(
         self, platform, probe, bruteforce_payload
     ):
-        """Le portefeuille ne doit pas afficher une maitrise que la realite
+        """Le portefeuille ne doit pas afficher une maîtrise que la realite
         dement."""
         result = platform.ingest_and_respond("wazuh", bruteforce_payload)
         assert platform.incidents.get(result.incident.incident_id).status.value == "contained"

@@ -1,4 +1,4 @@
-"""Actuateur reseau : limitation de debit sortant, bascule de VLAN."""
+"""Actuateur réseau : limitation de débit sortant, bascule de VLAN."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ class SimulatedNetwork(SimulatedActuator):
 
 
 class LiveNetwork(Actuator):
-    """Squelette d'integration (commutateur, controleur SDN, NAC)."""
+    """Squelette d'intégration (commutateur, contrôleur SDN, NAC)."""
 
     name = "network"
     supported_verbs = VERBS
@@ -39,23 +39,23 @@ class LiveNetwork(Actuator):
 
     def execute(self, verb: str, target: str, parameters: dict[str, Any]) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur reseau en mode reel sans client configure")
+            raise RuntimeError("actuateur réseau en mode réel sans client configure")
         if verb == "move_to_vlan" and not parameters.get("previous_vlan"):
             # Sans le VLAN d'origine, `restore_vlan` ne saurait pas quoi
             # retablir. On refuse plutot que de rendre l'action irreversible.
             return ActuationOutcome(
                 success=False,
-                message="bascule refusee : le VLAN d'origine doit etre releve "
+                message="bascule refusée : le VLAN d'origine doit être releve "
                 "avant la bascule pour que le retour arriere soit possible",
             )
-        raise NotImplementedError("LiveNetwork.execute : brancher le client reseau du site.")
+        raise NotImplementedError("LiveNetwork.exécute : brancher le client réseau du site.")
 
     def rollback(
         self, verb: str, target: str, token: str, parameters: dict[str, Any]
     ) -> ActuationOutcome:
         if self._client is None:
-            raise RuntimeError("actuateur reseau en mode reel sans client configure")
-        raise NotImplementedError("LiveNetwork.rollback : retablir l'etat memorise sous `token`.")
+            raise RuntimeError("actuateur réseau en mode réel sans client configure")
+        raise NotImplementedError("LiveNetwork.rollback : rétablir l'état memorise sous `token`.")
 
     def health(self) -> bool:
         return self._client is not None

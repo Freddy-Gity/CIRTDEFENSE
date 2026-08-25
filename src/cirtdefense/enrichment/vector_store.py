@@ -1,8 +1,8 @@
 """Index documentaire lexical (BM25), sans dependance externe.
 
-Un index lexical est prefere ici a un index vectoriel dense : il est
-deterministe, inspectable et n'exige aucun modele d'embarquement, ce qui
-compte pour le mode degrade (Axe 5) ou la plateforme doit rester operante
+Un index lexical est prefere ici à un index vectoriel dense : il est
+déterministe, inspectable et n'exige aucun modèle d'embarquement, ce qui
+compte pour le mode dégrade (Axe 5) ou la plateforme doit rester operante
 hors connexion.
 """
 
@@ -147,21 +147,21 @@ class LexicalIndex:
         return self._df.get(term, 0)
 
     def ubiquity(self, term: str) -> float:
-        """Part des documents contenant le terme, 0.0 a 1.0.
+        """Part des documents contenant le terme, 0.0 à 1.0.
 
-        Un terme present partout ne discrimine rien : il ne peut pas servir a
-        prouver qu'une affirmation precise est documentee.
+        Un terme present partout ne discrimine rien : il ne peut pas servir à
+        prouver qu'une affirmation précise est documentée.
         """
         if not self._documents:
             return 0.0
         return self._df.get(term, 0) / len(self._documents)
 
     def covering(self, category: str) -> list[Document]:
-        """Documents declarant explicitement couvrir cette categorie.
+        """Documents declarant explicitement couvrir cette catégorie.
 
-        La couverture est declaree dans l'en-tete du document, pas deduite du
-        texte : un code technique (`behaviour_anomaly`) n'a aucune raison
-        d'apparaitre dans une redaction en francais, et faire dependre la
+        La couverture est déclarée dans l'en-tête du document, pas deduite du
+        texte : un code technique (`behaviour_anomaly`) n'à aucune raison
+        d'apparaitre dans une rédaction en francais, et faire dependre la
         garde EF-04 d'une telle coincidence la rendrait ininterpretable.
         """
         return [
@@ -172,7 +172,7 @@ class LexicalIndex:
 
 
 def parse_front_matter(raw: str) -> tuple[dict[str, str], str]:
-    """Lit un en-tete `---` cle: valeur `---` en tete de document."""
+    """Lit un en-tête `---` clé: valeur `---` en tête de document."""
     if not raw.startswith("---"):
         return {}, raw
     parts = raw.split("---", 2)

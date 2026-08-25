@@ -45,7 +45,7 @@ class TestDetectionEvent:
             DetectionEvent(confidence=1.5)
 
     def test_empreinte_stable_pour_la_meme_observation(self):
-        """Deux collecteurs remontant la meme observation ne doivent pas
+        """Deux collecteurs remontant la même observation ne doivent pas
         provoquer deux actions."""
         args = {
             "category": "bruteforce",
