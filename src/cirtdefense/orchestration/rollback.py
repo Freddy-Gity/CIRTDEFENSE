@@ -5,8 +5,8 @@ si l'état s'est dégradé par rapport à la mesure prise avant, l'action est
 annulée sans intervention humaine.
 
 Le délai d'annulation est **borne et mesure**. C'est l'objet du critère de
-recette de non-régression securitaire (CDCF §5.3) : demontrer qu'une action
-erronee est détectée et annulée dans un délai connu. Un rollback qui
+recette de non-régression securitaire (CDCF §5.3) : démontrer qu'une action
+erronée est détectée et annulée dans un délai connu. Un rollback qui
 fonctionne mais dont personne ne sait combien de temps il prend ne prouve rien.
 """
 
@@ -94,13 +94,13 @@ class RollbackService:
         self._catalog = catalog or get_catalog()
         self._max_latency = max_latency_seconds
 
-    # -- EF-25 : boucle de controle fermee ---------------------------------
+    # -- EF-25 : boucle de contrôle fermée ---------------------------------
 
     def run_control_loop(self, results: list[ActionResult] | None = None) -> ControlLoopReport:
         """Examine les actions exécutées et annule celles qui ont nui.
 
         Sans argument, la boucle balaye les actions réversibles encore
-        actives : c'est le mode d'appel du planificateur périodique.
+        activés : c'est le mode d'appel du planificateur périodique.
         """
         report = ControlLoopReport()
         candidates = results if results is not None else self._actions.executed_reversible()
@@ -109,13 +109,13 @@ class RollbackService:
             if result.status is not ActionStatus.EXECUTED or result.spec is None:
                 continue
             if not self._watcher.has_baseline(result.action_id):
-                # Sans reference, la boucle s'abstient : voir PostActionWatcher.
+                # Sans référence, la boucle s'abstient : voir PostActionWatcher.
                 continue
 
             report.checked += 1
-            # La cible surveillee est celle de la mesure de reference, pas la
-            # cible de l'action : bloquer une adresse se mesure sur la sante du
-            # service protege, pas sur celle de l'adresse bloquee.
+            # La cible surveillée est celle de la mesure de référence, pas la
+            # cible de l'action : bloquer une adresse se mesure sur la santé du
+            # service protege, pas sur celle de l'adresse bloquée.
             verdict = self._watcher.evaluate(result.action_id)
             report.verdicts.append(verdict.to_dict())
             if not verdict.degraded:
@@ -150,7 +150,7 @@ class RollbackService:
         if result.spec is None:
             return self._refuse(result, "action sans specification : annulation impossible", actor)
         if result.status is ActionStatus.ROLLED_BACK:
-            # Idempotence : la boucle et l'analyste peuvent viser la meme action.
+            # Idempotence : la boucle et l'analyste peuvent viser la même action.
             return RollbackOutcome(
                 action_id=result.action_id,
                 success=True,
@@ -327,7 +327,7 @@ class RollbackService:
         log_with(
             logger,
             logging.CRITICAL,
-            "ÉCHEC D'ANNULATION : une action reste appliquée sans retour arriere",
+            "ÉCHEC D'ANNULATION : une action reste appliquée sans retour arrière",
             action_id=result.action_id,
             error=message,
         )

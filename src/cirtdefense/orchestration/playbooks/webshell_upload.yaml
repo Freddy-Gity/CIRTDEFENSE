@@ -3,9 +3,9 @@ version: "1.0"
 category: webshell_upload
 attack_code: B5
 description: >
-  B5 — Televersement de fichier malveillant. Le catalogue precise
-  « deplacement, pas suppression » : la quarantaine conserve le fichier, qui
-  reste une piece d'investigation.
+  B5 — Televersement de fichier malveillant. Le catalogue précise
+  « déplacement, pas suppression » : la quarantaine conserve le fichier, qui
+  reste une pièce d'investigation.
 rules:
   - id: B5-01
     label: Mise en quarantaine du fichier televerse
@@ -17,9 +17,9 @@ rules:
         target: "{indicators.file_path}"
         parameters:
           host: "{asset.asset_id}"
-          reason: "fichier executable depose dans un repertoire non prevu"
+          reason: "fichier exécutable depose dans un répertoire non prévu"
         expected_effect: >
-          Le fichier est deplace en quarantaine chiffree, pas supprime : il
+          Le fichier est déplacé en quarantaine chiffrée, pas supprimé : il
           reste disponible pour l'investigation.
 
   - id: B5-02

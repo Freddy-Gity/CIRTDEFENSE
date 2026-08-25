@@ -101,11 +101,11 @@ class Executor:
             )
             return result
 
-        # (1) Reference AVANT l'action : condition de possibilite d'EF-25.
+        # (1) Référence AVANT l'action : condition de possibilite d'EF-25.
         if self._watcher is not None:
             self._watcher.capture_baseline(result.action_id, watch_target or spec.target)
 
-        # (2) Execution.
+        # (2) Exécution.
         result.mark_started()
         actuator = self._registry.require(spec.actuator)
         try:
@@ -134,7 +134,7 @@ class Executor:
             else:
                 result.mark_failed(outcome.message or "échec sans motif fourni")
 
-        # (3) Journalisation : reussite comme echec.
+        # (3) Journalisation : réussite comme échec.
         self._actions.save(result)
         self._ledger.record(
             AuditEventType.ACTION_EXECUTED

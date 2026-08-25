@@ -1,4 +1,4 @@
-"""Boucle de contrôle fermee (EF-25) et coupe-circuit (EF-26)."""
+"""Boucle de contrôle fermée (EF-25) et coupe-circuit (EF-26)."""
 
 from __future__ import annotations
 
@@ -55,7 +55,7 @@ class TestBoucleDeControle:
         assert all(v["target"] == "srv-web-01" for v in report.verdicts)
 
     def test_sans_mesure_de_reference_la_boucle_s_abstient(self, platform, probe):
-        """Sans référence, on ne peut pas imputer une dégradation a l'action."""
+        """Sans référence, on ne peut pas imputer une dégradation à l'action."""
         _degrader(probe)
         report = platform.engine.run_control_loop()
         assert report.rolled_back == 0

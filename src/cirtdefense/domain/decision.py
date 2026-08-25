@@ -3,7 +3,7 @@
 L'autonomie totale supprime le point de contrôle humain *avant* l'action.
 La contrepartie exigee par le CDCF 1.4.3 est que chaque décision porte, en
 elle-même, de quoi être rejugee après coup : contexte source, règles de
-politique appliquées, alternatives ecartees.
+politique appliquées, alternatives écartées.
 """
 
 from __future__ import annotations

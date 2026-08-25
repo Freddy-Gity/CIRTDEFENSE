@@ -49,12 +49,15 @@ def report(platform: PlatformDep, hours: int = 24) -> dict:
 
 @router.get("/report.md", response_class=Response)
 def report_markdown(platform: PlatformDep, hours: int = 24) -> Response:
-    """Le même rapport, en Markdown telechargeable."""
+    """Le même rapport, en Markdown téléchargeable."""
     if not 1 <= hours <= 8760:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "période invalide")
     contenu = platform.reports.build(hours=hours)["markdown"]
+    # Un en-tête HTTP ne transporte que de l'ASCII : le nom du fichier reste
+    # sans accent, le corps du rapport est en UTF-8.
+    nom = f"rapport-operations-{hours}h.md"
     return Response(
         content=contenu,
         media_type="text/markdown; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="rapport-operations-{hours}h.md"'},
+        headers={"Content-Disposition": f'attachment; filename="{nom}"'},
     )

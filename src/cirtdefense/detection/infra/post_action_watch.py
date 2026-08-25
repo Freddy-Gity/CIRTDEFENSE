@@ -1,8 +1,8 @@
-"""Boucle de contrôle fermee post-action (EF-25).
+"""Boucle de contrôle fermée post-action (EF-25).
 
 C'est la contrepartie technique de l'abandon de la validation humaine
 préalable : puisque personne ne relit l'action avant, le système doit relire
-son propre effet après. Le principe est celui d'un `commit` a l'essai —
+son propre effet après. Le principe est celui d'un `commit` à l'essai —
 l'action est confirmée seulement si la cible ne s'est pas dégradée.
 
 Point de methode important : la comparaison se fait contre une mesure prise
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 class DegradationThresholds:
     """Écarts au-delà desquels l'action est jugee nuisible.
 
-    Les valeurs sont relatives a l'état d'avant : ce qui compte n'est pas la
+    Les valeurs sont relatives à l'état d'avant : ce qui compte n'est pas la
     valeur absolue de la latence mais le fait que *nous* l'ayons aggravee.
     """
 
@@ -96,9 +96,9 @@ class PostActionWatcher:
         """
         entry = self._baselines.get(action_id)
         if entry is None:
-            # Sans reference, on ne peut pas imputer une degradation a
-            # l'action. On s'abstient plutot que d'annuler a tort un
-            # confinement qui protege peut-etre la cible.
+            # Sans référence, on ne peut pas imputer une dégradation a
+            # l'action. On s'abstient plutôt que d'annuler a tort un
+            # confinement qui protege peut-être la cible.
             log_with(
                 logger,
                 logging.WARNING,

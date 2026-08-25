@@ -81,7 +81,7 @@ class TestDangerosite:
         assert fort.dangerousness > faible.dangerousness
 
     def test_la_confiance_module_sans_annuler(self, classifier):
-        """Une détection incertaine de rancongiciel reste plus dangereuse
+        """Une détection incertaine de rançongiciel reste plus dangereuse
         qu'un scan certain."""
         incertain = classifier.classify(_event("ransomware", confidence=0.3))
         certain = classifier.classify(_event("scan", confidence=1.0))

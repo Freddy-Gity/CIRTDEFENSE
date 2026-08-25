@@ -54,7 +54,7 @@ class Actuator(ABC):
 
     def health(self) -> bool:
         """L'équipement répond-il ? Un actuateur en panne doit être connu du
-        moteur *avant* qu'il ne planifie une action qui en depend."""
+        moteur *avant* qu'il ne planifie une action qui en dépend."""
         return True
 
     def describe(self) -> dict[str, Any]:
@@ -85,7 +85,7 @@ class ActuatorRegistry:
     def require(self, name: str) -> Actuator:
         actuator = self._actuators.get(name)
         if actuator is None:
-            raise ActuatorError(f"actuateur '{name}' non enregistre")
+            raise ActuatorError(f"actuateur '{name}' non enregistré")
         return actuator
 
     def names(self) -> list[str]:

@@ -1,4 +1,4 @@
-"""Incident : agregat de correlation et unité de priorisation (Axe 4).
+"""Incident : agregat de corrélation et unité de priorisation (Axe 4).
 
 Un incident regroupe les événements qui portent sur la même cible et la même
 famille de menace dans une fenêtre de temps. C'est l'objet que le décideur
@@ -41,7 +41,7 @@ class Incident:
     labels: dict[str, Any] = field(default_factory=dict)
 
     # Classification au catalogue CIRT (voir domain/taxonomy.py). Renseignee
-    # par le moteur des la premiere qualification de l'incident.
+    # par le moteur des la première qualification de l'incident.
     attack_code: str = ""
     attack_label: str = ""
     family: str = ""
@@ -94,7 +94,7 @@ class Incident:
         Six composantes, dont deux issues du catalogue CIRT quand l'incident a
         été classifie. La priorité du catalogue et la dangerosité y ont un
         poids deliberement fort : c'est le document métier qui arbitre l'ordre,
-        pas la seule gravité remontee par la source.
+        pas la seule gravité remontée par la source.
         """
         reference = now or datetime.now(UTC)
         severity_part = self.severity.rank / 4 * 30
@@ -124,12 +124,12 @@ class Incident:
         )
 
     def apply_classification(self, classification: Any) -> None:
-        """Rattache la qualification du catalogue a l'incident."""
+        """Rattache la qualification du catalogue à l'incident."""
         self.attack_code = classification.code
         self.attack_label = classification.label
         self.family = classification.family.value if classification.family else ""
         self.family_label = classification.family.label if classification.family else ""
-        # Arrondi a la source : la valeur est affichee, comparee et exportee
+        # Arrondi à la source : la valeur est affichee, comparee et exportee
         # en rapport ; un bruit de virgule flottante y serait visible.
         self.dangerousness = round(classification.dangerousness, 1)
         self.priority = classification.priority.value

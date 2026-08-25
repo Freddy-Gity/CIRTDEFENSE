@@ -3,9 +3,9 @@ version: "2.0"
 category: exfiltration
 attack_code: A5
 description: >
-  A5 — Exfiltration de donnees. La donnee est potentiellement deja partie :
+  A5 — Exfiltration de données. La donnée est potentiellement déjà partie :
   le catalogue prescrit la coupure de la connexion sortante puis la mise en
-  quarantaine reseau de l'hote source.
+  quarantaine réseau de l'hôte source.
 rules:
   - id: A5-01
     label: Coupure de la connexion sortante
@@ -30,7 +30,7 @@ rules:
         expected_effect: "La destination devient injoignable, y compris en reprise."
 
   - id: A5-02
-    label: Quarantaine reseau de l'hote source
+    label: Quarantaine réseau de l'hôte source
     when:
       severity_min: high
     actions:
@@ -40,13 +40,13 @@ rules:
         parameters:
           vlan: quarantine
           previous_vlan: vlan-production
-          reason: "hote source d'une exfiltration"
+          reason: "hôte source d'une exfiltration"
         expected_effect: >
-          L'hote est isole du reseau. Le catalogue qualifie l'action de
-          partiellement reversible : l'interruption de service est assumee.
+          L'hôte est isolé du réseau. Le catalogue qualifie l'action de
+          partiellement réversible : l'interruption de service est assumee.
 
   - id: A5-03
-    label: Destination non identifiee — limitation du debit sortant
+    label: Destination non identifiée — limitation du débit sortant
     when:
       severity_min: high
       indicators_absent: [dest_ip]

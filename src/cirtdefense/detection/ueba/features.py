@@ -28,7 +28,7 @@ class BehaviourFeatures:
     last_seen: datetime | None = None
 
     def as_vector(self) -> dict[str, float]:
-        """Représentation numérique stable, utilisee par le scoreur."""
+        """Représentation numérique stable, utilisée par le scoreur."""
         return {
             "event_rate": float(self.event_count),
             "hour_spread": float(len(self.distinct_hours)),

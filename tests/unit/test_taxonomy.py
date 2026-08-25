@@ -45,10 +45,10 @@ class TestPrincipeDeConception:
     def test_effet_residuel_documente_si_partiellement_reversible(self):
         for a in t.CATALOG:
             if a.reversibility is Reversibility.PARTIALLY_REVERSIBLE:
-                assert a.residual_effect, f"{a.code} sans effet residuel documente"
+                assert a.residual_effect, f"{a.code} sans effet résiduel documente"
 
     def test_ligne_sans_action_corrective_signalee(self):
-        """D1 depend d'une autorité de certification externe : la plateforme
+        """D1 dépend d'une autorité de certification externe : la plateforme
         ne peut pas agir, et cela doit être explicite."""
         d1 = t.get("D1")
         assert d1.no_direct_action

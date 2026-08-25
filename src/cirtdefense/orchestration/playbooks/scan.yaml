@@ -3,10 +3,10 @@ version: "2.0"
 category: scan
 attack_code: A3
 description: >
-  A3 — Balayage de reconnaissance. Gravite intrinseque basse, mais precurseur :
-  le catalogue prescrit le blocage temporaire de la source. La reponse reste
-  graduee pour une source interne, ou le balayage correspond frequemment a un
-  outil d'inventaire legitime.
+  A3 — Balayage de reconnaissance. Gravité intrinseque basse, mais precurseur :
+  le catalogue prescrit le blocage temporaire de la source. La réponse reste
+  graduée pour une source interne, ou le balayage correspond fréquemment à un
+  outil d'inventaire légitime.
 rules:
   - id: A3-01
     label: Blocage temporaire de la source externe
@@ -36,6 +36,6 @@ rules:
           severity: low
           subject: "A3 — Balayage depuis une source interne"
           body: >
-            Un balayage a ete detecte depuis une adresse interne. Aucune action
-            corrective n'a ete engagee : ce comportement correspond
-            frequemment a un outil d'inventaire legitime.
+            Un balayage a été détecté depuis une adresse interne. Aucune action
+            corrective n'a été engagee : ce comportement correspond
+            fréquemment à un outil d'inventaire légitime.

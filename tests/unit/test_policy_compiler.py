@@ -28,7 +28,7 @@ class TestReconnaissance:
 
     def test_plage_cidr_survit_au_decoupage(self, compiler):
         """Régression : le decoupage en phrases coupait sur tous les points et
-        detruisait toute adresse ecrite dans une politique."""
+        detruisait toute adresse écrite dans une politique."""
         report = compiler.compile("Ne jamais bloquer une adresse de la plage 172.16.0.0/12")
         contraintes = report.policy.to_dict()["rules"][1]["constraints"]
         assert any("172" in c for c in contraintes)
@@ -58,8 +58,8 @@ class TestReconnaissance:
 
 class TestRefusDeDeviner:
     def test_phrase_non_reconnue_est_signalee(self, compiler):
-        """Une consigne mal comprise doit être rapportee, jamais approximee :
-        sinon la politique paraitrait appliquée sans l'être."""
+        """Une consigne mal comprise doit être rapportée, jamais approximée :
+        sinon la politique paraîtrait appliquée sans l'être."""
         report = compiler.compile("Faites en sorte que tout se passe bien")
         assert report.unparsed_sentences == ["Faites en sorte que tout se passe bien"]
         assert not report.fully_compiled
@@ -101,7 +101,7 @@ class TestTracabilite:
 
     def test_phrase_source_conservee(self, compiler):
         """L'analyste doit lire la consigne d'origine, pas seulement sa
-        traduction en predicats."""
+        traduction en prédicats."""
         phrase = "Ne jamais bloquer une adresse interne"
         verdict = compiler.compile(phrase).policy.evaluate(_action(target="10.0.0.5"), {})
         assert verdict.rule_text == phrase

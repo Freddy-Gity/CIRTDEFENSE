@@ -1,4 +1,4 @@
-"""Interface applicative : contrat public et separation des rôles."""
+"""Interface applicative : contrat public et séparation des rôles."""
 
 from __future__ import annotations
 
@@ -69,7 +69,7 @@ class TestSeparationDesRoles:
 class TestAbsenceDeValidationPrealable:
     def test_aucun_point_d_entree_de_validation(self, client):
         """Le pivot v3.0 doit se lire dans le contrat de l'API : exposer une
-        route de validation retablirait l'EF-13 anterieure par la porte de
+        route de validation retablirait l'EF-13 antérieure par la porte de
         derriere."""
         chemins = client.get("/openapi.json").json()["paths"]
         interdits = ("valider", "validate", "approve", "approuver", "reject", "rejeter")
@@ -190,7 +190,7 @@ class TestSurveillance:
         assert "41.202.1.9" not in cibles
 
     def test_la_degradation_simulee_change_l_etat(self, client):
-        """Le point d'entrée de simulation sert à eprouver la boucle EF-25 sans
+        """Le point d'entrée de simulation sert à éprouver la boucle EF-25 sans
         casser un service réel."""
         avant = client.get("/api/v1/monitoring").json()
         etats = {t["target"]: t["state"] for t in avant["targets"]}

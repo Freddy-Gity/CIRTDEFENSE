@@ -3,13 +3,13 @@ version: "1.0"
 category: ransomware
 attack_code: A6
 description: >
-  A6 — Rancongiciel. Point de vigilance explicite du catalogue : la reponse
-  automatique reste l'isolation reseau, JAMAIS une remediation complete. Aucune
-  action irreversible (effacement, reinitialisation) n'est engagee, quelle que
-  soit la gravite constatee.
+  A6 — Rançongiciel. Point de vigilance explicite du catalogue : la réponse
+  automatique reste l'isolation réseau, JAMAIS une remédiation complète. Aucune
+  action irréversible (effacement, réinitialisation) n'est engagee, quelle que
+  soit la gravité constatée.
 rules:
   - id: A6-01
-    label: Isolation reseau immediate de l'hote
+    label: Isolation réseau immédiate de l'hôte
     when:
       confidence_min: 0.5
     actions:
@@ -19,8 +19,8 @@ rules:
         parameters:
           vlan: quarantine
           previous_vlan: vlan-production
-          reason: "chiffrement de masse detecte"
-        expected_effect: "L'hote est place en VLAN de quarantaine."
+          reason: "chiffrement de masse détecte"
+        expected_effect: "L'hôte est place en VLAN de quarantaine."
 
       - verb: block_lateral
         actuator: network
@@ -29,10 +29,10 @@ rules:
           protocols: [smb, rdp, winrm]
         expected_effect: >
           Les protocoles de propagation sont coupes, sans isoler completement
-          l'hote de son agent de securite.
+          l'hôte de son agent de sécurité.
 
   - id: A6-02
-    label: Instantane de sauvegarde si disponible
+    label: Instantané de sauvegarde si disponible
     when:
       severity_min: high
     actions:
@@ -40,13 +40,13 @@ rules:
         actuator: backup
         target: "{asset.asset_id}"
         parameters:
-          reason: "preservation de l'etat avant progression du chiffrement"
+          reason: "preservation de l'état avant progression du chiffrement"
         expected_effect: >
-          L'etat courant est preserve. L'instantane n'est jamais supprime
+          L'état courant est préservé. L'instantané n'est jamais supprimé
           automatiquement : il garde sa valeur de preuve.
 
   - id: A6-03
-    label: Processus de chiffrement identifie
+    label: Processus de chiffrement identifié
     when:
       indicators_present: [process]
     actions:
@@ -58,7 +58,7 @@ rules:
         expected_effect: "Le chiffrement en cours est interrompu."
 
   - id: A6-04
-    label: Alerte — la remediation reste humaine
+    label: Alerte — la remédiation reste humaine
     when: {}
     actions:
       - verb: notify
@@ -67,10 +67,10 @@ rules:
         parameters:
           channel: analyst
           severity: critical
-          subject: "A6 — Rancongiciel confine, remediation a decider"
+          subject: "A6 — Rançongiciel confine, remédiation à decider"
           body: >
-            Un rancongiciel a ete confine par isolation reseau. La remediation
+            Un rançongiciel a été confine par isolation réseau. La remédiation
             (restauration, reinstallation) n'est PAS engagee automatiquement :
-            elle est irreversible et releve d'une decision humaine apres
-            investigation. Les donnees deja chiffrees ne sont pas recouvrees
+            elle est irréversible et releve d'une décision humaine après
+            investigation. Les données déjà chiffrées ne sont pas recouvrees
             par l'isolation.

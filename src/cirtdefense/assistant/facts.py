@@ -33,7 +33,7 @@ class OperationsFacts:
     autonomous_rollbacks: int = 0
     manual_rollbacks: int = 0
     refusals: dict[str, int] = field(default_factory=dict)
-    """Refus d'agir par motif : contexte non fonde, politique, coupe-circuit."""
+    """Refus d'agir par motif : contexte non fondé, politique, coupe-circuit."""
     breaker_trips: int = 0
     breaker_state: str = "closed"
     audit_entries: int = 0
@@ -192,7 +192,7 @@ class FactCollector:
         """
         motifs = Counter()
         libelles = {
-            "no_grounded_context": "contexte non fonde documentairement",
+            "no_grounded_context": "contexte non fondé documentairement",
             "policy_denied": "refuse par la politique de réponse",
             "breaker_open": "coupe-circuit ouvert",
             "out_of_catalog": "action hors catalogue de réversibilité",

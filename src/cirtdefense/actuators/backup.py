@@ -1,11 +1,11 @@
 """Actuateur de sauvegarde : déclenchement de snapshot (A6).
 
-Face à un rancongiciel, le catalogue prescrit le déclenchement d'un
+Face à un rançongiciel, le catalogue prescrit le déclenchement d'un
 snapshot « si disponible ». C'est la seule action du catalogue qui *cree*
 quelque chose au lieu de restreindre, et sa réversibilité est particulière :
 annuler revient à supprimer le snapshot, ce qu'on ne fait jamais
 automatiquement. L'annulation est donc un simple demarquage — le snapshot
-reste, il cesse seulement d'être rattaché a l'incident.
+reste, il cesse seulement d'être rattaché à l'incident.
 """
 
 from __future__ import annotations

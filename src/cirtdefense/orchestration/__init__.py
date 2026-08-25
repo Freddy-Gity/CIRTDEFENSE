@@ -1,8 +1,8 @@
-"""Moteur d'orchestration : de l'événement a l'action exécutée (EF-05 a EF-07,
+"""Moteur d'orchestration : de l'événement à l'action exécutée (EF-05 a EF-07,
 EF-13 a EF-17, EF-25, EF-26).
 
 C'est ici que se joue le pivot de la v3.0. En v2.1 ce module produisait des
-recommandations soumises a l'analyste ; il produit desormais des ordres qu'il
+recommandations soumises à l'analyste ; il produit desormais des ordres qu'il
 exécute lui-même. Les garde-fous qui remplacent la validation humaine sont
 tous implantes dans ce paquet et nulle part ailleurs :
 

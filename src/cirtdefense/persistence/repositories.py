@@ -139,9 +139,9 @@ class IncidentRepository:
             site_id=data["site_id"],
             labels=data.get("labels", {}),
             # La classification doit survivre au rechargement : sans ces
-            # champs, tout incident re-sauvegarde apres une annulation
-            # perdait son type, sa famille et sa priorite, et disparaissait
-            # des repartitions du portefeuille et des rapports.
+            # champs, tout incident re-sauvegarde après une annulation
+            # perdait son type, sa famille et sa priorité, et disparaissait
+            # des répartitions du portefeuille et des rapports.
             attack_code=data.get("attack_code", ""),
             attack_label=data.get("attack_label", ""),
             family=data.get("family", ""),
@@ -240,7 +240,7 @@ class ActionRepository:
     def status_counts(self) -> dict[str, int]:
         """Répartition globale par statut, lue depuis la table des actions.
 
-        Le portefeuille ne doit pas deduire ces chiffrés de l'instantané
+        Le portefeuille ne doit pas déduire ces chiffrés de l'instantané
         stocke avec l'incident : cet instantané est fige au moment de
         l'exécution et ignore les annulations survenues ensuite.
         """
@@ -277,7 +277,7 @@ def _action_from_payload(data: dict[str, Any]) -> ActionResult:
     if data.get("verb"):
         rollback_verb = data.get("rollback_verb")
         if reversibility is not Reversibility.IRREVERSIBLE and not rollback_verb:
-            # Reconstitution : le verbe d'annulation est deduit par convention
+            # Reconstitution : le verbe d'annulation est déduit par convention
             # `un<verbe>` uniquement pour re-hydrater une trace existante.
             rollback_verb = f"un{data['verb']}"
         spec = ActionSpec(

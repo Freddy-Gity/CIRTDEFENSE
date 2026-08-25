@@ -1,1 +1,1 @@
-"""Routes de l'API, regroupees par domaine fonctionnel."""
+"""Routes de l'API, regroupées par domaine fonctionnel."""

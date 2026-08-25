@@ -1,10 +1,10 @@
 id: pb-web-attack
 version: "1.0"
 category: web_attack
-description: Reponse aux attaques applicatives web.
+description: Réponse aux attaques applicatives web.
 rules:
   - id: WA-01
-    label: Source externe identifiee
+    label: Source externe identifiée
     when:
       indicators_present: [srcip]
       target_not_private: srcip
@@ -28,7 +28,7 @@ rules:
           reason: "web shell suppose"
 
   - id: WA-03
-    label: Volume eleve sans compromission etablie
+    label: Volume élève sans compromission établie
     when:
       severity_max: medium
       indicators_present: [srcip]

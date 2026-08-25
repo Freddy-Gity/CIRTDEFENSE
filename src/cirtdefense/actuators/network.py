@@ -12,12 +12,12 @@ VERBS: tuple[str, ...] = (
     "clear_egress_throttle",
     "move_to_vlan",
     "restore_vlan",
-    # Coupure d'une connexion sortante precise (A5) : plus chirurgical qu'une
-    # limitation de debit, qui laisse le transfert aboutir plus lentement.
+    # Coupure d'une connexion sortante précise (A5) : plus chirurgical qu'une
+    # limitation de débit, qui laisse le transfert aboutir plus lentement.
     "cut_egress_connection",
     "restore_egress_connection",
-    # Blocage des protocoles de propagation laterale (A6) : SMB, RDP, WinRM.
-    # Distinct de l'isolement complet, qui coupe aussi le trafic legitime.
+    # Blocage des protocoles de propagation latérale (A6) : SMB, RDP, WinRM.
+    # Distinct de l'isolement complet, qui coupe aussi le trafic légitime.
     "block_lateral",
     "unblock_lateral",
 )
@@ -42,11 +42,11 @@ class LiveNetwork(Actuator):
             raise RuntimeError("actuateur réseau en mode réel sans client configure")
         if verb == "move_to_vlan" and not parameters.get("previous_vlan"):
             # Sans le VLAN d'origine, `restore_vlan` ne saurait pas quoi
-            # retablir. On refuse plutot que de rendre l'action irreversible.
+            # rétablir. On refuse plutôt que de rendre l'action irréversible.
             return ActuationOutcome(
                 success=False,
                 message="bascule refusée : le VLAN d'origine doit être releve "
-                "avant la bascule pour que le retour arriere soit possible",
+                "avant la bascule pour que le retour arrière soit possible",
             )
         raise NotImplementedError("LiveNetwork.exécute : brancher le client réseau du site.")
 

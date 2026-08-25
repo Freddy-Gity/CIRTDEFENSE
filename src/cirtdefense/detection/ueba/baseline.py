@@ -1,7 +1,7 @@
 """Profil de référence par entité : moyenne et écart-type glissants.
 
 Un modèle statistique simple est retenu a dessein. Il est reproductible d'une
-exécution a l'autre, ce qu'un modèle reentraine en continu ne garantit pas —
+exécution à l'autre, ce qu'un modèle reentraine en continu ne garantit pas —
 propriété indispensable pour rejuger une action après coup.
 """
 
@@ -43,7 +43,7 @@ class RunningStat:
     def zscore(self, value: float) -> float:
         deviation = self.stddev
         if deviation == 0:
-            # Sans dispersion, tout ecart non nul est signale, mais avec une
+            # Sans dispersion, tout écart non nul est signalé, mais avec une
             # amplitude bornee pour ne pas saturer le score sur du bruit.
             return 0.0 if value == self.mean else min(abs(value - self.mean), 3.0)
         return (value - self.mean) / deviation
@@ -89,7 +89,7 @@ class EntityBaseline:
 
 
 class BaselineStore:
-    """Stockage fichier des profils. Suffisant a l'échelle d'un CIRT national
+    """Stockage fichier des profils. Suffisant à l'échelle d'un CIRT national
     sur le périmètre du projet, et trivialement inspectable pendant la recette."""
 
     def __init__(self, path: Path | str) -> None:

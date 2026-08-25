@@ -5,7 +5,7 @@ paradoxale : on ne « derredemarre » pas un service. Ce qui est réversible,
 c'est la bascule vers un nœud de secours — on rebascule. Pour le
 redémarrage, l'annulation consiste à marquer l'opération comme annulée dans
 la trace, le service restant demarre, ce qui est l'état souhaite de toute
-façon. L'effet residuel — l'interruption pendant le redémarrage — est
+façon. L'effet résiduel — l'interruption pendant le redémarrage — est
 documenté au catalogue de réversibilité.
 """
 
@@ -32,7 +32,7 @@ class SimulatedService(SimulatedActuator):
 
     def execute(self, verb: str, target: str, parameters: dict[str, Any]) -> ActuationOutcome:
         if verb == "failover" and not parameters.get("standby_node"):
-            # Basculer sans savoir vers ou aggraverait l'indisponibilite.
+            # Basculer sans savoir vers ou aggraverait l'indisponibilité.
             return ActuationOutcome(
                 success=False,
                 message="bascule refusée : aucun nœud de secours déclare",

@@ -1,7 +1,7 @@
 """Mode démonstration : déclenchement des attaques du catalogue depuis l'interface.
 
 Ces points d'entrée ne fabriquent pas d'attaque : ils fabriquent la charge
-utile qu'un collecteur emettrait pour l'attaque decrite, puis la remettent a
+utile qu'un collecteur émettrait pour l'attaque decrite, puis la remettent à
 l'adaptateur d'ingestion nominal. La plateforme ne fait aucune difference
 entre une attaque déclenchée ici et une alerte venue d'un Wazuh de production.
 

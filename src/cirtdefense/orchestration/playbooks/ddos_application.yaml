@@ -3,12 +3,12 @@ version: "1.0"
 category: ddos_application
 attack_code: A2
 description: >
-  A2 — DDoS applicatif (HTTP flood, Slowloris). Le volume reseau reste
-  modeste : c'est l'epuisement des connexions et des sessions qui degrade le
-  service, donc la reponse est applicative et non volumetrique.
+  A2 — DDoS applicatif (HTTP flood, Slowloris). Le volume réseau reste
+  modeste : c'est l'épuisement des connexions et des sessions qui dégrade le
+  service, donc la réponse est applicative et non volumétrique.
 rules:
   - id: A2-01
-    label: Limitation de debit par IP au pare-feu applicatif
+    label: Limitation de débit par IP au pare-feu applicatif
     when:
       indicators_present: [srcip]
     actions:
@@ -18,8 +18,8 @@ rules:
         parameters:
           requests_per_minute: 60
           scope: ip
-          reason: "nombre de connexions anormal, temps de reponse degrade"
-        expected_effect: "Le rythme des requetes redevient soutenable."
+          reason: "nombre de connexions anormal, temps de réponse dégrade"
+        expected_effect: "Le rythme des requêtes redevient soutenable."
 
   - id: A2-02
     label: Fermeture des connexions inactives
@@ -31,7 +31,7 @@ rules:
         target: "{asset.asset_id}"
         parameters:
           idle_seconds: 30
-          reason: "epuisement du pool de connexions (Slowloris)"
+          reason: "épuisement du pool de connexions (Slowloris)"
         expected_effect: >
           Les connexions maintenues ouvertes sans trafic sont liberees ; le
-          service retrouve des emplacements pour les clients legitimes.
+          service retrouve des emplacements pour les clients légitimes.

@@ -3,11 +3,11 @@
 Vue de l'état de sécurité du parc : ce que la plateforme observe, et ce qu'elle
 en conclut. Distincte du portefeuille, qui montre les incidents déjà traités.
 
-Le périmètre surveillé est deduit de trois sources, dans cet ordre : les cibles
+Le périmètre surveillé est déduit de trois sources, dans cet ordre : les cibles
 déclarées avec des seuils de service, le parc de démonstration, et les actifs
 effectivement vus dans des événements. Une plateforme réelle tiendrait un
 inventaire explicite ; ici, l'inventaire se constitue de ce qui est observé,
-ce qui évite d'afficher un parc theorique sans rapport avec l'activité.
+ce qui évite d'afficher un parc théorique sans rapport avec l'activité.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ def overview(platform: PlatformDep) -> dict:
     targets = _targets(platform)
     incidents = platform.portfolio.list(limit=500)
 
-    # La cle de correlation d'un incident porte l'actif : « categorie::actif ».
+    # La clé de corrélation d'un incident porte l'actif : « catégorie::actif ».
     par_actif: dict[str, list[Any]] = {}
     for incident in incidents:
         data = platform.incidents.get(incident.incident_id)
@@ -85,10 +85,10 @@ def overview(platform: PlatformDep) -> dict:
 
 @router.post("/simulate/{target}")
 def simulate(target: str, platform: PlatformDep, degraded: bool = True) -> dict:
-    """Force l'état de santé d'une cible, pour eprouver la boucle EF-25.
+    """Force l'état de santé d'une cible, pour éprouver la boucle EF-25.
 
-    Sans ce point d'entrée, demontrer l'annulation autonome exigerait de casser
-    un service réel. Il n'est disponible qu'avec la sonde alimentee à la main
+    Sans ce point d'entrée, démontrer l'annulation autonome exigerait de casser
+    un service réel. Il n'est disponible qu'avec la sonde alimentée à la main
     et hors actionnement réel.
     """
     if platform.settings.autonomy.is_live:
@@ -100,7 +100,7 @@ def simulate(target: str, platform: PlatformDep, degraded: bool = True) -> dict:
     if not isinstance(platform.probe, StaticProbe):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            "la sonde active n'est pas alimentee de l'extérieur",
+            "la sonde active n'est pas alimentée de l'extérieur",
         )
     if target not in _targets(platform):
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"cible '{target}' hors du périmètre")

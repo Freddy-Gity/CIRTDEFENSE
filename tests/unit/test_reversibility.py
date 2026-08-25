@@ -43,7 +43,7 @@ class TestMetadonnees:
         """L'analyste doit savoir ce qu'une annulation ne rendra pas."""
         for entry in catalog.all():
             if entry.reversibility is Reversibility.PARTIALLY_REVERSIBLE:
-                assert entry.residual_effect, f"{entry.key} sans effet residuel documente"
+                assert entry.residual_effect, f"{entry.key} sans effet résiduel documente"
 
     def test_toute_entree_autonome_porte_un_verbe_d_annulation(self, catalog):
         for entry in catalog.autonomous_subset():

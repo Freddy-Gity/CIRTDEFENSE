@@ -82,7 +82,7 @@ class DegradedSpool:
 
     def enqueue(self, source: str, payload: dict[str, Any]) -> SpoolItem:
         if self.size() >= self._max_items:
-            # File pleine : on refuse le plus recent plutot que d'ecraser le
+            # File pleine : on refuse le plus recent plutôt que d'écraser le
             # plus ancien, qui porte le debut de l'incident.
             raise SpoolFullError(
                 f"file du mode dégrade pleine ({self._max_items} éléments) ; "

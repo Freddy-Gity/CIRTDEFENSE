@@ -58,7 +58,7 @@ class AnthropicProvider:
     """Rédaction par modèle Claude.
 
     Le client est construit paresseusement : le paquet `anthropic` est une
-    dependance optionnelle, et la plateforme doit démarrer sans lui.
+    dépendance optionnelle, et la plateforme doit démarrer sans lui.
     """
 
     name = "anthropic"
@@ -108,8 +108,8 @@ class AnthropicProvider:
                 messages=[{"role": "user", "content": message}],
             )
         except anthropic.APIStatusError as exc:
-            # Une indisponibilite du modele ne doit jamais priver l'exploitant
-            # de son bilan : le texte deterministe reste disponible.
+            # Une indisponibilité du modèle ne doit jamais priver l'exploitant
+            # de son bilan : le texte déterministe reste disponible.
             log_with(
                 logger,
                 logging.WARNING,
@@ -139,7 +139,7 @@ def build_provider(provider: str, api_key: str = "", model: str = "claude-opus-5
     """Fabrique le fournisseur configure.
 
     Un fournisseur `anthropic` sans clé retombe sur le rendu déterministe
-    plutôt que d'echouer au démarrage : la plateforme doit rester operante.
+    plutôt que d'echouer au démarrage : la plateforme doit rester opérante.
     """
     if provider == "anthropic" and api_key:
         return AnthropicProvider(api_key=api_key, model=model)

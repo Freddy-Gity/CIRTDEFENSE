@@ -87,7 +87,7 @@ class AnalystNotifier:
         )
         return [result.rollback_token] if result.success and result.rollback_token else []
 
-    # -- redaction ----------------------------------------------------------
+    # -- rédaction ----------------------------------------------------------
 
     def render(self, incident: Incident, decision: Decision, report: Any) -> str:
         lines: list[str] = [
@@ -114,7 +114,7 @@ class AnalystNotifier:
             lines.append(f"  {self._describe(result)}")
 
         if decision.trace.rejected_actions:
-            lines += ["", "ACTIONS ENVISAGEES PUIS ECARTEES"]
+            lines += ["", "ACTIONS ENVISAGÉES PUIS ÉCARTÉES"]
             for skipped in decision.trace.rejected_actions:
                 lines.append(f"  - {skipped.get('action')} : {skipped.get('reason')}")
 
@@ -138,7 +138,7 @@ class AnalystNotifier:
         if irreversible_note:
             lines += [
                 "",
-                "EFFETS RESIDUELS APRÈS ANNULATION",
+                "EFFETS RÉSIDUELS APRÈS ANNULATION",
                 "  Certaines actions ne sont que partiellement réversibles : les "
                 "sessions et états en mémoire perdus ne seront pas restaurés.",
             ]

@@ -1,10 +1,10 @@
 id: pb-lateral-movement
 version: "1.0"
 category: lateral_movement
-description: Coupure d'une progression laterale dans le reseau.
+description: Coupure d'une progression latérale dans le réseau.
 rules:
   - id: LM-01
-    label: Compte porteur de la progression identifie
+    label: Compte porteur de la progression identifiée
     when:
       user_present: true
       confidence_min: 0.5
@@ -13,16 +13,16 @@ rules:
         actuator: iam
         target: "{asset.user}"
         parameters:
-          reason: "progression laterale"
+          reason: "progression latérale"
       - verb: disable_account
         actuator: iam
         target: "{asset.user}"
         parameters:
-          reason: "compte utilise pour un deplacement lateral"
+          reason: "compte utilise pour un déplacement latéral"
         when_severity_min: high
 
   - id: LM-02
-    label: Machine d'origine identifiee, plusieurs comptes impliques
+    label: Machine d'origine identifiée, plusieurs comptes impliques
     when:
       severity_min: high
     actions:
@@ -31,4 +31,4 @@ rules:
         target: "{asset.asset_id}"
         parameters:
           keep_agent_channel: true
-          reason: "point de depart d'une progression laterale"
+          reason: "point de depart d'une progression latérale"

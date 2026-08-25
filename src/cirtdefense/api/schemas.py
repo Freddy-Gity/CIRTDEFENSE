@@ -1,4 +1,4 @@
-"""Schemas d'entrée et de sortie de l'API."""
+"""Schémas d'entrée et de sortie de l'API."""
 
 from __future__ import annotations
 

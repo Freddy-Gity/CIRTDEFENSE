@@ -1,6 +1,6 @@
 """Génération de rapports d'opérations.
 
-Un rapport n'est pas un bilan plus long : c'est une piece destinee a être
+Un rapport n'est pas un bilan plus long : c'est une pièce destinee a être
 transmise, archivee et opposee. Il porte donc son périmètre, sa période, son
 empreinte de politique et l'état de la chaîne d'audit — de quoi être rejuge
 plus tard par quelqu'un qui n'était pas la.
@@ -34,15 +34,15 @@ class ReportBuilder:
     def to_markdown(self, facts: OperationsFacts) -> str:
         f = facts
         # Certaines sections sont omises quand elles n'ont rien a dire ; la
-        # numerotation se calcule donc au fil de l'ecriture plutot que d'etre
-        # figee, sans quoi le rapport sauterait des numeros.
+        # numérotation se calcule donc au fil de l'écriture plutôt que d'être
+        # figee, sans quoi le rapport sauterait des numéros.
         section = _Numerotation()
         lignes: list[str] = [
             f"# Rapport d'opérations — {self._site_id}",
             "",
             f"**Période couverte** : {f.period_label}  ",
             f"**Du** {_date(f.since)} **au** {_date(f.until)}  ",
-            f"**Génère le** {_date(datetime.now(UTC))}",
+            f"**Généré le** {_date(datetime.now(UTC))}",
             "",
             "---",
             "",
@@ -54,7 +54,7 @@ class ReportBuilder:
             f"- Coupe-circuit : **{f.breaker_state}**"
             + (f" — {f.breaker_trips} déclenchement(s) sur la période" if f.breaker_trips else ""),
             "",
-            section("Volumetrie"),
+            section("Volumétrie"),
             "",
             "| Indicateur | Valeur |",
             "|---|---|",
@@ -130,7 +130,7 @@ class ReportBuilder:
                 *[f"| {k} | {v} |" for k, v in sorted(f.refusals.items(), key=lambda kv: -kv[1])],
                 "",
                 "Un refus n'est pas un dysfonctionnement : il traduit l'application",
-                "d'un garde-fou. Un volume élève de refus pour contexte non fonde",
+                "d'un garde-fou. Un volume élevé de refus pour contexte non fondé",
                 "signale une base de connaissance en retard sur les menaces",
                 "observées ; la réponse est d'enrichir le corpus documentaire, non",
                 "d'abaisser le seuil d'exigence.",
@@ -138,7 +138,7 @@ class ReportBuilder:
             ]
 
         lignes += [
-            section("Tracabilite"),
+            section("Traçabilité"),
             "",
             f"- Entrées de journal sur la période : **{f.audit_entries}**",
             f"- Chaîne d'empreintes : **{'intacte' if f.audit_chain_valid else 'ROMPUE'}**",
@@ -174,7 +174,7 @@ class ReportBuilder:
 
 
 class _Numerotation:
-    """Compteur de sections, incremente à chaque titre réellement ecrit."""
+    """Compteur de sections, incremente à chaque titre réellement écrit."""
 
     def __init__(self) -> None:
         self._n = 0

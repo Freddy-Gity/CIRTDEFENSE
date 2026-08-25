@@ -1,6 +1,6 @@
 """Politique de réponse compilée (EF-15, version v3.0).
 
-L'administrateur ecrit sa politique en langage naturel. Elle est compilée
+L'administrateur écrit sa politique en langage naturel. Elle est compilée
 *une fois*, a priori, en contraintes déterministes ; le moteur autonome
 n'évalue ensuite que ces contraintes. Le langage naturel ne se trouve donc
 jamais sur le chemin d'exécution : une reformulation du modèle ne peut pas
@@ -23,7 +23,7 @@ from .enums import Reversibility, Severity
 
 @dataclass(frozen=True, slots=True)
 class Constraint:
-    """Predicat elementaire évalue sur (action, contexte)."""
+    """Prédicat élémentaire évalue sur (action, contexte)."""
 
     field: str
     """action.verb, action.actuator, action.target, action.reversibility,
@@ -75,7 +75,7 @@ class PolicyRule:
     """Règle compilée. `effect` = allow | deny | require_approval_none.
 
     Il n'existe volontairement pas d'effet « demander validation » : ce serait
-    reintroduire EF-13 dans sa version anterieure. Une action que la politique
+    reintroduire EF-13 dans sa version antérieure. Une action que la politique
     n'autorise pas est refusée, pas mise en attente d'un humain.
     """
 
@@ -100,7 +100,7 @@ class PolicyRule:
 
 @dataclass(slots=True)
 class ResponsePolicy:
-    """Politique complète, versionnee et empreinte pour l'audit."""
+    """Politique complète, versionnée et empreinte pour l'audit."""
 
     policy_id: str = "default"
     version: str = "1"
@@ -118,9 +118,9 @@ class ResponsePolicy:
         Seuls l'effet et les contraintes de chaque règle entrent dans le
         calcul ; la phrase d'origine en est exclue. C'est ce qui rend
         l'empreinte utile en audit : elle répond à « le comportement du moteur
-        a-t-il change ? », et deux redactions equivalentes — avec ou sans
-        accents, reformulees — donnent bien la même empreinte. L'identité
-        documentaire de la politique, elle, est portee par `version` et
+        a-t-il changé ? », et deux rédactions équivalentes — avec ou sans
+        accents, reformulées — donnent bien la même empreinte. L'identité
+        documentaire de la politique, elle, est portée par `version` et
         `author`.
         """
         payload = json.dumps(

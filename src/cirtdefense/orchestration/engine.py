@@ -9,7 +9,7 @@ Le moteur ne connaît pas les détails de chaque étape ; il en connaît l'ordre
 et les conditions d'arrêt. Quatre motifs peuvent interrompre la chaîne avant
 l'exécution, et chacun est journalisé avec son motif :
 
-- contexte non fonde (EF-04) ;
+- contexte non fondé (EF-04) ;
 - aucune action au catalogue de réversibilité (EF-14) ;
 - politique de l'administrateur (EF-15) ;
 - coupe-circuit ouvert (EF-26).
@@ -114,13 +114,13 @@ class OrchestrationEngine:
     def policy(self) -> ResponsePolicy:
         return self._policy
 
-    # -- chaine principale --------------------------------------------------
+    # -- chaîne principale --------------------------------------------------
 
     def handle(self, event: DetectionEvent, incident: Incident) -> OrchestrationResult:
         # La classification precede l'enrichissement : elle qualifie ce qui est
         # observe, independamment de ce que la base documentaire contient. Un
-        # type hors catalogue doit pouvoir etre qualifie « non catalogue »
-        # plutot que de rester sans qualification du tout.
+        # type hors catalogue doit pouvoir être qualifie « non catalogue »
+        # plutôt que de rester sans qualification du tout.
         classification = self._classifier.classify(event)
         incident.apply_classification(classification)
 
@@ -153,7 +153,7 @@ class OrchestrationEngine:
             self._incidents.save(incident)
             return result
 
-        # EF-07 : execution immediate, sans validation prealable.
+        # EF-07 : exécution immédiate, sans validation préalable.
         report = self._executor.execute_all(
             decision.actions,
             incident_id=incident.incident_id,
@@ -165,11 +165,11 @@ class OrchestrationEngine:
             incident.register_action(action_result)
         self._incidents.save(incident)
 
-        # EF-13 revisee : l'analyste est informe apres coup, sans rien bloquer.
+        # EF-13 revisee : l'analyste est informé après coup, sans rien bloquer.
         result.notifications = self._notify_after_the_fact(incident, decision, report)
 
-        # Un echec d'actuateur peut annoncer une panne en serie : on laisse le
-        # coupe-circuit en juger immediatement plutot qu'au prochain incident.
+        # Un échec d'actuateur peut annoncer une panne en série : on laisse le
+        # coupe-circuit en juger immédiatement plutôt qu'au prochain incident.
         if report.failed:
             self._breaker.evaluate_auto_trip()
 
@@ -182,7 +182,7 @@ class OrchestrationEngine:
             self._breaker.evaluate_auto_trip()
         return report
 
-    # -- decision -----------------------------------------------------------
+    # -- décision -----------------------------------------------------------
 
     def _decide(
         self,
@@ -220,11 +220,11 @@ class OrchestrationEngine:
             return decision
 
         # EF-04 : sans contexte fonde, pas d'action. C'est le refus le plus
-        # important du systeme, et celui qui couvre les menaces inconnues.
+        # important du système, et celui qui couvre les menaces inconnues.
         if not context.is_usable:
             decision.outcome = DecisionOutcome.NO_GROUNDED_CONTEXT
             decision.rationale = (
-                "contexte non fonde documentairement : "
+                "contexte non fondé documentairement : "
                 f"{context.grounding.reason if context.grounding else 'aucune source'}. "
                 "Agir reviendrait a agir sur une hypothèse."
             )

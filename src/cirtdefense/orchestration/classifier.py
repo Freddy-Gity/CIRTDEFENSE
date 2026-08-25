@@ -28,10 +28,10 @@ from ..domain.enums import Severity
 from ..domain.events import DetectionEvent
 from ..domain.taxonomy import BY_CATEGORY, AttackFamily, AttackType, Priority
 
-# Correspondance des categories generiques heritees vers le catalogue codifie.
+# Correspondance des catégories generiques heritees vers le catalogue codifie.
 # Ce sont des rapprochements au mieux, pour les sources qui ne discriminent pas
 # plus finement. Une source capable de distinguer une injection SQL d'un XSS
-# doit emettre la categorie precise plutot que de s'en remettre a ce tableau.
+# doit émettre la catégorie précise plutôt que de s'en remettre à ce tableau.
 LEGACY_ALIASES: dict[str, str] = {
     "dos": "ddos_volumetric",
     "malware": "ransomware",
@@ -149,7 +149,7 @@ class Classifier:
             aliased_from=aliased_from,
         )
 
-    # -- resolution du type --------------------------------------------------
+    # -- résolution du type --------------------------------------------------
 
     @staticmethod
     def _resolve(category: str) -> tuple[AttackType | None, str | None]:
@@ -161,7 +161,7 @@ class Classifier:
             return BY_CATEGORY.get(alias), category
         return None, None
 
-    # -- criticite -----------------------------------------------------------
+    # -- criticité -----------------------------------------------------------
 
     @staticmethod
     def _effective_severity(
@@ -176,17 +176,17 @@ class Classifier:
         severity = event.severity
         if attack_type is not None and attack_type.base_severity > severity:
             factors.append(
-                f"gravité relevee de {severity.value} a {attack_type.base_severity.value} "
+                f"gravité relevée de {severity.value} a {attack_type.base_severity.value} "
                 f"(plancher du type {attack_type.code})"
             )
             severity = attack_type.base_severity
         if event.asset.criticality >= 5 and severity < Severity.CRITICAL:
             promoted = Severity.CRITICAL if severity is Severity.HIGH else Severity.HIGH
-            factors.append(f"gravité relevee a {promoted.value} : actif de criticité maximale")
+            factors.append(f"gravité relevée a {promoted.value} : actif de criticité maximale")
             severity = promoted
         return severity
 
-    # -- dangerosite ---------------------------------------------------------
+    # -- dangerosité ---------------------------------------------------------
 
     @staticmethod
     def _dangerousness(
@@ -212,14 +212,14 @@ class Classifier:
                 f"{criticality_bonus:+.1f} : actif de criticité {event.asset.criticality}/5"
             )
 
-        # La confiance module sans jamais annuler : une detection incertaine
-        # sur un rancongiciel reste plus dangereuse qu'un scan certain.
+        # La confiance module sans jamais annuler : une détection incertaine
+        # sur un rançongiciel reste plus dangereuse qu'un scan certain.
         confidence_factor = 0.7 + 0.3 * event.confidence
         factors.append(f"x{confidence_factor:.2f} : confiance de la source {event.confidence:.0%}")
 
         return round(max(0.0, min(10.0, (base + criticality_bonus) * confidence_factor)), 1)
 
-    # -- priorite Axe 4 ------------------------------------------------------
+    # -- priorité Axe 4 ------------------------------------------------------
 
     @staticmethod
     def _priority(
@@ -237,7 +237,7 @@ class Classifier:
         else:
             factors.append(f"priorité {priority.value} au catalogue")
 
-        # Le document prevoit explicitement des priorites conditionnelles
+        # Le document prevoit explicitement des priorités conditionnelles
         # (« moyenne a haute selon le compte cible », « haute si service
         # critique »). L'actif tranche ce que le catalogue laisse ouvert.
         if event.asset.criticality >= 5 and priority is Priority.HIGH:

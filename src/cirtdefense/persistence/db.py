@@ -1,4 +1,4 @@
-"""Ouverture de connexion et création du schema."""
+"""Ouverture de connexion et création du schéma."""
 
 from __future__ import annotations
 

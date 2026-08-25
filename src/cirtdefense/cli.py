@@ -74,7 +74,7 @@ def _dispatch(args: argparse.Namespace, platform: Any) -> int:
             payload = _read_json(args.file)
             result = platform.ingest_and_respond(args.source, payload)
             if result is None:
-                print("Événement non traite : duplique, ou mis en file (mode dégrade).")
+                print("Événement non traité : dupliqué, ou mis en file (mode dégradé).")
                 return 0
             _print(result.to_dict())
         case "control-loop":
@@ -91,7 +91,7 @@ def _dispatch(args: argparse.Namespace, platform: Any) -> int:
             if args.activate:
                 platform.policies.save(report.policy)
                 platform.engine.set_policy(report.policy)
-                print(f"\nPolitique activee (empreinte {report.policy.checksum()}).")
+                print(f"\nPolitique activée (empreinte {report.policy.checksum()}).")
             return 1 if report.unparsed_sentences else 0
         case "catalog":
             entries = (

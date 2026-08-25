@@ -43,7 +43,7 @@ class HealthSnapshot:
 
 class HealthProbe(ABC):
     """Contrat d'une sonde. L'implantation réelle (ICMP, HTTP, SNMP, agent)
-    depend du site ; la plateforme ne connaît que cette interface."""
+    dépend du site ; la plateforme ne connaît que cette interface."""
 
     name: str = "probe"
 
@@ -52,7 +52,7 @@ class HealthProbe(ABC):
 
 
 class StaticProbe(HealthProbe):
-    """Sonde alimentee par un dictionnaire : recette, tests et démonstration.
+    """Sonde alimentée par un dictionnaire : recette, tests et démonstration.
 
     C'est aussi le point d'injection utilise pour rejouer un scénario de
     dégradation post-action sans casser un service réel.

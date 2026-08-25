@@ -160,7 +160,7 @@ class AuditLedger:
                     valid=False,
                     entries_checked=checked,
                     first_broken_seq=row["seq"],
-                    detail="chaînage rompu : prev_hash ne correspond pas a l'entrée précédente",
+                    detail="chaînage rompu : prev_hash ne correspond pas à l'entrée précédente",
                 )
             if row["entry_hash"] != expected:
                 return ChainVerification(

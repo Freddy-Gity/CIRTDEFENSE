@@ -4,10 +4,10 @@ category: unexpected_port
 attack_code: D2
 description: >
   D2 — Port inattendu ouvert. Le catalogue conditionne la fermeture au fait
-  que le port soit sous controle de la plateforme ; sinon, alerte de derive.
+  que le port soit sous contrôle de la plateforme ; sinon, alerte de dérive.
 rules:
   - id: D2-01
-    label: Fermeture du port si sous controle
+    label: Fermeture du port si sous contrôle
     when:
       indicators_present: [port]
       severity_min: medium
@@ -18,10 +18,10 @@ rules:
         parameters:
           host: "{asset.asset_id}"
           reason: "port absent de la configuration attendue"
-        expected_effect: "Le port est ferme et peut etre rouvert."
+        expected_effect: "Le port est fermé et peut être rouvert."
 
   - id: D2-02
-    label: Signalement de derive de configuration
+    label: Signalement de dérive de configuration
     when: {}
     actions:
       - verb: notify
@@ -32,7 +32,7 @@ rules:
           severity: medium
           subject: "D2 — Port inattendu ouvert"
           body: >
-            Un ecart a ete constate entre les ports observes et la
-            configuration attendue. Si le port n'est pas sous controle de la
-            plateforme, sa fermeture n'a pas ete engagee : il s'agit alors
-            d'une derive a traiter par l'equipe d'exploitation.
+            Un écart a été constaté entre les ports observés et la
+            configuration attendue. Si le port n'est pas sous contrôle de la
+            plateforme, sa fermeture n'a pas été engagee : il s'agit alors
+            d'une dérive à traiter par l'équipe d'exploitation.

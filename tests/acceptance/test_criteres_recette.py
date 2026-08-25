@@ -1,8 +1,8 @@
 """Critères de recette du CDCF §5, version v3.0.
 
-Chaque test porte le numéro du critère qu'il demontre. La suite tient lieu de
-proces-verbal de recette reproductible : elle peut être rejouee devant le jury
-et son résultat ne depend d'aucun équipement réel.
+Chaque test porte le numéro du critère qu'il démontre. La suite tient lieu de
+procès-verbal de recette reproductible : elle peut être rejouee devant le jury
+et son résultat ne dépend d'aucun équipement réel.
 
 Les critères CR-01 a CR-10 heritent de la v2.1 mais ont été **reformules** :
 plusieurs supposaient une étape de validation humaine qui n'existe plus. Les
@@ -74,7 +74,7 @@ class TestCR01_NormalisationMultiSources:
 
 
 class TestCR02_Deduplication:
-    """CR-02 — Une même observation remontee deux fois ne produit qu'un seul
+    """CR-02 — Une même observation remontée deux fois ne produit qu'un seul
     traitement (EF-19). En autonomie totale, ce critère devient critique :
     un doublon non filtre est une action exécutée deux fois."""
 
@@ -103,7 +103,7 @@ class TestCR03_Correlation:
 
 
 class TestCR04_EnrichissementFonde:
-    """CR-04 — Aucune action n'est engagee sur un contexte non fonde
+    """CR-04 — Aucune action n'est engagée sur un contexte non fondé
     documentairement (EF-04). Reformulation v3.0 : en v2.1 le contexte
     halluciner produisait une recommandation douteuse qu'un humain filtrait ;
     il produirait desormais une action réelle."""
@@ -140,7 +140,7 @@ class TestCR05_ExecutionAutonome:
 
     def test_aucun_etat_d_attente_dans_le_systeme(self, platform, bruteforce_payload):
         """Il n'existe aucun statut « en attente de validation » : ce serait le
-        signe d'une validation humaine residuelle."""
+        signe d'une validation humaine résiduelle."""
         platform.ingest_and_respond("wazuh", bruteforce_payload)
         statuts = {
             a.status.value
@@ -193,7 +193,7 @@ class TestCR07_PolitiqueCompilee:
         assert "block_ip" not in verbes
 
     def test_une_consigne_non_comprise_est_signalee(self, platform):
-        """Une politique qui parait appliquée sans l'être serait le pire
+        """Une politique qui paraît appliquée sans l'être serait le pire
         résultat possible."""
         from cirtdefense.orchestration.policy_compiler import PolicyCompiler
 
@@ -203,7 +203,7 @@ class TestCR07_PolitiqueCompilee:
 
 
 class TestCR08_NotificationAPosteriori:
-    """CR-08 — L'analyste est informe de toute action exécutée, sans que cette
+    """CR-08 — L'analyste est informé de toute action exécutée, sans que cette
     information ne conditionne l'exécution (EF-13, revisee)."""
 
     def test_notification_emise_et_exploitable(self, platform, bruteforce_payload):
@@ -349,28 +349,28 @@ class TestCR13_JournalImmuable:
 
 
 class TestCR14_NonRegressionSecuritaire:
-    """CR-14 (CDCF §5.3) — Une action erronee est détectée ET annulée dans un
+    """CR-14 (CDCF §5.3) — Une action erronée est détectée ET annulée dans un
     délai borne.
 
     C'est le critère que le jury interrogera en premier : il ne suffit pas que
-    le rollback fonctionne, il faut demontrer qu'il aboutit dans un temps
+    le rollback fonctionne, il faut démontrer qu'il aboutit dans un temps
     connu. Un rollback dont on ignore la durée ne compense rien.
     """
 
     def test_scenario_de_demonstration_complet(self, platform, probe, bruteforce_payload):
-        # 1. Une attaque est detectee et confinee automatiquement.
+        # 1. Une attaque est détectée et confinee automatiquement.
         result = platform.ingest_and_respond("wazuh", bruteforce_payload)
         assert result.execution.executed >= 1
         assert platform.registry.require("firewall").is_applied("block_ip", "41.202.1.9")
 
-        # 2. Le confinement s'avere errone : le service legitime tombe.
+        # 2. Le confinement s'avere errone : le service légitime tombe.
         probe.set(
             HealthSnapshot(
                 target="srv-web-01", reachable=False, latency_ms=9000, error_rate=1.0, throughput=0
             )
         )
 
-        # 3. La boucle de controle constate et annule, seule.
+        # 3. La boucle de contrôle constate et annule, seule.
         debut = time.monotonic()
         report = platform.engine.run_control_loop()
         duree = time.monotonic() - debut
@@ -379,17 +379,17 @@ class TestCR14_NonRegressionSecuritaire:
         assert report.rolled_back == report.degraded, "toutes n'ont pas été annulées"
         assert report.rollback_failures == 0
 
-        # 4. Le delai est borne, et mesure pour chaque action.
+        # 4. Le délai est borne, et mesure pour chaque action.
         borne = platform.settings.autonomy.rollback_max_latency_seconds
         assert duree < borne
         assert all(o.within_bound for o in report.outcomes), (
             "une annulation a depasse le délai maximal admis pour son type d'action"
         )
 
-        # 5. L'etat reel de l'equipement est retabli.
+        # 5. L'état réel de l'équipement est rétabli.
         assert not platform.registry.require("firewall").is_applied("block_ip", "41.202.1.9")
 
-        # 6. L'ensemble est trace de facon opposable.
+        # 6. L'ensemble est trace de façon opposable.
         assert platform.ledger.query(event_type="rollback.completed")
         assert platform.ledger.verify_chain().valid
 
@@ -419,7 +419,7 @@ class TestCR16_ClassificationDesAttaques:
     """CR-16 (nouveau) — Toute attaque du catalogue CIRT est qualifiee selon
     son type, sa famille, sa criticité et sa dangerosité.
 
-    Réponse a l'exigence du document de classification : la réponse autonome
+    Réponse à l'exigence du document de classification : la réponse autonome
     ne suffit pas, encore faut-il que le système sache dire a quoi il a eu
     affaire et avec quel enjeu.
     """
@@ -485,7 +485,7 @@ class TestCR16_ClassificationDesAttaques:
         assert scan.dangerousness > 0, "un precurseur n'est jamais sans danger"
         assert panne.severity > scan.severity
         # La panne est plus critique mais pas la plus dangereuse du catalogue :
-        # elle interrompt un service, elle n'ouvre pas d'acces.
+        # elle interrompt un service, elle n'ouvre pas d'accès.
         assert panne.dangerousness < 9
 
 

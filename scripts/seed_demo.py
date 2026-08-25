@@ -74,7 +74,7 @@ SCENARIOS: list[dict] = [
             "confidence": 0.88,
             "occurred_at": "2026-08-24T09:45:00Z",
             "asset": {"asset_id": "poste-114", "criticality": 2, "zone": "bureautique"},
-            "title": "Rancongiciel détecte en cours de chiffrement",
+            "title": "Rançongiciel détecte en cours de chiffrement",
             "indicators": {"file_path": "C:/Users/public/enc.exe", "process": "enc.exe"},
         },
     },
@@ -108,7 +108,7 @@ SCENARIOS: list[dict] = [
         },
     },
     {
-        # Menace hors catalogue : doit etre refusee (limite assumee, CDCF §1.4.3).
+        # Menace hors catalogue : doit être refusée (limite assumee, CDCF §1.4.3).
         "source": "generic_json",
         "payload": {
             "category": "vecteur_inedit_non_repertorie",
@@ -169,7 +169,7 @@ def main() -> int:
                 f"{executees} action(s)"
             )
 
-        # Une degradation post-action, pour que le portefeuille montre aussi
+        # Une dégradation post-action, pour que le portefeuille montre aussi
         # un cas d'annulation autonome.
         if isinstance(platform.probe, StaticProbe):
             platform.probe.set(

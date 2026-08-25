@@ -3,7 +3,7 @@
 En v3.0 ce journal est la **seule** trace de ce que le système a fait sans
 intervention humaine. Les points d'entrée exposent aussi la vérification
 d'intégrité de la chaîne : un journal qu'on ne peut pas prouver intact ne vaut
-rien comme piece d'audit.
+rien comme pièce d'audit.
 """
 
 from __future__ import annotations

@@ -1,8 +1,8 @@
-"""Schema pivot `DetectionEvent` (EF-18 a EF-20).
+"""Schéma pivot `DetectionEvent` (EF-18 a EF-20).
 
 Toute source, quelle que soit sa technologie, est ramenee à cette forme par
 l'adaptateur d'ingestion. Le reste de la plateforme ne connaît que ce type :
-c'est ce qui permet d'ajouter une source sans toucher a l'orchestration.
+c'est ce qui permet d'ajouter une source sans toucher à l'orchestration.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ def _new_id(prefix: str) -> str:
 
 @dataclass(frozen=True, slots=True)
 class Asset:
-    """Cible concernee par un événement. Sert de clé de correlation."""
+    """Cible concernée par un événement. Sert de clé de corrélation."""
 
     asset_id: str
     hostname: str | None = None
@@ -42,7 +42,7 @@ class Asset:
 
 @dataclass(frozen=True, slots=True)
 class DetectionEvent:
-    """Événement normalise. Immuable : c'est une observation, pas un état."""
+    """Événement normalisé. Immuable : c'est une observation, pas un état."""
 
     event_id: str = field(default_factory=lambda: _new_id("evt"))
     occurred_at: datetime = field(default_factory=utcnow)
@@ -50,7 +50,7 @@ class DetectionEvent:
     source: SourceKind = SourceKind.SIEM
     source_product: str = "unknown"
     category: str = "unknown"
-    """Famille de menace normalisee : bruteforce, exfiltration, lateral_movement..."""
+    """Famille de menace normalisée : bruteforce, exfiltration, lateral_movement..."""
     severity: Severity = Severity.MEDIUM
     confidence: float = 0.5
     """Confiance de la source dans sa propre détection, 0.0 a 1.0."""
@@ -71,9 +71,9 @@ class DetectionEvent:
             raise ValueError(f"criticality hors bornes : {self.asset.criticality}")
 
     def fingerprint(self) -> str:
-        """Empreinte stable servant à la deduplication et a l'idempotence.
+        """Empreinte stable servant à la deduplication et à l'idempotence.
 
-        Deux remontees de la même observation par deux collecteurs differents
+        Deux remontées de la même observation par deux collecteurs differents
         doivent produire la même empreinte, sinon le moteur agirait deux fois.
         """
         payload = "|".join(

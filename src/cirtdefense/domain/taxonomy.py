@@ -13,7 +13,7 @@ Deux principes du document sont portes par le code lui-même :
 - **La réversibilité conditionne ce que le moteur autonome peut déclencher**
   (Axe 2), et la priorité arbitre l'ordre de traitement (Axe 4).
 
-Pour le rancongiciel (A6), la réponse reste l'isolation réseau — jamais une
+Pour le rançongiciel (A6), la réponse reste l'isolation réseau — jamais une
 remédiation complète. C'est le point de vigilance signale pour la soutenance.
 """
 
@@ -87,7 +87,7 @@ _PRIORITY_RANK = {
 class AttackType:
     """Une ligne du catalogue.
 
-    `category` fait le lien avec la catégorie normalisee du `DetectionEvent` :
+    `category` fait le lien avec la catégorie normalisée du `DetectionEvent` :
     c'est par elle que le playbook correspondant est retrouve.
     """
 
@@ -96,7 +96,7 @@ class AttackType:
     family: AttackFamily
     label: str
     category: str
-    """Catégorie normalisee, clé de correspondance avec les playbooks."""
+    """Catégorie normalisée, clé de correspondance avec les playbooks."""
     detection_sources: tuple[str, ...]
     signal: str
     """Signal caractéristique, tel que decrit au document."""
@@ -112,7 +112,7 @@ class AttackType:
 
     Distinct de la priorité : la priorité arbitre l'ordre de traitement, la
     dangerosité mesure le dommage potentiel si l'attaque aboutit. Un scan (A3)
-    est peu prioritaire mais precurseur ; un rancongiciel (A6) est les deux.
+    est peu prioritaire mais precurseur ; un rançongiciel (A6) est les deux.
     """
     residual_effect: str = ""
     """Ce que l'action corrective laisse comme gêne, s'il y en à une."""
@@ -151,7 +151,7 @@ class AttackType:
 
 
 # ---------------------------------------------------------------------------
-# A — Attaques reseau
+# A — Attaques réseau
 # ---------------------------------------------------------------------------
 
 NETWORK_ATTACKS: tuple[AttackType, ...] = (
@@ -210,14 +210,14 @@ NETWORK_ATTACKS: tuple[AttackType, ...] = (
         signal="Nombre d'échecs d'authentification anormal, ciblage de comptes multiples",
         prescribed_actions=(
             "Verrouillage temporaire du/des compte(s) cible(s), blocage IP, "
-            "forcage MFA à la prochaine connexion"
+            "forçage MFA à la prochaine connexion"
         ),
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         priority=Priority.HIGH,
         priority_rationale="moyenne a haute selon le compte cible",
         base_severity=Severity.MEDIUM,
         dangerousness=6,
-        residual_effect="deverrouillage manuel possible mais gêne l'utilisateur légitime",
+        residual_effect="déverrouillage manuel possible mais gêne l'utilisateur légitime",
     ),
     AttackType(
         code="A5",
@@ -227,7 +227,7 @@ NETWORK_ATTACKS: tuple[AttackType, ...] = (
         detection_sources=("UEBA", "Surveillance"),
         signal="Volume sortant anormal, requêtes DNS atypiques (longueur, fréquence)",
         prescribed_actions=(
-            "Coupure de la connexion sortante concernee, "
+            "Coupure de la connexion sortante concernée, "
             "mise en quarantaine réseau de l'hôte source"
         ),
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
@@ -302,13 +302,13 @@ APPLICATION_ATTACKS: tuple[AttackType, ...] = (
         signal="Contenu suspect dans les champs soumis (balises script, encodages)",
         prescribed_actions=(
             "Filtrage/sanitisation à la volee si possible, blocage de la requête, "
-            "alerte si contenu déjà stocke"
+            "alerte si contenu déjà stocké"
         ),
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         priority=Priority.MEDIUM,
         base_severity=Severity.MEDIUM,
         dangerousness=5,
-        residual_effect="un contenu déjà stocke reste à traiter manuellement",
+        residual_effect="un contenu déjà stocké reste à traiter manuellement",
     ),
     AttackType(
         code="B3",
@@ -345,7 +345,7 @@ APPLICATION_ATTACKS: tuple[AttackType, ...] = (
         detection_sources=("Surveillance", "Enrichissement (signature connue)"),
         signal="Fichier exécutable/script depose dans un répertoire non prévu",
         prescribed_actions=(
-            "Mise en quarantaine du fichier (deplacement, pas suppression), "
+            "Mise en quarantaine du fichier (déplacement, pas suppression), "
             "blocage de l'IP uploadeuse"
         ),
         reversibility=Reversibility.REVERSIBLE,
@@ -373,9 +373,9 @@ APPLICATION_ATTACKS: tuple[AttackType, ...] = (
         label="Broken authentication / session hijacking",
         category="session_hijacking",
         detection_sources=("UEBA (impossible travel, anomalie de session)",),
-        signal="Session utilisee depuis deux localisations incompatibles, reutilisation de token",
+        signal="Session utilisée depuis deux localisations incompatibles, réutilisation de token",
         prescribed_actions=(
-            "Révocation de la session/du token concerne, forcage de re-authentification"
+            "Révocation de la session/du token concerné, forçage de re-authentification"
         ),
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.HIGH,
@@ -398,7 +398,7 @@ INSIDER_ANOMALIES: tuple[AttackType, ...] = (
         detection_sources=("UEBA",),
         signal="Changement de rôle/permission hors processus habituel, sans ticket associe",
         prescribed_actions=(
-            "Révocation immédiate du privilège accorde, restauration du rôle anterieur"
+            "Révocation immédiate du privilège accordé, restauration du rôle antérieur"
         ),
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.HIGH,
@@ -411,7 +411,7 @@ INSIDER_ANOMALIES: tuple[AttackType, ...] = (
         label="Accès a des ressources hors profil habituel",
         category="abnormal_access",
         detection_sources=("UEBA",),
-        signal="Consultation de ressources jamais accedees par l'entité, hors périmètre métier",
+        signal="Consultation de ressources jamais accédées par l'entité, hors périmètre métier",
         prescribed_actions=(
             "Blocage de l'accès en cours, alerte — pas de révocation de compte "
             "(risque de faux positif plus élève)"
@@ -445,8 +445,8 @@ INSIDER_ANOMALIES: tuple[AttackType, ...] = (
         detection_sources=("UEBA",),
         signal="Connexions incompatibles geographiquement/temporellement",
         prescribed_actions=(
-            "Suspension temporaire du compte, révocation de toutes les sessions actives, "
-            "forcage MFA"
+            "Suspension temporaire du compte, révocation de toutes les sessions activés, "
+            "forçage MFA"
         ),
         reversibility=Reversibility.PARTIALLY_REVERSIBLE,
         priority=Priority.HIGH,
@@ -471,7 +471,7 @@ INFRASTRUCTURE_FINDINGS: tuple[AttackType, ...] = (
         signal="Certificat expire, algorithme ou taille de clé insuffisants",
         prescribed_actions=(
             "Notification + génération automatique d'un rapport — pas d'action "
-            "corrective directe possible (depend d'une autorité de certification externe)"
+            "corrective directe possible (dépend d'une autorité de certification externe)"
         ),
         reversibility=Reversibility.REVERSIBLE,
         priority=Priority.LOW,
@@ -499,7 +499,7 @@ INFRASTRUCTURE_FINDINGS: tuple[AttackType, ...] = (
     AttackType(
         code="D3",
         family=AttackFamily.INFRASTRUCTURE,
-        label="Service indisponible (panne ou deni de service)",
+        label="Service indisponible (panne ou déni de service)",
         category="service_unavailable",
         detection_sources=("Sonde httpx en échec répète",),
         signal="Échecs répétés de la sonde de disponibilité",

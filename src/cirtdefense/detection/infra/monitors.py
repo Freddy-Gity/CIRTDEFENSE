@@ -3,7 +3,7 @@
 Produit un `DetectionEvent` de catégorie `infrastructure_degradation` quand
 une cible sort de ses seuils de service. Ces événements empruntent la même
 chaîne que les alertes de sécurité : l'indisponibilité est traitée comme un
-incident a part entiere, ce qui est le sens de l'Axe 5.
+incident a part entière, ce qui est le sens de l'Axe 5.
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ class InfrastructureMonitor:
             source_product="cirtdefense-monitor",
             category="infrastructure_degradation",
             severity=_severity_for(snapshot, thresholds),
-            confidence=0.9,  # une mesure directe, pas une inference
+            confidence=0.9,  # une mesure directe, pas une inférence
             asset=Asset(asset_id=target, hostname=target, criticality=thresholds.criticality),
             title=f"Dégradation de service sur {target}",
             description="; ".join(problems),

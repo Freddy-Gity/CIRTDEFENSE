@@ -1,8 +1,8 @@
 """Actuateur de notification (EF-13 v3.0 : information a posteriori).
 
-La notification est traitée comme une action a part entiere : elle est
+La notification est traitée comme une action a part entière : elle est
 planifiée, exécutée, journalisée et annulable comme les autres. Ce choix n'est
-pas cosmetique — en v3.0 la notification est la seule chose que l'analyste
+pas cosmétique — en v3.0 la notification est la seule chose que l'analyste
 reçoit avant que l'action ne soit déjà faite, et elle doit donc être aussi
 tracable que l'action elle-même.
 """

@@ -17,10 +17,10 @@ _SIGNATURE_SEVERITY = {1: Severity.CRITICAL, 2: Severity.HIGH, 3: Severity.MEDIU
 def _asset_of(payload: dict[str, Any]) -> Asset:
     """Determine l'actif concerne : l'extremite **interne** du flux.
 
-    Prendre `dest_ip` sans reflechir attribuerait un canal de commande et
-    contrôle sortant a l'adresse de l'attaquant. Un `isolate_host` viserait
+    Prendre `dest_ip` sans réfléchir attribuerait un canal de commande et
+    contrôle sortant à l'adresse de l'attaquant. Un `isolate_host` viserait
     alors le serveur de l'attaquant au lieu du poste compromis : l'incident
-    serait classe sur un actif qui n'appartient pas au parc, et l'action
+    serait classé sur un actif qui n'appartient pas au parc, et l'action
     autonome n'aurait aucun effet protecteur.
     """
     src, dest = payload.get("src_ip"), payload.get("dest_ip")
@@ -53,10 +53,10 @@ def normalize(payload: dict[str, Any]) -> DetectionEvent:
         indicators["signature_id"] = alert["signature_id"]
 
     # Le nom de domaine interroge est l'indicateur decisif d'un canal de
-    # commande et controle : sans lui, la reponse prescrite par le catalogue
-    # (sinkhole DNS) ne peut pas etre ciblee et le playbook retombe sur le
+    # commande et contrôle : sans lui, la réponse prescrite par le catalogue
+    # (sinkhole DNS) ne peut pas être ciblee et le playbook retombe sur le
     # seul blocage d'adresse, moins efficace contre une infrastructure a
-    # resolution dynamique.
+    # résolution dynamique.
     domain = (
         (payload.get("dns") or {}).get("rrname")
         or (payload.get("tls") or {}).get("sni")

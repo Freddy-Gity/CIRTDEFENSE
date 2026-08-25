@@ -1,10 +1,10 @@
 """Coupe-circuit global de l'autonomie (EF-26).
 
 **Ce mécanisme ne reintroduit aucune validation par action.** C'est un
-interrupteur système, a l'échelle de la plateforme entiere, pas un point de
-contrôle sur le chemin d'une action donnée : quand il est ferme, chaque action
+interrupteur système, à l'échelle de la plateforme entière, pas un point de
+contrôle sur le chemin d'une action donnée : quand il est fermé, chaque action
 part sans qu'aucun humain ne l'ait vue ; quand il est ouvert, plus aucune ne
-part du tout. L'autonomie totale est donc preservee au sens du CDCF §1.4.3.
+part du tout. L'autonomie totale est donc préservée au sens du CDCF §1.4.3.
 
 Il répond à la question que la soutenance posera : « comment arretez-vous le
 système s'il se trompe en boucle ? ». Sans lui, la seule réponse serait
@@ -18,7 +18,7 @@ Deux voies de déclenchement :
 - **automatique** : le système se coupe lui-même quand il constate qu'il se
   trompe de façon répétée (annulations en rafale, échecs d'actuateurs en
   série). Cette seconde voie est celle qui compte réellement, l'humain
-  n'etant par construction pas devant l'ecran.
+  n'étant par construction pas devant l'ecran.
 
 L'état est persistant : un redémarrage ne doit pas relancer l'autonomie que
 l'on venait d'interrompre.
@@ -128,7 +128,7 @@ class CircuitBreaker:
             return True
         return self.status().autonomy_active
 
-    # -- declenchement ------------------------------------------------------
+    # -- déclenchement ------------------------------------------------------
 
     def trip(self, reason: str, actor: str = "system:breaker") -> BreakerStatus:
         """Ouvre le circuit. Idempotent : re-déclencher n'écrase pas le motif
@@ -157,7 +157,7 @@ class CircuitBreaker:
         return self.status()
 
     def reset(self, actor: str, reason: str = "") -> BreakerStatus:
-        """Referme le circuit. Reservee a l'administrateur : le système ne se
+        """Referme le circuit. Réservée à l'administrateur : le système ne se
         readmet jamais tout seul, faute de pouvoir juger que la cause a
         disparu."""
         self._repository.write(BreakerState.CLOSED.value, reason or "réarmement manuel", actor)
@@ -165,7 +165,7 @@ class CircuitBreaker:
         log_with(
             logger,
             logging.WARNING,
-            "coupe-circuit referme : autonomie retablie",
+            "coupe-circuit referme : autonomie rétablie",
             actor=actor,
             reason=reason,
         )

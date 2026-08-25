@@ -1,8 +1,8 @@
-"""Index documentaire lexical (BM25), sans dependance externe.
+"""Index documentaire lexical (BM25), sans dépendance externe.
 
-Un index lexical est prefere ici à un index vectoriel dense : il est
+Un index lexical est préféré ici à un index vectoriel dense : il est
 déterministe, inspectable et n'exige aucun modèle d'embarquement, ce qui
-compte pour le mode dégrade (Axe 5) ou la plateforme doit rester operante
+compte pour le mode dégrade (Axe 5) ou la plateforme doit rester opérante
 hors connexion.
 """
 
@@ -141,7 +141,7 @@ class LexicalIndex:
         index.add_many(documents)
         return index
 
-    # -- statistiques exposees a la garde de non-invention -------------------
+    # -- statistiques exposées à la garde de non-invention -------------------
 
     def document_frequency(self, term: str) -> int:
         return self._df.get(term, 0)
@@ -159,9 +159,9 @@ class LexicalIndex:
     def covering(self, category: str) -> list[Document]:
         """Documents declarant explicitement couvrir cette catégorie.
 
-        La couverture est déclarée dans l'en-tête du document, pas deduite du
+        La couverture est déclarée dans l'en-tête du document, pas déduite du
         texte : un code technique (`behaviour_anomaly`) n'à aucune raison
-        d'apparaitre dans une rédaction en francais, et faire dependre la
+        d'apparaitre dans une rédaction en francais, et faire dépendre la
         garde EF-04 d'une telle coincidence la rendrait ininterpretable.
         """
         return [

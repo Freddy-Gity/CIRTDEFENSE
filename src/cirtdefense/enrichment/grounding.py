@@ -90,7 +90,7 @@ class GroundingGuard:
                 grounded=False,
                 score=0.0,
                 unsupported_claims=list(statements),
-                reason="aucun document pertinent : le contexte serait entierement suppose",
+                reason="aucun document pertinent : le contexte serait entièrement suppose",
             )
 
         corpus_terms: set[str] = set()
@@ -106,7 +106,7 @@ class GroundingGuard:
         unsupported = [c for c in checks if not c.supported]
         score = sum(c.coverage for c in verifiable) / len(verifiable) if verifiable else 0.0
 
-        # Une affirmation invérifiable ne vaut pas une affirmation verifiee :
+        # Une affirmation invérifiable ne vaut pas une affirmation vérifiée :
         # s'il ne reste aucun terme discriminant, le contexte n'est pas fonde.
         grounded = bool(verifiable) and not unsupported
 

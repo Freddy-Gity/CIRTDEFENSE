@@ -33,9 +33,9 @@ La plateforme exécute les actions correctives sans validation humaine
 préalable (EF-07). Les garde-fous qui remplacent cette validation sont :
 
 - le catalogue de réversibilité : seule une action annulable est exécutée (EF-14) ;
-- la garde de non-invention : pas d'action sur un contexte non documente (EF-04) ;
+- la garde de non-invention : pas d'action sur un contexte non documenté (EF-04) ;
 - la politique de réponse compilée par l'administrateur (EF-15) ;
-- la boucle de contrôle fermee : annulation autonome sur dégradation (EF-25) ;
+- la boucle de contrôle fermée : annulation autonome sur dégradation (EF-25) ;
 - le coupe-circuit global (EF-26) ;
 - le journal d'audit immuable, seule trace de ce que le système a fait seul.
 
@@ -95,7 +95,7 @@ def create_app() -> FastAPI:
         return "<h1>CIRTDEFENSE v3.0</h1><p>Documentation : <a href='/docs'>/docs</a></p>"
 
     # L'interface est une application a page unique : la navigation se fait
-    # cote client par l'History API. Le serveur doit donc rendre la meme page
+    # cote client par l'History API. Le serveur doit donc rendre la même page
     # pour chacune de ses routes, sans quoi un lien profond ou un simple
     # rafraichissement renverrait une 404.
     for chemin in VUES_CLIENT:

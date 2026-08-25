@@ -1,7 +1,7 @@
 """Tables de correspondance partagees par les normaliseurs.
 
 Regrouper ces tables évite que deux sources classent differemment la même
-menace, ce qui casserait la correlation des incidents.
+menace, ce qui casserait la corrélation des incidents.
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ SEVERITY_ALIASES: dict[str, Severity] = {
 
 
 def classify_category(*texts: str) -> str:
-    """Deduit la famille de menace à partir des libelles de la source.
+    """Déduit la famille de menace à partir des libelles de la source.
 
     La correspondance la plus longue l'emporte, et non la première trouvee :
     « command and control » doit primer sur « trojan » dans un libelle qui

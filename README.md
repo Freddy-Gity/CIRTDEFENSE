@@ -76,10 +76,15 @@ le rollback autonome ne serait pas reellement autonome.
 
 | Onglet | Contenu |
 |---|---|
-| **Demonstration** | Les 22 types d'attaques du catalogue CIRT, declenchables d'un clic, seuls ou par famille |
+| **Vue d'ensemble** | Flux des actions executees et statistiques sur 24 heures |
 | **Portefeuille** | Incidents classifies et ordonnes par enjeu (Axe 4), repartitions par famille et par dangerosite |
+| **Surveillance** | Etat de securite du parc supervise : mesure, seuil, verdict et incidents rattaches (EF-21 a EF-23) |
+| **Reversibilite** | Le catalogue des metadonnees de reversibilite (Axe 2), et les trois actions qui en sont exclues |
+| **Demonstration** | Les 22 types d'attaques du catalogue CIRT, declenchables d'un clic, seuls ou par famille |
+| **Assistant** | Bilan des operations du jour, questions sur les donnees reelles |
+| **Rapports** | Generation et export Markdown d'un rapport d'operations |
 | **Journal d'audit** | La seule trace de ce que le systeme a fait seul, verifiable de bout en bout |
-| **Assistant** | Bilan des operations du jour, questions sur les donnees reelles, rapports exportables |
+| **Reglages** | Preferences de session : theme, posture affichee, notifications en attente |
 
 Les scenarios ne fabriquent pas d'attaque : ils fabriquent **la charge utile
 qu'un collecteur emettrait** pour l'attaque decrite. La plateforme ne fait

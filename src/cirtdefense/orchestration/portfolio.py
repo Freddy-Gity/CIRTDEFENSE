@@ -1,8 +1,8 @@
 """Portefeuille d'incidents priorise (Axe 4).
 
 L'Axe 4 est conceptuellement inchange par le pivot v3.0 : seule sa sortie
-change. Le portefeuille ne sert plus a dire a l'analyste quoi traiter en
-premier, mais a lui montrer ce que le système a déjà traite, dans l'ordre de
+change. Le portefeuille ne sert plus a dire à l'analyste quoi traiter en
+premier, mais a lui montrer ce que le système a déjà traité, dans l'ordre de
 l'enjeu. C'est la vue du décideur.
 """
 
@@ -27,7 +27,7 @@ class PortfolioEntry:
     actions_rolled_back: int
     autonomous: bool
     # Qualification au catalogue CIRT : c'est elle qui donne son sens a
-    # l'ordre du portefeuille, la priorite Axe 4 pesant sur le score.
+    # l'ordre du portefeuille, la priorité Axe 4 pesant sur le score.
     attack_code: str = ""
     attack_label: str = ""
     family: str = ""

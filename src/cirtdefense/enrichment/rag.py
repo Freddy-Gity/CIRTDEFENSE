@@ -3,7 +3,7 @@
 Le contrat est strict et volontairement pauvre : le module rend des extraits
 sourc..es et un verdict de fondement. Il ne résumé pas, ne conclut pas, ne
 recommande pas. Le choix de l'action revient au planificateur, à partir de
-playbooks ecrits par des humains — pas d'un texte génère.
+playbooks écrits par des humains — pas d'un texte génère.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ class EnrichedContext:
         contrôle (« menace », « type ») ont cesse d'être presents dans la
         majorite des documents, ont donc été comptes comme discriminants, et
         une menace parfaitement inconnue est repassee pour documentée. Faire
-        dependre l'autorisation d'agir d'un seuil de fréquence de mots était
+        dépendre l'autorisation d'agir d'un seuil de fréquence de mots était
         une erreur de conception : la composition du corpus évolue, le critère
         doit rester stable.
         """
@@ -120,21 +120,21 @@ class EnrichmentService:
         query = self._build_query(event)
         hits = self._index.search(query, top_k=self._top_k)
 
-        # La recherche lexicale peut manquer le document de reference d'une
-        # categorie quand le code technique et la redaction n'ont pas de mots
-        # en commun. La couverture declaree comble cet ecart, sans jamais
-        # inventer un document : si aucun ne declare la categorie, il n'y en a
-        # pas, et le contexte sera juge non fonde.
+        # La recherche lexicale peut manquer le document de référence d'une
+        # catégorie quand le code technique et la rédaction n'ont pas de mots
+        # en commun. La couverture déclarée comble cet écart, sans jamais
+        # inventer un document : si aucun ne déclare la catégorie, il n'y en a
+        # pas, et le contexte sera jugé non fondé.
         declared = self._index.covering(event.category)
         known = {h.document.doc_id for h in hits}
         for document in declared:
             if document.doc_id not in known:
                 hits.append(SearchHit(document=document, score=0.0, matched_terms=[event.category]))
 
-        # Les affirmations soumises au controle sont celles qui, si elles
-        # etaient fausses, rendraient l'action injustifiee. Elles sont
-        # formulees autour des termes propres a l'evenement : la garde ne
-        # retient de toute facon que les termes discriminants du corpus.
+        # Les affirmations soumises au contrôle sont celles qui, si elles
+        # étaient fausses, rendraient l'action injustifiee. Elles sont
+        # formulees autour des termes propres à l'événement : la garde ne
+        # retient de toute façon que les termes discriminants du corpus.
         claims = [f"menace de type {event.category}"]
         if event.mitre_techniques:
             claims.append(f"techniques {' '.join(event.mitre_techniques)}")
@@ -154,7 +154,7 @@ class EnrichmentService:
             log_with(
                 logger,
                 logging.WARNING,
-                "contexte non fonde : aucune action autonome ne sera engagee",
+                "contexte non fondé : aucune action autonome ne sera engagée",
                 event_id=event.event_id,
                 category=event.category,
                 reason=(

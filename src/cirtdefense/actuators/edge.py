@@ -1,7 +1,7 @@
 """Actuateur de bordure : attenuation volumétrique en amont (A1).
 
 Contre un DDoS volumétrique, aucune action locale ne suffit : le lien est
-sature avant d'atteindre nos équipements. L'attenuation se joue chez
+saturé avant d'atteindre nos équipements. L'attenuation se joue chez
 l'opérateur de transit ou le fournisseur de scrubbing.
 
 Cet actuateur est donc, plus encore que les autres, un **point d'intégration**
@@ -56,7 +56,7 @@ class LiveEdge(Actuator):
             raise RuntimeError("actuateur de bordure en mode réel sans client configure")
         if verb == "blackhole_ip" and not parameters.get("ttl_seconds"):
             # Un blackhole sans expiration devient un blocage definitif que
-            # personne ne retire : ce serait une action irreversible deguisee.
+            # personne ne retire : ce serait une action irréversible deguisee.
             return ActuationOutcome(
                 success=False,
                 message="blackhole refuse sans durée de vie : une règle qui "

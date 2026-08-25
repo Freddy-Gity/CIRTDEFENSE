@@ -2,10 +2,10 @@ id: pb-b6-abus-api
 version: "1.0"
 category: api_abuse
 attack_code: B6
-description: "B6 — Abus d'API. Revocation du jeton et renforcement du debit."
+description: "B6 — Abus d'API. Révocation du jeton et renforcement du débit."
 rules:
   - id: B6-01
-    label: Revocation temporaire du jeton
+    label: Révocation temporaire du jeton
     when:
       indicators_present: [token_id]
     actions:
@@ -13,11 +13,11 @@ rules:
         actuator: iam
         target: "{indicators.token_id}"
         parameters:
-          reason: "volume de requetes anormal pour ce jeton"
-        expected_effect: "Le jeton cesse d'etre accepte ; il peut etre reemis."
+          reason: "volume de requêtes anormal pour ce jeton"
+        expected_effect: "Le jeton cesse d'être accepté ; il peut être réémis."
 
   - id: B6-02
-    label: Renforcement de la limitation de debit
+    label: Renforcement de la limitation de débit
     when:
       indicators_present: [srcip]
     actions:

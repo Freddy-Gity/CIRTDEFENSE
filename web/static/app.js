@@ -8,6 +8,16 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
+// Coupe sur la derniere frontiere de mot : tronquer au caractere pres donne
+// « tunneling DNS, transf », qui se lit comme une erreur d'affichage.
+const court = (texte, max) => {
+  const t = String(texte ?? "");
+  if (t.length <= max) return t;
+  const coupe = t.slice(0, max);
+  const espace = coupe.lastIndexOf(" ");
+  return (espace > max * 0.6 ? coupe.slice(0, espace) : coupe).replace(/[ ,;(]+$/, "") + "\u2026";
+};
+
 async function api(url, options) {
   const r = await fetch(url, options);
   if (!r.ok) {
@@ -282,7 +292,7 @@ async function vueDashboard() {
             ${etiquetteEvenement(e)}
             <span class="mono">${esc(e.payload.actuator ? `${e.payload.actuator}:${e.payload.verb}` : "")}</span>
             ${e.payload.target ? `<span class="muet">→ ${esc(e.payload.target)}</span>` : ""}
-            ${e.payload.reason ? `<span class="muet">${esc(String(e.payload.reason).slice(0, 90))}</span>` : ""}
+            ${e.payload.reason ? `<span class="muet">${esc(court(e.payload.reason, 90))}</span>` : ""}
           </div>
         </div>`).join("")}</div>`
         : `<div class="vide">Aucune action encore exécutée —
@@ -360,7 +370,7 @@ async function vuePortefeuille() {
       const f = (i.attack_code || "?").charAt(0);
       return `<tr>
         <td><b>${esc(i.attack_code || "?")}</b></td>
-        <td>${esc((i.attack_label || i.category).slice(0, 46))}</td>
+        <td>${esc(court(i.attack_label || i.category, 46))}</td>
         <td><span class="fam"><span class="puce ${esc(f)}"></span>${esc(i.family_label || "—")}</span></td>
         <td><span class="etat ${esc(i.severity)}">${esc(i.severity)}</span></td>
         <td><span class="etat ${bandeDanger(i.dangerousness || 0)}">${i.dangerousness ?? "—"}/10</span></td>
@@ -667,7 +677,7 @@ function afficherLot(r) {
       <b>${r.actions_executed}</b> action(s) exécutée(s)${r.family ? ` — famille ${esc(r.family)}` : ""}.</div>
     <table><thead><tr><th>Type</th><th>Criticité</th><th>Dang.</th><th>Priorité</th><th>Actions</th></tr></thead>
     <tbody>${r.results.map((x) => `<tr>
-      <td><b>${esc(x.code)}</b> ${esc((x.label || "").slice(0, 40))}</td>
+      <td><b>${esc(x.code)}</b> ${esc(court(x.label, 40))}</td>
       <td>${x.classification.severity
         ? `<span class="etat ${esc(x.classification.severity)}">${esc(x.classification.severity)}</span>` : "—"}</td>
       <td class="num">${x.classification.dangerousness ?? "—"}</td>

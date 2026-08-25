@@ -1,13 +1,13 @@
 """Planificateur : de l'événement enrichi aux actions candidates (EF-05, EF-06).
 
-Le choix de l'action vient de playbooks ecrits par des humains, jamais d'un
+Le choix de l'action vient de playbooks écrits par des humains, jamais d'un
 texte génère. C'est un choix d'architecture assume : en autonomie totale, la
 question « pourquoi le système a-t-il fait cela ? » doit trouver sa réponse
 dans un fichier versionne et relisible, pas dans les poids d'un modèle.
 
 Le planificateur ne decide pas d'exécuter. Il propose des actions candidates ;
 le filtrage par politique, catalogue et coupe-circuit se fait ensuite dans le
-moteur. Cette separation permet de tracer ce qui a été envisage *puis* écarte,
+moteur. Cette séparation permet de tracer ce qui a été envisagé *puis* écarte,
 ce qui est précisément ce qu'un auditeur cherche à reconstituer.
 """
 
@@ -46,7 +46,7 @@ class PlanningResult:
     matched_rules: list[str] = field(default_factory=list)
     actions: list[PlannedAction] = field(default_factory=list)
     skipped: list[dict[str, str]] = field(default_factory=list)
-    """Actions envisagees puis ecartees, avec le motif. Trace d'audit."""
+    """Actions envisagées puis écartées, avec le motif. Trace d'audit."""
 
     @property
     def specs(self) -> list[ActionSpec]:
@@ -134,7 +134,7 @@ class Planner:
                 self._build_action(action, rule_id, event, result)
         return result
 
-    # -- evaluation des conditions -----------------------------------------
+    # -- évaluation des conditions -----------------------------------------
 
     def _rule_matches(self, conditions: dict[str, Any], event: DetectionEvent) -> bool:
         for key, expected in conditions.items():
@@ -203,7 +203,7 @@ class Planner:
         label = f"{actuator}:{verb}"
         optional = bool(action.get("optional", False))
 
-        # Condition supplementaire portee par l'action elle-meme.
+        # Condition supplementaire portee par l'action elle-même.
         threshold = action.get("when_severity_min")
         if threshold and not (event.severity >= Severity(threshold)):
             result.skipped.append(
@@ -270,7 +270,7 @@ class Planner:
     def _resolve(self, template: str, event: DetectionEvent) -> str:
         """Remplace `{asset.user}` ou `{indicators.srcip}` par la valeur réelle.
 
-        Un motif non resolu rend une chaîne vide : l'action sera ecartee plus
+        Un motif non resolu rend une chaîne vide : l'action sera écartée plus
         haut. On ne substitue jamais une valeur de repli — agir sur une cible
         devinee est précisément ce que l'autonomie ne doit pas se permettre.
         """

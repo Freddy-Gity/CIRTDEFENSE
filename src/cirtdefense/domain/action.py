@@ -1,6 +1,6 @@
 """Actions correctives : specification, résultat, catalogue de réversibilité.
 
-En v3.0 une action n'est plus une *proposition* soumise a l'analyste (EF-13
+En v3.0 une action n'est plus une *proposition* soumise à l'analyste (EF-13
 ancienne version) mais un ordre que le moteur exécute lui-même. Le garde-fou
 n'est donc plus humain : il est porte par les invariants de ce module.
 """

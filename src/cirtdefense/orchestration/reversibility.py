@@ -69,7 +69,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="firewall",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="clear_rate_limit",
-        description="Limite le débit accepte depuis une adresse source.",
+        description="Limite le débit accepté depuis une adresse source.",
         rollback_description="Retire la limitation.",
         typical_blast_radius=1,
         max_rollback_seconds=15,
@@ -92,7 +92,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         description="Place la machine en quarantaine réseau, agent maintenu.",
         rollback_description="Lève la quarantaine et rétablit la connectivite.",
         residual_effect="Les connexions et sessions en cours sont perdues et "
-        "ne sont pas retablies par la levée de quarantaine.",
+        "ne sont pas rétablies par la levée de quarantaine.",
         typical_blast_radius=1,
         max_rollback_seconds=60,
     ),
@@ -182,7 +182,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         typical_blast_radius=1,
         max_rollback_seconds=5,
     ),
-    # --- Reponses volumetriques et de bordure (A1, A2) --------------------
+    # --- Réponses volumétriques et de bordure (A1, A2) --------------------
     CatalogEntry(
         verb="enable_scrubbing",
         actuator="edge",
@@ -208,12 +208,12 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="edge",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="clear_edge_rate_limit",
-        description="Limite le débit accepte en bordure pour une source.",
+        description="Limite le débit accepté en bordure pour une source.",
         rollback_description="Retire la limitation.",
         typical_blast_radius=2,
         max_rollback_seconds=60,
     ),
-    # --- Reponses applicatives (A2, B1, B2, B4, B6) ------------------------
+    # --- Réponses applicatives (A2, B1, B2, B4, B6) ------------------------
     CatalogEntry(
         verb="block_pattern",
         actuator="waf",
@@ -254,7 +254,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         typical_blast_radius=2,
         max_rollback_seconds=30,
     ),
-    # --- Reponses DNS (A7) --------------------------------------------------
+    # --- Réponses DNS (A7) --------------------------------------------------
     CatalogEntry(
         verb="sinkhole_domain",
         actuator="dns",
@@ -275,7 +275,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         typical_blast_radius=2,
         max_rollback_seconds=60,
     ),
-    # --- Reponses reseau complementaires (A5, A6) ---------------------------
+    # --- Réponses réseau complementaires (A5, A6) ---------------------------
     CatalogEntry(
         verb="cut_egress_connection",
         actuator="network",
@@ -283,7 +283,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         rollback_verb="restore_egress_connection",
         description="Coupe une connexion sortante identifiée.",
         rollback_description="Lève le blocage ; la connexion doit être rouverte par l'hôte.",
-        residual_effect="La connexion coupee n'est pas retablie : "
+        residual_effect="La connexion coupee n'est pas rétablie : "
         "l'application doit la reouvrir d'elle-même.",
         typical_blast_radius=1,
         max_rollback_seconds=30,
@@ -298,7 +298,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         typical_blast_radius=2,
         max_rollback_seconds=60,
     ),
-    # --- Reponses sur les comptes et les droits (A4, B6, B7, C1 a C4) -------
+    # --- Réponses sur les comptes et les droits (A4, B6, B7, C1 a C4) -------
     CatalogEntry(
         verb="lock_account",
         actuator="iam",
@@ -335,7 +335,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         actuator="iam",
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="restore_privilege",
-        description="Revoque un privilège accorde hors processus et rétablit le rôle anterieur.",
+        description="Revoque un privilège accorde hors processus et rétablit le rôle antérieur.",
         rollback_description="Rétablit le privilège tel qu'il était avant révocation.",
         typical_blast_radius=1,
         max_rollback_seconds=30,
@@ -362,7 +362,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         typical_blast_radius=1,
         max_rollback_seconds=30,
     ),
-    # --- Reponses infrastructure (A6, D2, D3, D4) ---------------------------
+    # --- Réponses infrastructure (A6, D2, D3, D4) ---------------------------
     CatalogEntry(
         verb="trigger_snapshot",
         actuator="backup",
@@ -403,7 +403,7 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         rollback_verb="restore_connections",
         description="Ferme les connexions inactives saturant le service.",
         rollback_description="Lève la fermeture systématique ; les clients se reconnectent.",
-        residual_effect="Les connexions fermees ne sont pas retablies.",
+        residual_effect="Les connexions fermées ne sont pas rétablies.",
         typical_blast_radius=3,
         max_rollback_seconds=60,
     ),
@@ -423,12 +423,12 @@ DEFAULT_ENTRIES: tuple[CatalogEntry, ...] = (
         reversibility=Reversibility.REVERSIBLE,
         rollback_verb="revert_restore",
         description="Restaure la configuration de référence sur une dérive mineure.",
-        rollback_description="Rétablit la configuration relevee avant restauration.",
+        rollback_description="Rétablit la configuration relevée avant restauration.",
         typical_blast_radius=3,
         max_rollback_seconds=180,
     ),
-    # --- Entrees irreversibles : documentees pour etre explicitement exclues.
-    # Leur presence dans le catalogue n'est pas contradictoire ; elle rend
+    # --- Entrées irréversibles : documentées pour être explicitement exclues.
+    # Leur présence dans le catalogue n'est pas contradictoire ; elle rend
     # visible ce que l'autonomie ne couvre pas (CDCF §1.4.3, limites assumees).
     CatalogEntry(
         verb="wipe_disk",

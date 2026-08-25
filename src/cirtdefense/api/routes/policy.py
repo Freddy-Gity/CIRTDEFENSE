@@ -1,7 +1,7 @@
 """Politique de réponse (EF-15) et catalogue de réversibilité (EF-14).
 
-Reserves a l'administrateur, dont le rôle est renforce en v3.0 : ce qu'il
-ecrit ici determine ce que le système s'autorise à faire seul.
+Réservés à l'administrateur, dont le rôle est renforce en v3.0 : ce qu'il
+écrit ici determine ce que le système s'autorise à faire seul.
 """
 
 from __future__ import annotations

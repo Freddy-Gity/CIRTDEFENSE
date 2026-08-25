@@ -3,9 +3,9 @@ version: "2.0"
 category: c2
 attack_code: A7
 description: >
-  A7 — Canal de commande et controle. Le catalogue prescrit le sinkhole DNS
-  avant le blocage : le detournement coupe le canal tout en permettant
-  d'observer quels autres hotes tentent de le joindre, ce qui vaut mieux
+  A7 — Canal de commande et contrôle. Le catalogue prescrit le sinkhole DNS
+  avant le blocage : le détournement coupe le canal tout en permettant
+  d'observer quels autres hôtes tentent de le joindre, ce qui vaut mieux
   qu'un blocage aveugle pour l'investigation qui suivra.
 rules:
   - id: A7-01
@@ -17,10 +17,10 @@ rules:
         actuator: dns
         target: "{indicators.domain}"
         parameters:
-          reason: "domaine de commande et controle"
+          reason: "domaine de commande et contrôle"
         expected_effect: >
-          La resolution est detournee vers une adresse controlee : le canal est
-          coupe et les hotes encore infectes se signalent d'eux-memes.
+          La résolution est détournée vers une adresse contrôlée : le canal est
+          coupe et les hôtes encore infectés se signalent d'eux-mêmes.
 
   - id: A7-02
     label: Blocage de la destination externe
@@ -34,10 +34,10 @@ rules:
         target: "{indicators.dest_ip}"
         parameters:
           direction: egress
-          reason: "canal de commande et controle"
+          reason: "canal de commande et contrôle"
 
   - id: A7-03
-    label: Beaconing confirme — isolation de l'hote
+    label: Beaconing confirmé — isolation de l'hôte
     when:
       severity_min: high
       asset_criticality_max: 4
@@ -47,4 +47,4 @@ rules:
         target: "{asset.asset_id}"
         parameters:
           keep_agent_channel: true
-          reason: "beaconing confirme, machine sous controle externe"
+          reason: "beaconing confirmé, machine sous contrôle externe"

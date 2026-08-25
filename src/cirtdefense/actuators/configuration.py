@@ -71,7 +71,7 @@ class LiveConfiguration(Actuator):
         if self._client is None:
             raise RuntimeError("actuateur de configuration en mode réel sans client configure")
         raise NotImplementedError(
-            "LiveConfiguration.rollback : rétablir la configuration relevee sous `token`."
+            "LiveConfiguration.rollback : rétablir la configuration relevée sous `token`."
         )
 
     def health(self) -> bool:

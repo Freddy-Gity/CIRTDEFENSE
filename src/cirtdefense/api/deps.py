@@ -1,4 +1,4 @@
-"""Dependances partagees : instance de plateforme et contrôle de rôle."""
+"""Dépendances partagees : instance de plateforme et contrôle de rôle."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def get_platform() -> Platform:
 
 
 def set_platform(platform: Platform | None) -> None:
-    """Injection utilisee par les tests."""
+    """Injection utilisée par les tests."""
     global _platform
     _platform = platform
 
@@ -43,9 +43,9 @@ def resolve_role(
     finiraient par diverger, et l'écart porterait précisément sur qui à le
     droit d'arrêter le système.
 
-    Volontairement minimale par ailleurs : l'intégration a l'annuaire du CIRT
+    Volontairement minimale par ailleurs : l'intégration à l'annuaire du CIRT
     releve du déploiement et non du prototype. Ce qui compte ici est que la
-    separation des rôles existe et soit vérifiée à chaque appel sensible.
+    séparation des rôles existe et soit vérifiée à chaque appel sensible.
     """
     settings = platform.settings
     if not authorization:
@@ -64,7 +64,7 @@ def require_admin(role: Annotated[Role, Depends(resolve_role)]) -> Role:
     if role is not Role.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="opération reservee a l'administrateur",
+            detail="opération réservée à l'administrateur",
         )
     return role
 
@@ -73,7 +73,7 @@ def require_analyst(role: Annotated[Role, Depends(resolve_role)]) -> Role:
     if role not in (Role.ANALYST, Role.ADMIN):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="opération reservee a l'analyste ou a l'administrateur",
+            detail="opération réservée à l'analyste ou à l'administrateur",
         )
     return role
 

@@ -1,4 +1,4 @@
-"""Assemblage de la plateforme : un seul endroit ou les pieces se branchent.
+"""Assemblage de la plateforme : un seul endroit ou les pièces se branchent.
 
 Regrouper le cablage ici à une conséquence pratique importante : la posture
 d'autonomie effective d'un déploiement se lit en un seul fichier. Un auditeur
@@ -66,7 +66,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass(slots=True)
 class Platform:
-    """Toutes les pieces assemblees, prêtes a l'emploi."""
+    """Toutes les pièces assemblees, prêtes à l'emploi."""
 
     settings: Settings
     connection: sqlite3.Connection
@@ -97,12 +97,12 @@ class Platform:
     reports: ReportBuilder
     degraded: bool = False
 
-    # -- chaine nominale ----------------------------------------------------
+    # -- chaîne nominale ----------------------------------------------------
 
     def ingest_and_respond(
         self, source: str, payload: dict[str, Any]
     ) -> OrchestrationResult | None:
-        """Point d'entrée unique : de la charge brute a l'action exécutée.
+        """Point d'entrée unique : de la charge brute à l'action exécutée.
 
         En mode dégrade, l'événement est mis en file et rien n'est exécuté :
         agir sans pouvoir observer l'effet de son action reviendrait à
@@ -245,8 +245,8 @@ def build_platform(
         autonomy_enabled=settings.autonomy.enabled,
     )
 
-    # Assistant : les faits viennent des depots, la redaction du fournisseur
-    # configure. Sans cle, le rendu deterministe s'applique — la plateforme
+    # Assistant : les faits viennent des dépôts, la rédaction du fournisseur
+    # configure. Sans clé, le rendu déterministe s'applique — la plateforme
     # doit rester utilisable hors connexion.
     collector = FactCollector(
         ledger=ledger,

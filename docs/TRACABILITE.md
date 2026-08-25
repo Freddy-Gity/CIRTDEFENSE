@@ -31,8 +31,8 @@ par un fichier unique.
 | EF-18 | Adaptateur multi-sources | `ingestion/adapter.py`, `ingestion/normalizers/` | `unit/test_normalizers.py`, `acceptance::TestCR01` |
 | EF-19 | Deduplication des observations | `ingestion/adapter.py`, `domain/events.py` (`fingerprint`) | `acceptance::TestCR02` |
 | EF-20 | Correlation en incidents | `domain/incident.py`, `ingestion/adapter.py` | `acceptance::TestCR03` |
-| EF-21 | Surveillance de l'etat des services | `detection/infra/monitors.py` | `unit` (sondes), `integration/test_engine.py` |
-| EF-22 | Seuils de service par cible | `detection/infra/monitors.py` (`ServiceThresholds`) | `integration/test_engine.py` |
+| EF-21 | Surveillance de l'etat des services | `detection/infra/monitors.py`, `api/routes/monitoring.py` | `unit` (sondes), `integration/test_engine.py`, `integration/test_api.py::TestSurveillance` |
+| EF-22 | Seuils de service par cible | `detection/infra/monitors.py` (`ServiceThresholds`) | `integration/test_engine.py`, `integration/test_api.py::TestSurveillance` |
 | EF-23 | Degradation traitee comme incident | `orchestration/playbooks/infrastructure_degradation.yaml` | `integration/test_engine.py::test_degradation_infra_ne_declenche_aucune_correction` |
 | **EF-25** | **Rollback autonome sur degradation post-action** | `detection/infra/post_action_watch.py`, `orchestration/rollback.py` | `integration/test_control_loop.py`, `acceptance::TestCR11`, `TestCR14` |
 | **EF-26** | **Coupe-circuit global de l'autonomie** | `orchestration/circuit_breaker.py` | `integration/test_control_loop.py::TestCoupeCircuit`, `acceptance::TestCR12` |

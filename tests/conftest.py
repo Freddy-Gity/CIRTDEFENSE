@@ -24,7 +24,7 @@ from cirtdefense.platform import Platform, build_platform  # noqa: E402
 
 @pytest.fixture
 def probe() -> StaticProbe:
-    """Sonde alimentee à la main : l'état de santé est un paramètre du test."""
+    """Sonde alimentée à la main : l'état de santé est un paramètre du test."""
     p = StaticProbe()
     p.set(
         HealthSnapshot(

@@ -46,7 +46,7 @@ class LiveWaf(Actuator):
             raise RuntimeError("actuateur WAF en mode réel sans client configure")
         if verb == "block_pattern" and len(target) < 4:
             # Un motif trop court bloquerait une part enorme du trafic
-            # legitime. Le refus est prefere a une coupure de service.
+            # légitime. Le refus est préféré à une coupure de service.
             return ActuationOutcome(
                 success=False,
                 message=f"motif '{target}' trop général : blocage refuse, "

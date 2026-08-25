@@ -2,11 +2,11 @@ id: pb-dos
 version: "1.0"
 category: dos
 description: >
-  Attenuation locale d'un deni de service. Le playbook assume sa limite :
-  contre une attaque volumetrique distribuee, aucune action locale ne suffit.
+  Attenuation locale d'un déni de service. Le playbook assume sa limite :
+  contre une attaque volumétrique distribuee, aucune action locale ne suffit.
 rules:
   - id: DOS-01
-    label: Sources peu nombreuses et identifiees
+    label: Sources peu nombreuses et identifiées
     when:
       indicators_present: [srcip]
       target_not_private: srcip
@@ -28,9 +28,9 @@ rules:
         parameters:
           channel: ops
           severity: high
-          subject: "Deni de service — attenuation locale insuffisante"
+          subject: "Déni de service — attenuation locale insuffisante"
           body: >
-            Un deni de service est en cours. Les moyens locaux ne permettent
-            pas de l'attenuer : l'attenuation releve de l'operateur de
-            transit. Aucune action susceptible d'aggraver l'indisponibilite
-            n'a ete engagee.
+            Un déni de service est en cours. Les moyens locaux ne permettent
+            pas de l'attenuer : l'attenuation releve de l'opérateur de
+            transit. Aucune action susceptible d'aggraver l'indisponibilité
+            n'a été engagee.

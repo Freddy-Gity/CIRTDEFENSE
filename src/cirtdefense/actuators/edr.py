@@ -40,9 +40,9 @@ class LiveEdr(Actuator):
         if self._client is None:
             raise RuntimeError("actuateur EDR en mode réel sans client configure")
         if verb == "isolate_host" and not parameters.get("keep_agent_channel", True):
-            # Isoler sans conserver le canal de l'agent rendrait la levee de
-            # quarantaine impossible a distance : ce serait une action
-            # irreversible deguisee en action reversible.
+            # Isoler sans conserver le canal de l'agent rendrait la levée de
+            # quarantaine impossible à distance : ce serait une action
+            # irréversible deguisee en action réversible.
             return ActuationOutcome(
                 success=False,
                 message="isolement refusé : le canal de l'agent doit rester ouvert "

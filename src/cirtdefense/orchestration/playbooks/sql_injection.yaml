@@ -14,9 +14,9 @@ rules:
         target: "{indicators.pattern}"
         parameters:
           rule_type: sqli
-          reason: "motif d'injection SQL dans les parametres"
+          reason: "motif d'injection SQL dans les paramètres"
         blast_radius: 4
-        expected_effect: "Les requetes portant ce motif sont rejetees."
+        expected_effect: "Les requêtes portant ce motif sont rejetees."
 
   - id: B1-02
     label: Blocage temporaire de la source

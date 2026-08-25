@@ -1,9 +1,9 @@
 """Scoreur UEBA : transforme un écart au profil en `DetectionEvent` (EF-09/EF-10).
 
-Deux garde-fous, directement lies a l'autonomie totale :
+Deux garde-fous, directement lies à l'autonomie totale :
 - une entité sans profil etabli ne produit jamais d'alerte (on ne qualifie pas
-  d'anormal ce qu'on n'a jamais observe) ;
-- le score est accompagne des attributs qui l'ont produit, pour que l'action
+  d'anormal ce qu'on n'a jamais observé) ;
+- le score est accompagné des attributs qui l'ont produit, pour que l'action
   qui en decoulera reste explicable a posteriori.
 """
 
@@ -70,7 +70,7 @@ class UebaScorer:
         features = extract(entity, events)
         baseline = self._store.get(entity)
         deviations = baseline.deviations(features)
-        # Seuls les ecarts positifs comptent : un utilisateur moins actif que
+        # Seuls les écarts positifs comptent : un utilisateur moins actif que
         # d'habitude n'est pas une menace.
         total = sum(max(0.0, d) for d in deviations.values())
         return AnomalyScore(

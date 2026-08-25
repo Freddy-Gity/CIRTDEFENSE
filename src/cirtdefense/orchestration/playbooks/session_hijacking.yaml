@@ -3,12 +3,12 @@ version: "1.0"
 category: session_hijacking
 attack_code: B7
 description: >
-  B7 — Detournement de session. Revocation de la session et re-authentification
-  forcee : d'impact limite pour l'utilisateur legitime, decisif contre un
+  B7 — Détournement de session. Révocation de la session et re-authentification
+  forcee : d'impact limite pour l'utilisateur légitime, decisif contre un
   attaquant qui detient un jeton valide.
 rules:
   - id: B7-01
-    label: Revocation de la session detournee
+    label: Révocation de la session détournée
     when:
       user_present: true
     actions:
@@ -16,19 +16,19 @@ rules:
         actuator: iam
         target: "{asset.user}"
         parameters:
-          reason: "session utilisee depuis deux localisations incompatibles"
+          reason: "session utilisée depuis deux localisations incompatibles"
 
       - verb: force_mfa
         actuator: iam
         target: "{asset.user}"
         parameters:
-          reason: "re-authentification renforcee apres detournement suppose"
+          reason: "re-authentification renforcée après détournement suppose"
         expected_effect: >
-          L'utilisateur legitime se reauthentifie ; l'attaquant, qui ne
-          detient pas le second facteur, en est empeche.
+          L'utilisateur légitime se reauthentifie ; l'attaquant, qui ne
+          detient pas le second facteur, en est empêché.
 
   - id: B7-02
-    label: Jeton identifie
+    label: Jeton identifié
     when:
       indicators_present: [token_id]
     actions:

@@ -80,7 +80,7 @@ class TestChaineComplete:
 
 class TestConformiteAuCatalogue:
     def test_aucune_action_irreversible_sur_tout_le_catalogue(self, parc):
-        """Principe de conception du document, vérifié a l'exécution et non
+        """Principe de conception du document, vérifié à l'exécution et non
         seulement dans la taxonomie."""
         for scenario in SCENARIOS:
             result = parc.ingest_and_respond(scenario.source, build_payload(scenario.code))
@@ -100,13 +100,13 @@ class TestConformiteAuCatalogue:
         assert not verbes & {"wipe_disk", "shutdown_host", "delete_account"}
 
     def test_le_certificat_tls_ne_declenche_que_la_notification(self, parc):
-        """D1 depend d'une autorité externe : la plateforme s'abstient."""
+        """D1 dépend d'une autorité externe : la plateforme s'abstient."""
         result = parc.ingest_and_respond("generic_json", build_payload("D1"))
         assert {a.spec.verb for a in result.execution.results} == {"notify"}
 
     def test_l_acces_hors_profil_ne_revoque_pas_le_compte(self, parc):
         """C2 : le document exclut la révocation, le risque de faux positif
-        y etant plus élève qu'ailleurs."""
+        y étant plus élève qu'ailleurs."""
         result = parc.ingest_and_respond("generic_json", build_payload("C2"))
         verbes = {a.spec.verb for a in result.execution.results}
         assert not verbes & {"disable_account", "lock_account"}

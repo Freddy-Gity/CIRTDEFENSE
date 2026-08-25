@@ -4,16 +4,16 @@ En v2.1, l'intention en langage naturel filtrait des recommandations déjà
 produites, en temps réel. En v3.0 elle est compilée **a priori** en contraintes
 déterministes que le moteur applique ensuite seul.
 
-Le deplacement n'est pas cosmetique. Il garantit que le langage naturel ne se
+Le déplacement n'est pas cosmétique. Il garantit que le langage naturel ne se
 trouve jamais sur le chemin d'exécution : au moment ou une action est évaluée,
-il n'y a plus que des predicats. Une même phrase compilée une fois produit le
+il n'y a plus que des prédicats. Une même phrase compilée une fois produit le
 même comportement à chaque incident, et cette compilation est relisible,
-versionnee et signee par une empreinte.
+versionnée et signée par une empreinte.
 
-**Ce que le compilateur refuse de faire.** Une phrase qu'il ne reconnait pas
-n'est pas approximee : elle est rapportee comme non compilée et l'administrateur
-en est informe. Deviner l'intention d'une consigne de sécurité mal comprise
-serait le pire des comportements possibles — la politique paraitrait appliquée
+**Ce que le compilateur refuse de faire.** Une phrase qu'il ne reconnaît pas
+n'est pas approximée : elle est rapportée comme non compilée et l'administrateur
+en est informé. Deviner l'intention d'une consigne de sécurité mal comprise
+serait le pire des comportements possibles — la politique paraîtrait appliquée
 alors qu'elle ne le serait pas.
 """
 
@@ -56,16 +56,16 @@ class CompilationReport:
 def _fold(text: str) -> str:
     """Supprime les accents et normalise la casse pour la reconnaissance.
 
-    L'administrateur écrit « criticite » ou « criticité » indifféremment ;
-    la politique ne doit pas dependre de la saisie des accents.
+    L'administrateur écrit « criticité » ou « criticité » indifféremment ;
+    la politique ne doit pas dépendre de la saisie des accents.
     """
     decomposed = unicodedata.normalize("NFKD", text.lower())
     return "".join(c for c in decomposed if not unicodedata.combining(c))
 
 
-# Vocabulaire reconnu : verbes metier vers verbes techniques.
+# Vocabulaire reconnu : verbes métier vers verbes techniques.
 VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
-    # Reseau et pare-feu
+    # Réseau et pare-feu
     "block_ip": (
         "bloquer une adresse",
         "bloquer l'adresse",
@@ -89,7 +89,7 @@ VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
         "quarantaine réseau",
         "mettre en quarantaine réseau",
     ),
-    # Bordure / operateur
+    # Bordure / opérateur
     "enable_scrubbing": ("activer le nettoyage", "nettoyage de trafic", "scrubbing"),
     "blackhole_ip": ("trou noir", "blackhole", "blackholing"),
     "edge_rate_limit": ("limiter en bordure", "limitation en bordure"),
@@ -101,7 +101,7 @@ VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
         "quarantaine de fichier",
         "quarantaine du fichier",
     ),
-    # Comptes et acces
+    # Comptes et accès
     "disable_account": (
         "désactiver un compte",
         "désactivation de compte",
@@ -122,12 +122,12 @@ VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
         "deconnecter",
         "invalider les sessions",
     ),
-    "force_password_reset": ("forcer le renouvellement", "reinitialiser le mot de passe"),
+    "force_password_reset": ("forcer le renouvellement", "réinitialiser le mot de passe"),
     "force_mfa": (
         "forcer mfa",
         "forcer le second facteur",
         "authentification renforcée",
-        "forcage mfa",
+        "forçage mfa",
     ),
     "revoke_token": ("révoquer un jeton", "révoquer le jeton", "révocation de jeton"),
     "revoke_privilege": (
@@ -177,9 +177,9 @@ DENY_MARKERS = (
 )
 ALLOW_MARKERS = ("autoriser", "permettre", "toujours autoriser", "accepter")
 
-# Le vocabulaire est replie a son tour : la phrase de l'administrateur est
-# comparee sans accents, le dictionnaire doit l'etre aussi, sinon un synonyme
-# ecrit « revoquer les sessions » ne reconnaitrait jamais « revoquer les
+# Le vocabulaire est replie à son tour : la phrase de l'administrateur est
+# comparee sans accents, le dictionnaire doit l'être aussi, sinon un synonyme
+# écrit « révoquer les sessions » ne reconnaitrait jamais « révoquer les
 # sessions » saisi correctement.
 VERB_SYNONYMS = {
     verb: tuple(_fold(s) for s in synonyms) for verb, synonyms in VERB_SYNONYMS.items()
@@ -198,7 +198,7 @@ _ZONE = re.compile(r"zone\s+([a-z0-9_\-]+)")
 
 
 class PolicyCompiler:
-    """Reconnait une grammaire documentée de consignes de sécurité.
+    """Reconnaît une grammaire documentée de consignes de sécurité.
 
     La grammaire est volontairement etroite. Elle couvre les formes qu'un
     administrateur emploie effectivement pour borner une réponse automatique,
@@ -281,8 +281,8 @@ class PolicyCompiler:
 
         constraints = self._constraints_of(folded)
         if not constraints:
-            # Une consigne sans aucune condition identifiable serait une regle
-            # s'appliquant a tout : trop dangereuse pour etre devinee.
+            # Une consigne sans aucune condition identifiable serait une règle
+            # s'appliquant à tout : trop dangereuse pour être devinee.
             return None
 
         return PolicyRule(
@@ -361,7 +361,7 @@ class PolicyCompiler:
             start, end = int(hours.group(1)), int(hours.group(2))
             # Une plage qui franchit minuit ne peut pas s'exprimer par un seul
             # encadrement : on retient la borne basse, plus restrictive, et on
-            # le signale plutot que de produire une regle silencieusement fausse.
+            # le signale plutôt que de produire une règle silencieusement fausse.
             if start <= end:
                 constraints.append(Constraint("time.hour", "gte", start))
                 constraints.append(Constraint("time.hour", "lte", end))

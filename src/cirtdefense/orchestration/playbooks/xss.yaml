@@ -3,12 +3,12 @@ version: "1.0"
 category: xss
 attack_code: B2
 description: >
-  B2 — XSS. La reponse depend de l'etat : un contenu non encore stocke se
-  bloque, un contenu deja stocke ne peut qu'etre signale — le retirer
-  toucherait des donnees applicatives, ce qui sort du perimetre autonome.
+  B2 — XSS. La réponse dépend de l'état : un contenu non encore stocké se
+  bloque, un contenu déjà stocké ne peut qu'être signalé — le retirer
+  toucherait des données applicatives, ce qui sort du périmètre autonome.
 rules:
   - id: B2-01
-    label: Blocage de la requete porteuse
+    label: Blocage de la requête porteuse
     when:
       indicators_present: [pattern]
     actions:
@@ -20,7 +20,7 @@ rules:
         blast_radius: 3
 
   - id: B2-02
-    label: Sanitisation a la volee du champ concerne
+    label: Sanitisation à la volée du champ concerné
     when:
       indicators_present: [field]
     actions:
@@ -31,7 +31,7 @@ rules:
           mode: escape_html
 
   - id: B2-03
-    label: Contenu deja stocke — signalement, pas de retrait automatique
+    label: Contenu déjà stocké — signalement, pas de retrait automatique
     when:
       severity_min: high
     actions:
@@ -41,8 +41,8 @@ rules:
         parameters:
           channel: analyst
           severity: medium
-          subject: "B2 — XSS potentiellement stocke"
+          subject: "B2 — XSS potentiellement stocké"
           body: >
-            Un contenu suspect a peut-etre ete stocke avant blocage. Son
-            retrait n'est pas engage automatiquement : modifier des donnees
-            applicatives sort du perimetre des actions reversibles maitrisees.
+            Un contenu suspect a peut-être été stocké avant blocage. Son
+            retrait n'est pas engage automatiquement : modifier des données
+            applicatives sort du périmètre des actions réversibles maitrisees.

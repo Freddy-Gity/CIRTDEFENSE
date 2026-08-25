@@ -5,7 +5,7 @@ journal d'audit, portefeuille d'incidents, catalogue. Il ne dispose d'aucune
 connaissance propre et ne complète jamais un fait manquant.
 
 Cette contrainte prolonge EF-04 : la plateforme refuse d'agir sur un contexte
-non fonde ; elle refuse symetriquement de rapporter un fait qu'elle n'a pas
+non fondé ; elle refuse symétriquement de rapporter un fait qu'elle n'a pas
 observe. Un bilan de sécurité comportant un chiffre invente conduirait un
 décideur a se croire informe alors qu'il ne l'est pas.
 """

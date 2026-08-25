@@ -42,8 +42,8 @@ class TestBilanSurBaseVide:
 
     def test_aucun_nombre_non_nul_invente(self, platform):
         answer = platform.assistant.daily_brief()
-        # Le libelle de periode (« dernieres 24 heures ») porte un nombre
-        # legitime : il est retire avant de chercher des chiffres fabriques.
+        # Le libelle de période (« dernières 24 heures ») porte un nombre
+        # légitime : il est retiré avant de chercher des chiffrés fabriques.
         texte = answer.text.replace(answer.facts["periode"], "")
         nombres = [int(n) for n in re.findall(r"\b(\d+)\b", texte)]
         assert all(n == 0 for n in nombres), (
@@ -164,7 +164,7 @@ class TestRapports:
 
         assert rapport["site_id"]
         assert rapport["markdown"].startswith("# Rapport d'opérations")
-        for section in ("Posture d'exploitation", "Volumetrie", "Tracabilite"):
+        for section in ("Posture d'exploitation", "Volumétrie", "Traçabilité"):
             assert section in rapport["markdown"]
 
     def test_numerotation_sans_trou(self, parc):

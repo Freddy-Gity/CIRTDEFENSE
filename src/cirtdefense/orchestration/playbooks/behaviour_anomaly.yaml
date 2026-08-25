@@ -2,12 +2,12 @@ id: pb-behaviour-anomaly
 version: "1.0"
 category: behaviour_anomaly
 description: >
-  Reponse a une anomalie comportementale UEBA. Volontairement la plus
+  Réponse à une anomalie comportementale UEBA. Volontairement la plus
   prudente du catalogue : une anomalie statistique est une presomption, pas
-  une compromission etablie.
+  une compromission établie.
 rules:
   - id: BA-01
-    label: Anomalie forte sur un compte identifie
+    label: Anomalie forte sur un compte identifié
     when:
       severity_min: high
       user_present: true
@@ -17,9 +17,9 @@ rules:
         actuator: iam
         target: "{asset.user}"
         parameters:
-          reason: "ecart marque au comportement habituel"
+          reason: "écart marque au comportement habituel"
         expected_effect: >
-          L'entite doit se reauthentifier ; un detournement de session en
+          L'entité doit se reauthentifier ; un détournement de session en
           cours est interrompu sans immobiliser l'utilisateur.
 
   - id: BA-02
@@ -35,6 +35,6 @@ rules:
           severity: low
           subject: "Anomalie comportementale moderee"
           body: >
-            Un ecart au profil de reference a ete constate. Aucune action
-            corrective n'a ete engagee : le niveau d'ecart ne justifie pas
+            Un écart au profil de référence a été constaté. Aucune action
+            corrective n'a été engagee : le niveau d'écart ne justifie pas
             d'intervenir sur le compte.

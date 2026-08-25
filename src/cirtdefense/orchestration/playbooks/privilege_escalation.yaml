@@ -3,13 +3,13 @@ version: "2.0"
 category: privilege_escalation
 attack_code: C1
 description: >
-  C1 — Elevation de privilege anormale. Le catalogue prescrit exactement deux
-  gestes : revoquer le privilege accorde et retablir le role anterieur. Ils
-  sont couverts par une action unique et reversible, qui memorise le role
+  C1 — Élévation de privilège anormale. Le catalogue prescrit exactement deux
+  gestes : révoquer le privilège accordé et rétablir le rôle antérieur. Ils
+  sont couverts par une action unique et réversible, qui memorise le rôle
   d'origine avant de le retirer.
 rules:
   - id: C1-01
-    label: Revocation du privilege et restauration du role anterieur
+    label: Révocation du privilège et restauration du rôle antérieur
     when:
       user_present: true
     actions:
@@ -19,14 +19,14 @@ rules:
         parameters:
           privilege: "{indicators.privilege}"
           previous_role: "{indicators.previous_role}"
-          reason: "changement de role hors processus habituel, sans ticket associe"
+          reason: "changement de rôle hors processus habituel, sans ticket associe"
         expected_effect: >
-          Le privilege accorde est retire et le role anterieur retabli.
-          L'action est reversible : le privilege peut etre rendu si le
-          changement s'avere legitime.
+          Le privilège accordé est retiré et le rôle antérieur rétabli.
+          L'action est réversible : le privilège peut être rendu si le
+          changement s'avere légitime.
 
   - id: C1-02
-    label: Sessions ouvertes sous le privilege obtenu
+    label: Sessions ouvertes sous le privilège obtenu
     when:
       user_present: true
       severity_min: high
@@ -35,4 +35,4 @@ rules:
         actuator: iam
         target: "{asset.user}"
         parameters:
-          reason: "sessions ouvertes avec un privilege obtenu hors processus"
+          reason: "sessions ouvertes avec un privilège obtenu hors processus"

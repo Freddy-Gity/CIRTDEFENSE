@@ -43,7 +43,7 @@ class SimulatedActuator(Actuator):
         self._state: dict[str, AppliedState] = {}
         self._by_key: dict[str, str] = {}
         self.failure_verbs: set[str] = set()
-        """Verbes forces en échec : sert à eprouver le traitement d'erreur."""
+        """Verbes forces en échec : sert à éprouver le traitement d'erreur."""
         self.rollback_failure_verbs: set[str] = set()
 
     # -- contrat ------------------------------------------------------------
@@ -55,13 +55,13 @@ class SimulatedActuator(Actuator):
         key = f"{verb}:{target}"
         existing_token = self._by_key.get(key)
         if existing_token and self._state[existing_token].rolled_back_at is None:
-            # Idempotence : l'etat cible est deja en place, on rend le meme
-            # jeton plutot que d'empiler une seconde application.
+            # Idempotence : l'état cible est déjà en place, on rend le même
+            # jeton plutôt que d'empiler une seconde application.
             return ActuationOutcome(
                 success=True,
                 rollback_token=existing_token,
                 already_applied=True,
-                message=f"'{verb}' déjà applique sur {target}",
+                message=f"'{verb}' déjà appliqué sur {target}",
                 details={"target": target, "verb": verb},
             )
 
@@ -93,7 +93,7 @@ class SimulatedActuator(Actuator):
             return ActuationOutcome(success=False, message=f"jeton d'annulation inconnu : {token}")
         if state.rolled_back_at is not None:
             # Idempotence de l'annulation : la boucle EF-25 et un rollback
-            # manuel de l'analyste peuvent viser la meme action.
+            # manuel de l'analyste peuvent viser la même action.
             return ActuationOutcome(
                 success=True,
                 already_applied=True,
@@ -111,7 +111,7 @@ class SimulatedActuator(Actuator):
     def health(self) -> bool:
         return self._healthy
 
-    # -- introspection, utilisee par les tests et l'interface ---------------
+    # -- introspection, utilisée par les tests et l'interface ---------------
 
     def set_healthy(self, healthy: bool) -> None:
         self._healthy = healthy

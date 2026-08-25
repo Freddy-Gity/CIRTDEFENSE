@@ -132,6 +132,9 @@ CIRTDEFENSE/
 │           ├── policy.py         Politique et catalogue (administrateur)
 │           ├── audit.py          Journal, verification, notifications
 │           ├── admin.py          Coupe-circuit, mode degrade, sondes
+│           ├── monitoring.py     Etat du parc surveille (EF-21 a EF-23)
+│           ├── demo.py           Declenchement des scenarios du catalogue
+│           ├── assistant.py      Questions, bilan, export du rapport
 │           └── health.py         Etat et posture d'autonomie
 │
 ├── tests/
@@ -142,15 +145,40 @@ CIRTDEFENSE/
 │   ├── integration/              Chaine complete, boucle de controle,
 │   │                             coupe-circuit, API, mode degrade, portefeuille
 │   └── acceptance/
-│       └── test_criteres_recette.py   CR-01 a CR-15 (CDCF §5)
+│       └── test_criteres_recette.py   CR-01 a CR-18 (CDCF §5)
 │
 ├── scripts/
 │   ├── demo_attaque.py           Scenario de soutenance en 5 etapes
 │   └── seed_demo.py              Jeu d'incidents varie pour l'interface
 │
-└── web/
-    └── index.html                Tableau de bord de supervision
+└── web/                          ── Interface de supervision ──
+    ├── index.html                Coquille : rail de navigation, palette,
+    │                             theme clair/sombre
+    └── static/
+        └── app.js                Neuf vues, routage par History API,
+                                  icones SVG en ligne
 ```
+
+L'interface est une application a page unique servie par le meme processus :
+aucun CDN, aucune dependance distante, conformement au mode degrade (Axe 5).
+Les neuf vues suivent la navigation demandee :
+
+| Vue | Route | Ce qu'elle montre |
+|---|---|---|
+| Vue d'ensemble | `/dashboard` | Flux des actions executees et statistiques 24 h |
+| Portefeuille | `/incidents/portfolio` | Incidents priorises (Axe 4), vue etendue |
+| Surveillance | `/monitoring` | Etat de securite des plateformes surveillees |
+| Reversibilite | `/reversibility-catalog` | Metadonnees de reversibilite (Axe 2) |
+| Demonstration | `/demo` | Declenchement des 22 types du catalogue |
+| Assistant | `/assistant` | Interface conversationnelle |
+| Rapports | `/reports` | Generation et export |
+| Journal d'audit | `/audit-log` | Journal des decisions |
+| Reglages | `/settings` | Preferences de compte et de session |
+
+Un separateur souple isole les deux dernieres : les fonctions courantes en
+haut, l'audit et les reglages en bas. Le serveur rend la meme page pour
+chacune de ces routes, sans quoi un lien profond ou un rafraichissement
+renverrait une 404.
 
 ---
 

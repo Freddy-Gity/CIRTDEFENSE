@@ -1,4 +1,4 @@
-"""Chaîne complète : de l'événement brut a l'action exécutée."""
+"""Chaîne complète : de l'événement brut à l'action exécutée."""
 
 from __future__ import annotations
 
@@ -19,13 +19,13 @@ class TestExecutionAutonome:
         assert platform.registry.require("firewall").is_applied("block_ip", "41.202.1.9")
 
     def test_deduplication_empeche_la_double_action(self, platform, bruteforce_payload):
-        """EF-19 : deux remontees de la même observation ne doivent pas
+        """EF-19 : deux remontées de la même observation ne doivent pas
         produire deux actions sur la même cible."""
         platform.ingest_and_respond("wazuh", bruteforce_payload)
         assert platform.ingest_and_respond("wazuh", bruteforce_payload) is None
 
     def test_notification_a_posteriori_emise(self, platform, bruteforce_payload):
-        """EF-13 revisee : l'analyste est informe, sans avoir rien bloque."""
+        """EF-13 revisee : l'analyste est informé, sans avoir rien bloque."""
         platform.ingest_and_respond("wazuh", bruteforce_payload)
         notifications = platform.notifications.pending()
         assert notifications

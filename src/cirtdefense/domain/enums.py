@@ -9,7 +9,7 @@ from enum import StrEnum
 
 
 class Severity(StrEnum):
-    """Gravité d'un événement de détection, échelle normalisee de l'adaptateur."""
+    """Gravité d'un événement de détection, échelle normalisée de l'adaptateur."""
 
     INFO = "info"
     LOW = "low"
@@ -74,10 +74,10 @@ class Reversibility(StrEnum):
     """Annulation automatique complète, sans perte d'état."""
 
     PARTIALLY_REVERSIBLE = "partially_reversible"
-    """Annulation automatique possible mais avec effet residuel (session coupee...)."""
+    """Annulation automatique possible mais avec effet résiduel (session coupee...)."""
 
     IRREVERSIBLE = "irreversible"
-    """Aucun retour arriere automatique (effacement, reinitialisation matérielle)."""
+    """Aucun retour arrière automatique (effacement, réinitialisation matérielle)."""
 
 
 class ActionStatus(StrEnum):

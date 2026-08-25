@@ -64,7 +64,7 @@ def report_health(request: HealthReportRequest, platform: PlatformDep, role: Adm
     if not isinstance(platform.probe, StaticProbe):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            "la sonde active n'est pas alimentee de l'extérieur ; ce point "
+            "la sonde active n'est pas alimentée de l'extérieur ; ce point "
             "d'entrée n'a de sens qu'avec la sonde statique",
         )
     platform.probe.set(

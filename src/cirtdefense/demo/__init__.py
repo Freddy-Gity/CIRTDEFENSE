@@ -3,9 +3,9 @@
 Ce paquet ne fabrique pas d'attaque : il fabrique la **charge utile qu'une
 attaque réelle ferait produire au collecteur**. La plateforme, elle, ne voit
 aucune difference — c'est le même adaptateur d'ingestion qui reçoit le même
-JSON qu'un Wazuh ou un Suricata de production emettrait.
+JSON qu'un Wazuh ou un Suricata de production émettrait.
 
-C'est la seule maniere honnete de demontrer la chaîne autonome sans mener
+C'est la seule maniere honnete de démontrer la chaîne autonome sans mener
 d'attaque réelle contre une infrastructure.
 """
 

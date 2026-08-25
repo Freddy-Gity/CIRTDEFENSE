@@ -1,7 +1,7 @@
-"""Adaptateur d'ingestion : normalisation, deduplication, correlation (EF-18/19/20).
+"""Adaptateur d'ingestion : normalisation, deduplication, corrélation (EF-18/19/20).
 
 L'adaptateur ne decide de rien. Il produit un `DetectionEvent` rattache à un
-incident et le remet au moteur. Cette separation compte : en autonomie totale,
+incident et le remet au moteur. Cette séparation compte : en autonomie totale,
 le point ou une observation devient un ordre doit rester unique et identifiable.
 """
 
@@ -60,9 +60,9 @@ class IngestionAdapter:
         event = normalizer(payload)
         fingerprint = event.fingerprint()
 
-        # EF-19 : la deduplication precede toute correlation. En autonomie
-        # totale, une meme observation comptee deux fois declencherait deux
-        # actions sur la meme cible.
+        # EF-19 : la deduplication precede toute corrélation. En autonomie
+        # totale, une même observation comptee deux fois declencherait deux
+        # actions sur la même cible.
         if self._events.exists_fingerprint(fingerprint):
             log_with(
                 logger,

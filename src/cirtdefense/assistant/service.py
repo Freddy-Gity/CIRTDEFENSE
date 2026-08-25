@@ -60,7 +60,7 @@ def _fold(text: str) -> str:
 
 
 # Motifs reconnus. L'ordre compte : le premier qui correspond l'emporte, donc
-# les intentions les plus specifiques sont placees en tete.
+# les intentions les plus spécifiques sont placees en tête.
 PATTERNS: tuple[tuple[Intent, tuple[str, ...]], ...] = (
     (Intent.INCIDENT_DETAIL, (r"\binc_[0-9a-f]{6,}\b",)),
     (Intent.REPORT, (r"\brapport\b", r"\bgenere[rz]?\s+un\s+rapport\b", r"\bexport")),
@@ -114,7 +114,7 @@ class AssistantService:
         self._collector = collector
         self._provider = provider or OfflineProvider()
 
-    # -- point d'entree ------------------------------------------------------
+    # -- point d'entrée ------------------------------------------------------
 
     def ask(self, question: str) -> Answer:
         folded = _fold(question)
@@ -141,7 +141,7 @@ class AssistantService:
         return [
             "Fais le bilan des opérations du jour",
             "Combien d'actions ont été annulées ?",
-            "Pourquoi le système a-t-il refuse d'agir ?",
+            "Pourquoi le système a-t-il refusé d'agir ?",
             "Quelle est la posture d'autonomie actuelle ?",
             "Quels types d'attaques sais-tu traiter ?",
             "Génère un rapport des opérations sur 7 jours",
@@ -166,7 +166,7 @@ class AssistantService:
         pluriel = "s" if quantite > 1 else ""
         return heures, f"{quantite} {unite}{pluriel}"
 
-    # -- redaction -----------------------------------------------------------
+    # -- rédaction -----------------------------------------------------------
 
     def _compose(self, intent: Intent, question: str, facts: OperationsFacts) -> Answer:
         rendu = {
@@ -323,9 +323,9 @@ class AssistantService:
             "lorsqu'il ne dispose pas d'un fondement documentaire, lorsque la "
             "politique l'interdit, ou lorsque le coupe-circuit est ouvert.",
         ]
-        if any("non fonde" in m for m in f.refusals):
+        if any("non fondé" in m for m in f.refusals):
             lignes.append(
-                "Les refus pour contexte non fonde signalent une base de "
+                "Les refus pour contexte non fondé signalent une base de "
                 "connaissance en retard sur les menaces observées : la réponse "
                 "est d'enrichir le corpus, pas d'abaisser le seuil."
             )
@@ -411,7 +411,7 @@ class AssistantService:
                 "(A : réseau, B : applicatif, C : comportemental/insider, D : infrastructure).",
                 "",
                 "Une menace absente de ce catalogue ne déclenche aucune action : le "
-                "contexte est déclaré non fonde et le système s'abstient. C'est une "
+                "contexte est déclaré non fondé et le système s'abstient. C'est une "
                 "limite assumee du périmètre autonome.",
             ]
         )

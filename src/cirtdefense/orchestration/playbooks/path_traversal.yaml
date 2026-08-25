@@ -17,7 +17,7 @@ rules:
         blast_radius: 3
 
   - id: B4-02
-    label: Blocage du point d'entree vise
+    label: Blocage du point d'entrée vise
     when:
       indicators_present: [endpoint]
       severity_min: high

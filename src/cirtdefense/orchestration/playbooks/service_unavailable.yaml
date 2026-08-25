@@ -4,11 +4,11 @@ category: service_unavailable
 attack_code: D3
 description: >
   D3 — Service indisponible. Le catalogue autorise ici une action corrective,
-  contrairement a la degradation de cause indeterminee : l'indisponibilite
-  constatee par sonde est un fait, pas une inference.
+  contrairement à la dégradation de cause indeterminee : l'indisponibilité
+  constatée par sonde est un fait, pas une inférence.
 rules:
   - id: D3-01
-    label: Bascule vers un noeud de secours si declare
+    label: Bascule vers un nœud de secours si déclare
     when:
       indicators_present: [standby_node]
     actions:
@@ -17,11 +17,11 @@ rules:
         target: "{asset.asset_id}"
         parameters:
           standby_node: "{indicators.standby_node}"
-          reason: "echecs repetes de la sonde de disponibilite"
-        expected_effect: "Le service repart sur le noeud de secours."
+          reason: "échecs répétés de la sonde de disponibilité"
+        expected_effect: "Le service repart sur le nœud de secours."
 
   - id: D3-02
-    label: Redemarrage du service si sous controle
+    label: Redémarrage du service si sous contrôle
     when:
       severity_min: high
     actions:
@@ -31,5 +31,5 @@ rules:
         parameters:
           reason: "service injoignable"
         expected_effect: >
-          Le service redemarre. L'interruption survenue pendant le redemarrage
-          ne se rattrape pas : c'est l'effet residuel documente au catalogue.
+          Le service redemarre. L'interruption survenue pendant le redémarrage
+          ne se rattrape pas : c'est l'effet résiduel documente au catalogue.
