@@ -8,6 +8,8 @@ l'est pas.
 
 from __future__ import annotations
 
+import json
+
 import re
 
 import pytest
@@ -213,3 +215,82 @@ class TestApiAssistant:
 
     def test_periode_invalide_refusee(self, client):
         assert client.get("/api/v1/assistant/report?hours=99999").status_code == 400
+
+
+class TestActionsDeclenchables:
+    """L'assistant reconnaît l'intention ; la route exécute l'effet. Le texte
+    produit ne décide jamais d'une action."""
+
+    def test_simulation_nommee_est_declenchee(self, client):
+        reponse = client.post(
+            "/api/v1/assistant/ask",
+            json={"question": "Déclenche une simulation de rançongiciel"},
+        ).json()
+
+        assert reponse["intent"] == "simulation"
+        assert reponse["action"] == {"kind": "run_scenario", "code": "A6"}
+        resultat = reponse["action_result"]
+        assert resultat["executed"] is True
+        assert resultat["scenarios_run"] == 1
+        assert resultat["results"][0]["code"] == "A6"
+        assert resultat["actions_executed"] >= 1
+
+    def test_simulation_par_code(self, client):
+        reponse = client.post(
+            "/api/v1/assistant/ask", json={"question": "lance le scénario B3"}
+        ).json()
+        assert reponse["action"]["code"] == "B3"
+
+    def test_simulation_par_famille(self, client):
+        reponse = client.post(
+            "/api/v1/assistant/ask", json={"question": "simule les attaques réseau"}
+        ).json()
+        assert reponse["action"] == {"kind": "run_family", "family": "A"}
+        assert reponse["action_result"]["scenarios_run"] == 7
+
+    def test_simulation_sans_cible_demande_a_preciser(self, client):
+        """Ne rien déclencher au hasard : l'assistant demande laquelle."""
+        reponse = client.post(
+            "/api/v1/assistant/ask", json={"question": "déclenche une simulation"}
+        ).json()
+
+        assert reponse["intent"] == "simulation"
+        assert reponse["action"] is None
+        assert "action_result" not in reponse
+        assert "catalogue" in reponse["text"].lower()
+
+    def test_l_incident_simule_entre_au_portefeuille(self, client):
+        client.post("/api/v1/assistant/ask", json={"question": "simule une injection SQL"})
+        portefeuille = client.get("/api/v1/incidents").json()
+        assert any(i["attack_code"] == "B1" for i in portefeuille["incidents"])
+
+
+class TestFluxDeReponse:
+    def test_le_flux_annonce_ses_etapes_puis_le_texte(self, client):
+        with client.stream(
+            "GET", "/api/v1/assistant/stream", params={"question": "Fais le bilan du jour"}
+        ) as flux:
+            assert flux.status_code == 200
+            evenements = [
+                json.loads(ligne[6:]) for ligne in flux.iter_lines() if ligne.startswith("data: ")
+            ]
+
+        types = [e["type"] for e in evenements]
+        assert types[0] == "thinking"
+        assert "delta" in types
+        assert types[-1] == "done"
+
+        texte = "".join(e["text"] for e in evenements if e["type"] == "delta")
+        assert "bilan" in texte.lower()
+
+    def test_le_flux_porte_le_resultat_de_l_action(self, client):
+        with client.stream(
+            "GET", "/api/v1/assistant/stream", params={"question": "simule un scan"}
+        ) as flux:
+            evenements = [
+                json.loads(ligne[6:]) for ligne in flux.iter_lines() if ligne.startswith("data: ")
+            ]
+
+        actions = [e for e in evenements if e["type"] == "action"]
+        assert len(actions) == 1
+        assert actions[0]["result"]["results"][0]["code"] == "A3"

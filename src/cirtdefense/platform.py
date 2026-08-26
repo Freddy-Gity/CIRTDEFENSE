@@ -57,6 +57,7 @@ from .persistence.repositories import (
     DecisionRepository,
     EventRepository,
     IncidentRepository,
+    MonitoredTargetRepository,
     NotificationRepository,
     PolicyRepository,
 )
@@ -77,6 +78,7 @@ class Platform:
     actions: ActionRepository
     policies: PolicyRepository
     notifications: NotificationRepository
+    targets: MonitoredTargetRepository
     adapter: IngestionAdapter
     enrichment: EnrichmentService
     planner: Planner
@@ -182,6 +184,7 @@ def build_platform(
     actions = ActionRepository(connection)
     policies = PolicyRepository(connection)
     notifications = NotificationRepository(connection)
+    targets = MonitoredTargetRepository(connection)
 
     mode = settings.autonomy.actuation_mode
     registry = ActuatorRegistry()
@@ -273,6 +276,7 @@ def build_platform(
         actions=actions,
         policies=policies,
         notifications=notifications,
+        targets=targets,
         adapter=IngestionAdapter(events, incidents, ledger),
         enrichment=enrichment,
         planner=planner,

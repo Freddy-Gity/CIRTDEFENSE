@@ -41,6 +41,13 @@ class BreakerRequest(BaseModel):
     reason: str = Field(min_length=3)
 
 
+class AutonomyRequest(BaseModel):
+    """Bascule du mode autonomie depuis l'interface."""
+
+    enabled: bool
+    reason: str = Field(default="", max_length=300)
+
+
 class CatalogEntryRequest(BaseModel):
     verb: str
     actuator: str
@@ -62,3 +69,21 @@ class HealthReportRequest(BaseModel):
     error_rate: float = 0.0
     throughput: float = 0.0
     active_sessions: int = 0
+
+
+class MonitoredTargetRequest(BaseModel):
+    """Declaration manuelle d'une plateforme à surveiller.
+
+    Les cinq premiers champs sont ceux que l'administrateur doit renseigner :
+    sans propriétaire ni segment, une alerte sur cette machine n'aurait
+    personne à qui être adressee ni de contexte réseau pour être jugee.
+    """
+
+    label: str = Field(min_length=2, max_length=80, description="Nom ou libellé de la plateforme")
+    kind: str = Field(min_length=2, max_length=40, description="Type : serveur web, pare-feu, …")
+    ip: str = Field(description="Adresse IP de la plateforme")
+    segment: str = Field(min_length=1, max_length=60, description="Segment réseau ou zone")
+    owner: str = Field(min_length=2, max_length=80, description="Propriétaire ou responsable")
+    criticality: int = Field(default=3, ge=1, le=5)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)

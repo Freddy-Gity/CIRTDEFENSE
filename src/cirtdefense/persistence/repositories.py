@@ -415,3 +415,54 @@ class NotificationRepository:
             (now, json.dumps(payload, default=str), notification_id),
         )
         return True
+
+
+class MonitoredTargetRepository:
+    """Plateformes déclarées à la main par l'administrateur.
+
+    Le parc de démonstration reste codé en dur : ce dépôt le complète pour
+    qu'une plateforme réelle du site puisse être suivie sans toucher au code,
+    et pour qu'une démonstration parte toujours d'un parc non vide.
+    """
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def save(self, target: dict[str, Any]) -> None:
+        self._conn.execute(
+            """INSERT OR REPLACE INTO monitored_targets
+               (target_id, label, kind, ip, segment, owner, criticality,
+                latitude, longitude, declared_at, declared_by)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                target["target_id"],
+                target["label"],
+                target["kind"],
+                target["ip"],
+                target["segment"],
+                target["owner"],
+                int(target.get("criticality", 3)),
+                target.get("latitude"),
+                target.get("longitude"),
+                target.get("declared_at") or datetime.now(UTC).isoformat(),
+                target.get("declared_by", ""),
+            ),
+        )
+
+    def list(self) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            "SELECT * FROM monitored_targets ORDER BY label COLLATE NOCASE"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get(self, target_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT * FROM monitored_targets WHERE target_id = ?", (target_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def delete(self, target_id: str) -> bool:
+        cursor = self._conn.execute(
+            "DELETE FROM monitored_targets WHERE target_id = ?", (target_id,)
+        )
+        return cursor.rowcount > 0

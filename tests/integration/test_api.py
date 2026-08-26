@@ -205,3 +205,135 @@ class TestSurveillance:
 
     def test_la_simulation_refuse_une_cible_inconnue(self, client):
         assert client.post("/api/v1/monitoring/simulate/inexistant").status_code == 404
+
+
+class TestDeclarationDePlateforme:
+    """Le parc surveillé doit pouvoir s'étendre sans toucher au code."""
+
+    CIBLE = {
+        "label": "Serveur RH 01",
+        "kind": "serveur applicatif",
+        "ip": "10.0.3.60",
+        "segment": "interne",
+        "owner": "Direction des ressources humaines",
+        "criticality": 4,
+        "latitude": 3.8669,
+        "longitude": 11.5187,
+    }
+
+    def test_declaration_puis_apparition_au_parc(self, client, admin_headers):
+        reponse = client.post("/api/v1/monitoring/targets", json=self.CIBLE, headers=admin_headers)
+        assert reponse.status_code == 201
+        assert reponse.json()["target_id"] == "serveur-rh-01"
+
+        cibles = {t["target"]: t for t in client.get("/api/v1/monitoring").json()["targets"]}
+        assert "serveur-rh-01" in cibles
+        assert cibles["serveur-rh-01"]["owner"] == "Direction des ressources humaines"
+        assert cibles["serveur-rh-01"]["declared"] is True
+        # Le parc de démonstration reste en place : la déclaration s'ajoute.
+        assert "srv-web-01" in cibles
+
+    def test_declaration_exige_le_role_administrateur(self, client):
+        assert client.post("/api/v1/monitoring/targets", json=self.CIBLE).status_code == 403
+
+    def test_doublon_refuse(self, client, admin_headers):
+        client.post("/api/v1/monitoring/targets", json=self.CIBLE, headers=admin_headers)
+        seconde = client.post("/api/v1/monitoring/targets", json=self.CIBLE, headers=admin_headers)
+        assert seconde.status_code == 409
+
+    def test_champs_obligatoires(self, client, admin_headers):
+        incomplet = {"label": "X", "kind": "", "ip": "", "segment": "", "owner": ""}
+        assert (
+            client.post(
+                "/api/v1/monitoring/targets", json=incomplet, headers=admin_headers
+            ).status_code
+            == 422
+        )
+
+    def test_declaration_journalisee(self, client, admin_headers):
+        client.post("/api/v1/monitoring/targets", json=self.CIBLE, headers=admin_headers)
+        journal = client.get("/api/v1/audit?limit=50").json()["entries"]
+        types = [e["event_type"] for e in journal]
+        assert "monitored_target_declared" in types
+
+    def test_retrait(self, client, admin_headers):
+        client.post("/api/v1/monitoring/targets", json=self.CIBLE, headers=admin_headers)
+        assert (
+            client.delete(
+                "/api/v1/monitoring/targets/serveur-rh-01", headers=admin_headers
+            ).status_code
+            == 200
+        )
+        cibles = {t["target"] for t in client.get("/api/v1/monitoring").json()["targets"]}
+        assert "serveur-rh-01" not in cibles
+
+    def test_le_parc_de_demonstration_n_est_pas_retirable(self, client, admin_headers):
+        """Il est porté par le code, pas par la base : le retirer laisserait
+        une vue vide sans que rien ne l'explique."""
+        reponse = client.delete("/api/v1/monitoring/targets/srv-web-01", headers=admin_headers)
+        assert reponse.status_code == 404
+
+
+class TestDetailDUnePlateforme:
+    def test_le_detail_ne_porte_que_sur_sa_cible(self, client, bruteforce_payload):
+        client.post("/api/v1/events", json={"source": "wazuh", "payload": bruteforce_payload})
+
+        detail = client.get("/api/v1/monitoring/targets/srv-web-01").json()
+
+        assert detail["target"] == "srv-web-01"
+        assert detail["summary"]["incidents"] >= 1
+        assert all(i["incident_id"] for i in detail["incidents"])
+        # Aucune action ni chronologie venue d'un autre actif.
+        for action in detail["actions"]:
+            assert action["incident_id"] in {i["incident_id"] for i in detail["incidents"]}
+
+    def test_une_plateforme_sans_incident_reste_consultable(self, client):
+        detail = client.get("/api/v1/monitoring/targets/srv-mail-01").json()
+        assert detail["summary"]["incidents"] == 0
+        assert detail["state"] in {"nominal", "degrade", "injoignable"}
+
+    def test_cible_inconnue(self, client):
+        assert client.get("/api/v1/monitoring/targets/inexistant").status_code == 404
+
+
+class TestBasculeDAutonomie:
+    """EF-26 rendu accessible depuis l'interface, sans changer sa sémantique."""
+
+    def test_suspension_puis_reactivation(self, client, admin_headers):
+        arret = client.post(
+            "/api/v1/admin/autonomy",
+            json={"enabled": False, "reason": "test de bascule"},
+            headers=admin_headers,
+        ).json()
+        assert arret["autonomy_active"] is False
+
+        reprise = client.post(
+            "/api/v1/admin/autonomy",
+            json={"enabled": True, "reason": "test de bascule"},
+            headers=admin_headers,
+        ).json()
+        assert reprise["autonomy_active"] is True
+
+    def test_suspension_arrete_reellement_les_actions(
+        self, client, admin_headers, bruteforce_payload
+    ):
+        """Suspendre doit cesser d'agir, pas se mettre à demander la permission."""
+        client.post(
+            "/api/v1/admin/autonomy",
+            json={"enabled": False, "reason": "test"},
+            headers=admin_headers,
+        )
+        corps = client.post(
+            "/api/v1/events", json={"source": "wazuh", "payload": bruteforce_payload}
+        ).json()
+
+        assert corps["decision"]["outcome"] != "autonomous_execution"
+        assert corps["execution"] is None or corps["execution"]["executed"] == 0
+
+    def test_bascule_reservee_a_l_administrateur(self, client, analyst_headers):
+        assert (
+            client.post(
+                "/api/v1/admin/autonomy", json={"enabled": False}, headers=analyst_headers
+            ).status_code
+            == 403
+        )

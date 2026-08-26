@@ -18,11 +18,13 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from ..domain.taxonomy import BY_CODE, CATALOG, AttackFamily
 from ..llm import LlmProvider, OfflineProvider
 from .facts import FactCollector, OperationsFacts
 
 
 class Intent(StrEnum):
+    SIMULATE = "simulation"
     DAILY_BRIEF = "bilan_du_jour"
     PERIOD_BRIEF = "bilan_periode"
     INCIDENT_DETAIL = "detail_incident"
@@ -43,6 +45,15 @@ class Answer:
     sources: list[str] = field(default_factory=list)
     """Origine des chiffrés cités : journal, portefeuille, catalogue."""
     provider: str = "offline"
+    action: dict[str, Any] | None = None
+    """Effet demandé par la question, à exécuter par l'appelant.
+
+    L'assistant reconnaît l'intention, il n'agit pas lui-même : c'est la route
+    qui déclenche, journalise et rend le résultat. Cette séparation garantit
+    qu'aucun texte produit par un modèle ne se retrouve sur le chemin d'une
+    action — le verbe et sa cible viennent d'un motif, jamais d'une phrase
+    générée.
+    """
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -51,6 +62,7 @@ class Answer:
             "facts": self.facts,
             "sources": self.sources,
             "provider": self.provider,
+            "action": self.action,
         }
 
 
@@ -63,6 +75,15 @@ def _fold(text: str) -> str:
 # les intentions les plus spécifiques sont placees en tête.
 PATTERNS: tuple[tuple[Intent, tuple[str, ...]], ...] = (
     (Intent.INCIDENT_DETAIL, (r"\binc_[0-9a-f]{6,}\b",)),
+    (
+        Intent.SIMULATE,
+        (
+            r"\b(declenche|declencher|lance|lancer|simule|simuler|joue|jouer)\b[^.]*"
+            r"\b(simulation|scenario|attaque|incident|demonstration)\b",
+            r"\bsimulation\b[^.]*\b(de|d\')\s*(attaque|incident)\b",
+            r"\bsimule\b",
+        ),
+    ),
     (Intent.REPORT, (r"\brapport\b", r"\bgenere[rz]?\s+un\s+rapport\b", r"\bexport")),
     (Intent.REFUSALS, (r"\brefus", r"n'?a\s+(pas|rien)\s+(agi|fait)", r"pourquoi.*rien")),
     (Intent.ROLLBACKS, (r"\bannul", r"\brollback\b", r"\bretour\s+arriere\b")),
@@ -103,6 +124,106 @@ PATTERNS: tuple[tuple[Intent, tuple[str, ...]], ...] = (
 )
 
 _PERIODE = re.compile(r"(\d{1,3})\s*(heure|jour|semaine)")
+_CODE = re.compile(r"\b([abcd])\s?-?\s?([1-9])\b")
+
+# Le catalogue est rédigé avec les termes du métier, souvent anglais. Un
+# analyste demande « un rançongiciel », pas « un ransomware » : sans ces
+# synonymes l'assistant refuserait une demande parfaitement claire.
+SYNONYMES: dict[str, str] = {
+    "rancongiciel": "A6",
+    "ranconlogiciel": "A6",
+    "cryptolocker": "A6",
+    "deni de service": "A1",
+    "saturation": "A1",
+    "inondation": "A1",
+    "slowloris": "A2",
+    "balayage": "A3",
+    "reconnaissance": "A3",
+    "force brute": "A4",
+    "bourrage": "A4",
+    "fuite de donnees": "A5",
+    "vol de donnees": "A5",
+    "commande et controle": "A7",
+    "beaconing": "A7",
+    "injection": "B1",
+    "script intersites": "B2",
+    "execution de code": "B3",
+    "traversee de repertoire": "B4",
+    "remontee de repertoire": "B4",
+    "webshell": "B5",
+    "fichier malveillant": "B5",
+    "abus d api": "B6",
+    "detournement de session": "B7",
+    "vol de session": "B7",
+    "elevation de privilege": "C1",
+    "escalade de privilege": "C1",
+    "hors profil": "C2",
+    "exfiltration lente": "C3",
+    "compte compromis": "C4",
+    "certificat": "D1",
+    "port ouvert": "D2",
+    "port inattendu": "D2",
+    "service indisponible": "D3",
+    "panne": "D3",
+    "derive de configuration": "D4",
+    "derive": "D4",
+    # Sigles du métier : courts mais sans ambiguïté, à condition de les
+    # chercher comme des mots entiers — « api » ne doit pas se reconnaître
+    # dans « rapide ».
+    "ddos": "A1",
+    "scan": "A3",
+    "c2": "A7",
+    "sql": "B1",
+    "xss": "B2",
+    "rce": "B3",
+    "lfi": "B4",
+    "rfi": "B4",
+    "api": "B6",
+    "tls": "D1",
+    "drift": "D4",
+}
+
+
+def _code_de_scenario(folded: str) -> str | None:
+    """Le code explicite prime ; sinon le libellé le plus long qui correspond.
+
+    Trier par longueur évite qu'« exfiltration » l'emporte sur « exfiltration
+    lente » quand les deux figurent dans la phrase.
+    """
+    match = _CODE.search(folded)
+    if match:
+        code = f"{match.group(1).upper()}{match.group(2)}"
+        if code in BY_CODE:
+            return code
+
+    candidats = [
+        (len(terme), code)
+        for terme, code in SYNONYMES.items()
+        if re.search(rf"\b{re.escape(terme)}\b", folded)
+    ]
+    for attaque in CATALOG:
+        for terme in _termes(attaque.label) + _termes(attaque.category):
+            if len(terme) > 4 and terme in folded:
+                candidats.append((len(terme), attaque.code))
+    if not candidats:
+        return None
+    # Le terme le plus long l'emporte ; à longueur égale, le code le plus bas,
+    # c'est-à-dire l'entrée la plus générale du catalogue. « exfiltration »
+    # seul désigne A5, pas C3 qui en est le cas particulier lent.
+    candidats.sort(key=lambda c: (-c[0], c[1]))
+    return candidats[0][1]
+
+
+def _termes(libelle: str) -> list[str]:
+    return [t for t in re.split(r"[^a-z0-9]+", _fold(libelle)) if t]
+
+
+def _famille_demandee(folded: str) -> str | None:
+    for famille in AttackFamily:
+        if _fold(famille.label) in folded:
+            return famille.code
+    match = re.search(r"\bfamille\s+([abcd])\b", folded)
+    return match.group(1).upper() if match else None
 
 
 class AssistantService:
@@ -122,6 +243,8 @@ class AssistantService:
         hours, label = self._period(folded)
 
         match intent:
+            case Intent.SIMULATE:
+                return self._simulation(question, folded)
             case Intent.INCIDENT_DETAIL:
                 return self._incident(question, folded)
             case Intent.CATALOG:
@@ -140,12 +263,65 @@ class AssistantService:
     def suggestions(self) -> list[str]:
         return [
             "Fais le bilan des opérations du jour",
-            "Combien d'actions ont été annulées ?",
-            "Pourquoi le système a-t-il refusé d'agir ?",
-            "Quelle est la posture d'autonomie actuelle ?",
-            "Quels types d'attaques sais-tu traiter ?",
+            "Déclenche une simulation de rançongiciel",
             "Génère un rapport des opérations sur 7 jours",
+            "Montre les statistiques des dernières opérations",
+            "Combien d'actions ont été annulées ?",
+            "Quels types d'attaques sais-tu traiter ?",
         ]
+
+    # -- effets demandés -----------------------------------------------------
+
+    def _simulation(self, question: str, folded: str) -> Answer:
+        """Reconnaît quelle simulation est demandée, sans la déclencher.
+
+        Trois formulations sont acceptées : un code de catalogue (« lance A6 »),
+        un nom d'attaque (« simule un rançongiciel »), ou une famille
+        (« simule les attaques réseau »). À défaut, l'assistant demande de
+        préciser plutôt que de choisir un scénario au hasard.
+        """
+        code = _code_de_scenario(folded)
+        if code:
+            attaque = BY_CODE[code]
+            return Answer(
+                intent=Intent.SIMULATE,
+                text=(
+                    f"Je déclenche le scénario **{code} — {attaque.label}**.\n\n"
+                    "La charge utile envoyée est celle qu'un collecteur produirait pour "
+                    "cette attaque ; la plateforme la traite comme une alerte réelle."
+                ),
+                sources=["catalogue CIRT"],
+                action={"kind": "run_scenario", "code": code},
+            )
+
+        famille = _famille_demandee(folded)
+        if famille:
+            return Answer(
+                intent=Intent.SIMULATE,
+                text=f"Je déclenche l'ensemble des scénarios de la famille **{famille}**.",
+                sources=["catalogue CIRT"],
+                action={"kind": "run_family", "family": famille},
+            )
+
+        if re.search(r"\b(tout|tous|toutes|catalogue|22)\b", folded):
+            return Answer(
+                intent=Intent.SIMULATE,
+                text="Je déclenche les 22 scénarios du catalogue, famille par famille.",
+                sources=["catalogue CIRT"],
+                action={"kind": "run_all"},
+            )
+
+        exemples = ", ".join(f"{a.code} ({a.label.split(' (')[0]})" for a in CATALOG[:4])
+        return Answer(
+            intent=Intent.SIMULATE,
+            text=(
+                "Je peux déclencher une simulation, mais il me faut savoir laquelle.\n\n"
+                f"Indiquez un code du catalogue — {exemples}… — un nom d'attaque "
+                "(« rançongiciel », « injection SQL »), une famille (A, B, C ou D), "
+                "ou « tout le catalogue »."
+            ),
+            sources=["catalogue CIRT"],
+        )
 
     # -- reconnaissance ------------------------------------------------------
 

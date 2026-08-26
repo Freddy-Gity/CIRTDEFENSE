@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from ...detection.infra.health import HealthSnapshot, StaticProbe
 from ..deps import AdminDep, PlatformDep
-from ..schemas import BreakerRequest, HealthReportRequest
+from ..schemas import AutonomyRequest, BreakerRequest, HealthReportRequest
 
 router = APIRouter(prefix="/api/v1/admin", tags=["administration"])
 
@@ -30,6 +30,33 @@ def reset(request: BreakerRequest, platform: PlatformDep, role: AdminDep) -> dic
     """Réarmement. Le système ne se rearme jamais seul : il ne peut pas juger
     que la cause de son propre emballement a disparu."""
     return platform.breaker.reset(actor=f"human:{role.value}", reason=request.reason).to_dict()
+
+
+@router.post("/autonomy")
+def set_autonomy(request: AutonomyRequest, platform: PlatformDep, role: AdminDep) -> dict:
+    """Active ou suspend l'exécution autonome, d'un seul geste.
+
+    C'est le coupe-circuit EF-26 sous un nom compréhensible depuis l'interface.
+    Suspendre n'introduit aucune validation par action : le système cesse
+    d'agir, il ne se met pas à demander la permission. Réactiver reste un
+    geste humain — le système ne peut pas juger que la cause de son propre
+    emballement a disparu.
+    """
+    motif = request.reason or (
+        "réactivation depuis l'interface" if request.enabled else "suspension depuis l'interface"
+    )
+    acteur = f"human:{role.value}"
+    etat = (
+        platform.breaker.reset(actor=acteur, reason=motif)
+        if request.enabled
+        else platform.breaker.trip(motif, actor=acteur)
+    )
+    return {
+        "autonomy_active": etat.autonomy_active,
+        "configured": platform.settings.autonomy.enabled,
+        "actuation_mode": platform.settings.autonomy.actuation_mode,
+        "circuit_breaker": etat.to_dict(),
+    }
 
 
 @router.post("/degraded/enter")

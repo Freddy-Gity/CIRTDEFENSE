@@ -113,6 +113,23 @@ CREATE TABLE IF NOT EXISTS policies (
     PRIMARY KEY (policy_id, version)
 );
 
+-- Parc surveille declare a la main par l'administrateur. Le parc de
+-- demonstration reste code en dur ; cette table le complete, elle ne le
+-- remplace pas, pour qu'une demonstration parte toujours d'un parc non vide.
+CREATE TABLE IF NOT EXISTS monitored_targets (
+    target_id     TEXT PRIMARY KEY,
+    label         TEXT NOT NULL,
+    kind          TEXT NOT NULL,
+    ip            TEXT NOT NULL,
+    segment       TEXT NOT NULL,
+    owner         TEXT NOT NULL,
+    criticality   INTEGER NOT NULL DEFAULT 3,
+    latitude      REAL,
+    longitude     REAL,
+    declared_at   TEXT NOT NULL,
+    declared_by   TEXT NOT NULL DEFAULT ''
+);
+
 CREATE TABLE IF NOT EXISTS breaker_state (
     id          INTEGER PRIMARY KEY CHECK (id = 1),
     state       TEXT NOT NULL,

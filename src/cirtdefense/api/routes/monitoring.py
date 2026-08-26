@@ -12,13 +12,17 @@ ce qui évite d'afficher un parc théorique sans rapport avec l'activité.
 
 from __future__ import annotations
 
+import re
+import unicodedata
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 
 from ...demo.scenarios import ASSETS
 from ...detection.infra.health import HealthSnapshot, StaticProbe
-from ..deps import PlatformDep
+from ..deps import AdminDep, PlatformDep
+from ..schemas import MonitoredTargetRequest
 
 router = APIRouter(prefix="/api/v1/monitoring", tags=["surveillance"])
 
@@ -52,6 +56,11 @@ def overview(platform: PlatformDep) -> dict:
                 "ip": meta.get("ip"),
                 "criticality": meta.get("criticality", 3),
                 "zone": meta.get("zone", "inconnue"),
+                "kind": meta.get("kind", "actif"),
+                "owner": meta.get("owner", ""),
+                "declared": bool(meta.get("declared")),
+                "latitude": meta.get("latitude"),
+                "longitude": meta.get("longitude"),
                 "health": snapshot.to_dict(),
                 "thresholds": {
                     "max_latency_ms": seuils.max_latency_ms,
@@ -80,6 +89,156 @@ def overview(platform: PlatformDep) -> dict:
         "summary": resume,
         "targets": lignes,
         "post_action_watches": _watches(platform),
+    }
+
+
+@router.post("/targets", status_code=status.HTTP_201_CREATED)
+def declare(request: MonitoredTargetRequest, platform: PlatformDep, role: AdminDep) -> dict:
+    """Déclare une plateforme à surveiller.
+
+    L'identifiant est dérivé du libellé plutôt que tiré au hasard : c'est lui
+    qui apparaît dans la clé de corrélation d'un incident, il doit rester
+    lisible dans le journal d'audit.
+    """
+    identifiant = _identifiant(request.label)
+    if identifiant in _targets(platform):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, f"une plateforme '{identifiant}' est déjà surveillée"
+        )
+
+    cible = {
+        "target_id": identifiant,
+        "label": request.label.strip(),
+        "kind": request.kind.strip(),
+        "ip": request.ip.strip(),
+        "segment": request.segment.strip(),
+        "owner": request.owner.strip(),
+        "criticality": request.criticality,
+        "latitude": request.latitude,
+        "longitude": request.longitude,
+        "declared_at": datetime.now(UTC).isoformat(),
+        "declared_by": role.value,
+    }
+    platform.targets.save(cible)
+
+    # Déclarer un actif change le périmètre de l'exécution autonome : la trace
+    # en revient au journal, au même titre qu'une action.
+    platform.ledger.record(
+        event_type="monitored_target_declared",
+        actor=role.value,
+        payload={k: v for k, v in cible.items() if k != "declared_by"},
+    )
+    return cible
+
+
+@router.delete("/targets/{target_id}")
+def withdraw(target_id: str, platform: PlatformDep, role: AdminDep) -> dict:
+    """Retire une plateforme déclarée. Le parc de démonstration n'est pas
+    retirable : il est porté par le code, pas par la base."""
+    if not platform.targets.delete(target_id):
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"'{target_id}' n'est pas une plateforme déclarée à la main",
+        )
+    platform.ledger.record(
+        event_type="monitored_target_withdrawn",
+        actor=role.value,
+        payload={"target_id": target_id},
+    )
+    return {"target_id": target_id, "withdrawn": True}
+
+
+@router.get("/targets/{target_id}")
+def detail(target_id: str, platform: PlatformDep) -> dict:
+    """Tout ce que la plateforme sait d'une seule cible.
+
+    La vue d'ensemble compte ; celle-ci explique. Elle rassemble la mesure,
+    les incidents rattachés à cet actif, les actions engagées sur lui et la
+    chronologie d'audit correspondante — rien qui concerne une autre cible.
+    """
+    cibles = _targets(platform)
+    meta = cibles.get(target_id)
+    if meta is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"'{target_id}' hors du périmètre")
+
+    snapshot = platform.probe.measure(target_id)
+    seuils = platform.monitor.thresholds_for(target_id)
+    breaches = seuils.breaches(snapshot)
+
+    incidents, actions, chronologie = [], [], []
+    for resume in platform.portfolio.list(limit=500):
+        incident = platform.incidents.get(resume.incident_id)
+        if incident is None or incident.correlation_key.split("::", 1)[-1] != target_id:
+            continue
+        actes = platform.actions.for_incident(incident.incident_id)
+        incidents.append(
+            {
+                "incident_id": incident.incident_id,
+                "category": incident.category,
+                "attack_code": resume.attack_code,
+                "attack_label": resume.attack_label,
+                "family_label": resume.family_label,
+                "severity": incident.severity.value,
+                "dangerousness": resume.dangerousness,
+                "priority": resume.priority,
+                "risk_score": resume.risk_score,
+                "status": incident.status.value,
+                "opened_at": incident.opened_at.isoformat(),
+                "updated_at": incident.updated_at.isoformat(),
+                "event_count": len(incident.events),
+                "actions": len(actes),
+            }
+        )
+        for acte in actes:
+            actions.append(
+                {
+                    "action_id": acte.action_id,
+                    "verb": acte.spec.key if acte.spec else "",
+                    "target": acte.spec.target if acte.spec else "",
+                    "status": acte.status.value,
+                    "reversibility": acte.spec.reversibility.value if acte.spec else "",
+                    "rolled_back_at": acte.rolled_back_at.isoformat()
+                    if acte.rolled_back_at
+                    else None,
+                    "rollback_reason": acte.rollback_reason,
+                    "incident_id": acte.incident_id,
+                }
+            )
+        for entree in platform.ledger.incident_timeline(incident.incident_id):
+            chronologie.append(entree.to_dict())
+
+    chronologie.sort(key=lambda e: e["recorded_at"], reverse=True)
+    annulees = sum(1 for a in actions if a["rolled_back_at"])
+
+    return {
+        "target": target_id,
+        "hostname": meta.get("hostname", target_id),
+        "ip": meta.get("ip"),
+        "kind": meta.get("kind", "actif"),
+        "owner": meta.get("owner", ""),
+        "zone": meta.get("zone", "inconnue"),
+        "criticality": meta.get("criticality", 3),
+        "declared": bool(meta.get("declared")),
+        "latitude": meta.get("latitude"),
+        "longitude": meta.get("longitude"),
+        "health": snapshot.to_dict(),
+        "thresholds": {
+            "max_latency_ms": seuils.max_latency_ms,
+            "max_error_rate": seuils.max_error_rate,
+            "min_throughput": seuils.min_throughput,
+        },
+        "breaches": breaches,
+        "state": _etat(snapshot, breaches),
+        "summary": {
+            "incidents": len(incidents),
+            "actions_executed": len(actions),
+            "actions_rolled_back": annulees,
+            "worst_priority": incidents[0]["priority"] if incidents else "",
+            "audit_entries": len(chronologie),
+        },
+        "incidents": incidents,
+        "actions": actions,
+        "timeline": chronologie[:60],
     }
 
 
@@ -123,8 +282,34 @@ def simulate(target: str, platform: PlatformDep, degraded: bool = True) -> dict:
     return {"target": target, "degraded": degraded, "health": snapshot.to_dict()}
 
 
+def _identifiant(libelle: str) -> str:
+    """Identifiant lisible dérivé du libellé : « Serveur Web 03 » → srv-web-03."""
+    sans_accent = "".join(
+        c for c in unicodedata.normalize("NFKD", libelle.lower()) if not unicodedata.combining(c)
+    )
+    return re.sub(r"-{2,}", "-", re.sub(r"[^a-z0-9]+", "-", sans_accent)).strip("-") or "cible"
+
+
 def _targets(platform: PlatformDep) -> dict[str, dict[str, Any]]:
     connus: dict[str, dict[str, Any]] = {nom: dict(meta) for nom, meta in ASSETS.items()}
+
+    # Une plateforme declaree a la main prime sur l'homonyme du parc de
+    # demonstration : c'est la seule dont les informations viennent d'un
+    # administrateur plutot que du code.
+    for declaree in platform.targets.list():
+        connus[declaree["target_id"]] = {
+            "hostname": declaree["label"],
+            "ip": declaree["ip"],
+            "criticality": declaree["criticality"],
+            "zone": declaree["segment"],
+            "kind": declaree["kind"],
+            "owner": declaree["owner"],
+            "latitude": declaree["latitude"],
+            "longitude": declaree["longitude"],
+            "declared": True,
+            "declared_at": declaree["declared_at"],
+        }
+
     for event in platform.events.recent(limit=500):
         cle = event.asset.correlation_key()
         if cle and cle != "unknown":

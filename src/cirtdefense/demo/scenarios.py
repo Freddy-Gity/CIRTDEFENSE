@@ -18,34 +18,70 @@ from ..domain.taxonomy import BY_CODE, AttackType
 # Parc fictif du site, reutilise par tous les scénarios pour que la
 # corrélation d'incidents et le portefeuille aient du sens.
 ASSETS: dict[str, dict[str, Any]] = {
-    "srv-web-01": {"hostname": "srv-web-01", "ip": "10.0.1.10", "criticality": 4, "zone": "dmz"},
-    "srv-web-02": {"hostname": "srv-web-02", "ip": "10.0.1.11", "criticality": 4, "zone": "dmz"},
-    "srv-db-01": {"hostname": "srv-db-01", "ip": "10.0.2.20", "criticality": 5, "zone": "interne"},
+    "srv-web-01": {
+        "hostname": "srv-web-01",
+        "ip": "10.0.1.10",
+        "criticality": 4,
+        "zone": "dmz",
+        "latitude": 3.8712,
+        "longitude": 11.5174,
+    },
+    "srv-web-02": {
+        "hostname": "srv-web-02",
+        "ip": "10.0.1.11",
+        "criticality": 4,
+        "zone": "dmz",
+        "latitude": 3.8709,
+        "longitude": 11.5181,
+    },
+    "srv-db-01": {
+        "hostname": "srv-db-01",
+        "ip": "10.0.2.20",
+        "criticality": 5,
+        "zone": "interne",
+        "latitude": 3.8664,
+        "longitude": 11.5212,
+    },
     "srv-app-01": {
         "hostname": "srv-app-01",
         "ip": "10.0.2.30",
         "criticality": 4,
         "zone": "interne",
+        "latitude": 3.8671,
+        "longitude": 11.5203,
     },
     "srv-file-01": {
         "hostname": "srv-file-01",
         "ip": "10.0.2.40",
         "criticality": 3,
         "zone": "interne",
+        "latitude": 3.8658,
+        "longitude": 11.5228,
     },
     "srv-mail-01": {
         "hostname": "srv-mail-01",
         "ip": "10.0.2.50",
         "criticality": 5,
         "zone": "interne",
+        "latitude": 3.8683,
+        "longitude": 11.5196,
     },
     "poste-114": {
         "hostname": "poste-114",
         "ip": "10.0.5.114",
         "criticality": 2,
         "zone": "bureautique",
+        "latitude": 3.8641,
+        "longitude": 11.5265,
     },
-    "fw-dmz-01": {"hostname": "fw-dmz-01", "ip": "10.0.0.1", "criticality": 5, "zone": "dmz"},
+    "fw-dmz-01": {
+        "hostname": "fw-dmz-01",
+        "ip": "10.0.0.1",
+        "criticality": 5,
+        "zone": "dmz",
+        "latitude": 3.8725,
+        "longitude": 11.5158,
+    },
 }
 
 # Adresses externes hostiles utilisées par les scénarios. Plages documentaires
