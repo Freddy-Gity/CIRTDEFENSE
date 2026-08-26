@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -88,28 +89,53 @@ def create_app() -> FastAPI:
     app.include_router(assistant.router)
     app.include_router(monitoring.router)
 
-    def _page() -> str:
-        page = Path(__file__).resolve().parents[2] / "web" / "index.html"
-        if page.exists():
-            return page.read_text(encoding="utf-8")
-        return "<h1>CIRTDEFENSE v3.0</h1><p>Documentation : <a href='/docs'>/docs</a></p>"
+    # L'interface est cherchee **a cote du paquet installe**, pas a cote du
+    # repertoire courant. La distinction compte : un `pip install` non editable,
+    # ou un `pip install -e` pointant sur un ancien clone, fait servir cette
+    # ancienne interface quoi qu'on tire dans le dossier ou l'on travaille. Le
+    # chemin retenu est donc journalise au demarrage et expose sur /health.
+    web_root = Path(__file__).resolve().parents[2] / "web"
+    app.state.web_root = web_root
 
-    # L'interface est une application a page unique : la navigation se fait
-    # cote client par l'History API. Le serveur doit donc rendre la même page
-    # pour chacune de ses routes, sans quoi un lien profond ou un simple
-    # rafraichissement renverrait une 404.
+    def _page() -> HTMLResponse:
+        page = web_root / "index.html"
+        if not page.exists():
+            return HTMLResponse(
+                "<h1>CIRTDEFENSE v3.0</h1><p>Interface introuvable : "
+                f"<code>{page}</code>.<p>Documentation : <a href='/docs'>/docs</a></p>"
+            )
+        html = page.read_text(encoding="utf-8")
+
+        # Empreinte du script dans l'adresse : sans elle, un navigateur peut
+        # continuer a servir l'ancien `app.js` apres une mise a jour, et
+        # l'interface parait ne pas avoir bouge.
+        script = web_root / "static" / "app.js"
+        if script.exists():
+            html = html.replace(
+                'src="/static/app.js"', f'src="/static/app.js?v={int(script.stat().st_mtime)}"'
+            )
+        return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+
+    # Application a page unique : la navigation se fait cote client par
+    # l'History API. Le serveur rend donc la même page pour chacune de ses
+    # routes, sans quoi un lien profond ou un rafraichissement donnerait 404.
     for chemin in VUES_CLIENT:
         app.add_api_route(
             chemin,
-            lambda: HTMLResponse(_page()),
+            _page,
             methods=["GET"],
             response_class=HTMLResponse,
             include_in_schema=False,
         )
 
-    web_root = Path(__file__).resolve().parents[2] / "web"
     if (web_root / "static").is_dir():
         app.mount("/static", StaticFiles(directory=web_root / "static"), name="static")
+    else:
+        logging.getLogger(__name__).warning(
+            "interface absente : %s introuvable — le paquet installe ne pointe "
+            "probablement pas sur ce depot",
+            web_root / "static",
+        )
 
     app.state.settings = settings
     return app
