@@ -1497,11 +1497,27 @@ setInterval(() => {
 }, 20000);
 
 // ============================================================ bulle assistant
-// Une conversation plutot qu'un formulaire. Trois choses la distinguent d'un
-// simple champ de recherche : le fil garde le contexte de la seance, la
-// reflexion est montree au lieu d'etre masquee, et le texte s'ecrit pendant
-// qu'on le lit. Ce n'est pas un modele qui redige au fil de l'eau — la
-// reponse est deterministe, le rythme sert la lecture.
+// Une conversation, pas un formulaire. Quatre choses la distinguent d'un champ
+// de recherche : le fil garde le contexte de la seance, la reflexion est
+// montree au lieu d'etre masquee, le texte s'ecrit pendant qu'on le lit, et
+// chaque reponse porte de quoi etre copiee et jugee.
+//
+// Le texte n'est pas redige au fil de l'eau par un modele : la reponse est
+// deterministe, le rythme sert la lecture. Les etapes annoncees sont celles
+// que l'assistant a reellement suivies, elles sont donc contestables.
+
+// Identifiant du fil : il rattache les questions entre elles cote serveur,
+// pour que « et sur sept jours ? » sache de quoi il parle.
+let filId = `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+const ICONES_CHAT = {
+  copier: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  pouceHaut: '<path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88z"/>',
+  pouceBas: '<path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88z"/>',
+  valide: '<path d="M20 6 9 17l-5-5"/>',
+};
+const iconeChat = (nom) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONES_CHAT[nom]}</svg>`;
 
 function majVisibiliteChat() {
   const masquer = CHAT_MASQUE.includes(location.pathname);
@@ -1527,21 +1543,89 @@ function fermerChat() {
 $("lanceur-chat").addEventListener("click", ouvrirChat);
 $("fermer-chat").addEventListener("click", fermerChat);
 $("agrandir").addEventListener("click", () => $("chat").classList.toggle("plein"));
-$("vider-chat").addEventListener("click", () => { $("fil").innerHTML = ""; accueil(); });
+$("vider-chat").addEventListener("click", () => {
+  // Un fil neuf cote serveur aussi : sinon la nouvelle conversation heriterait
+  // du contexte de l'ancienne sans que rien ne l'indique a l'ecran.
+  filId = `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  $("fil").innerHTML = "";
+  accueil();
+});
 
 // -- fil de discussion -------------------------------------------------------
+
+const maintenant = () =>
+  new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
 function tour(role, contenu = "") {
   const bloc = document.createElement("div");
   bloc.className = `tour ${role}`;
   bloc.innerHTML = role === "machine"
     ? `<div class="signature"><span class="jeton">C</span>Assistant</div>
-       <div class="bulle"></div>`
-    : `<div class="bulle"></div>`;
+       <div class="bulle"></div>
+       <div class="pied-message"></div>`
+    : `<div class="bulle"></div><div class="pied-message"></div>`;
   bloc.querySelector(".bulle").innerHTML = contenu;
   $("fil").appendChild(bloc);
   defiler();
   return bloc;
+}
+
+// Le pied n'apparait qu'une fois le message ecrit : horodater un texte encore
+// en cours de frappe donnerait une heure fausse.
+function poserPied(bloc, { avecOutils = true } = {}) {
+  const pied = bloc.querySelector(".pied-message");
+  pied.innerHTML = `<span class="heure">${maintenant()}</span>` + (avecOutils ? `
+    <span class="outils">
+      <button data-outil="copier" title="Copier le message" aria-label="Copier">
+        ${iconeChat("copier")}</button>
+      <button data-outil="pour" title="Réponse utile" aria-label="Réponse utile">
+        ${iconeChat("pouceHaut")}</button>
+      <button data-outil="contre" class="contre" title="Réponse à revoir"
+        aria-label="Réponse à revoir">${iconeChat("pouceBas")}</button>
+    </span>` : "");
+
+  if (!avecOutils) return;
+  // Copier la reponse, pas l'en-tete du raisonnement : c'est le texte qu'on
+  // veut coller dans un rapport ou un courriel.
+  const texte = () =>
+    (bloc.querySelector(".texte") || bloc.querySelector(".bulle")).innerText.trim();
+
+  pied.querySelector('[data-outil="copier"]').addEventListener("click", async (e) => {
+    const bouton = e.currentTarget;
+    try {
+      await navigator.clipboard.writeText(texte());
+    } catch {
+      // Le presse-papier peut etre refuse (contexte non securise) : la
+      // selection manuelle reste possible, mais il faut le dire.
+      bouton.title = "Copie refusée par le navigateur — sélectionnez le texte";
+      return;
+    }
+    bouton.innerHTML = iconeChat("valide");
+    bouton.classList.add("actif");
+    setTimeout(() => {
+      bouton.innerHTML = iconeChat("copier");
+      bouton.classList.remove("actif");
+    }, 1400);
+  });
+
+  for (const sens of ["pour", "contre"]) {
+    pied.querySelector(`[data-outil="${sens}"]`).addEventListener("click", (e) => {
+      const bouton = e.currentTarget;
+      const autre = pied.querySelector(`[data-outil="${sens === "pour" ? "contre" : "pour"}"]`);
+      const deja = bouton.classList.contains("actif");
+      bouton.classList.toggle("actif", !deja);
+      autre.classList.remove("actif");
+      // L'appreciation reste dans cet ecran : rien n'est envoye ni conserve.
+      // Le dire evite de laisser croire a un retour d'experience collecte.
+      const accuse = pied.querySelector(".accuse");
+      if (accuse) accuse.remove();
+      if (!deja) {
+        pied.insertAdjacentHTML("beforeend",
+          '<span class="accuse">noté</span>');
+        setTimeout(() => pied.querySelector(".accuse")?.remove(), 1600);
+      }
+    });
+  }
 }
 
 const defiler = () => { $("fil").scrollTop = $("fil").scrollHeight; };
@@ -1553,19 +1637,38 @@ async function accueil() {
       api("/api/v1/assistant/brief"),
       api("/api/v1/assistant/suggestions"),
     ]);
-    bloc.querySelector(".bulle").innerHTML = markdown(brief.text);
+    await ecrire(bloc.querySelector(".bulle"), brief.text);
+    poserPied(bloc);
     afficherPistes(pistes.suggestions);
   } catch (e) {
     bloc.querySelector(".bulle").innerHTML =
       `<span style="color:var(--critical)">${esc(e.message)}</span>`;
+    poserPied(bloc, { avecOutils: false });
   }
   defiler();
+}
+
+// Ecriture progressive du message d'accueil : il n'arrive pas par le flux,
+// mais doit se presenter comme les autres.
+function ecrire(cible, texte) {
+  return new Promise((resolve) => {
+    const mots = texte.split(" ");
+    let index = 0;
+    const pas = () => {
+      index += 2;
+      cible.innerHTML = markdown(mots.slice(0, index).join(" "))
+        + (index < mots.length ? '<span class="curseur"></span>' : "");
+      defiler();
+      if (index < mots.length) setTimeout(pas, 26); else resolve();
+    };
+    pas();
+  });
 }
 
 function afficherPistes(suggestions) {
   // Trois pistes suffisent : au-dela, elles mangent la hauteur du fil et la
   // reponse qu'on vient de lire sort de l'ecran.
-  $("pistes").innerHTML = suggestions.slice(0, 3)
+  $("pistes").innerHTML = (suggestions || []).slice(0, 3)
     .map((q) => `<button data-q="${esc(q)}">${esc(q)}</button>`).join("");
   $("pistes").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => envoyer(b.dataset.q)));
@@ -1582,13 +1685,24 @@ function envoyer(question) {
   $("question").style.height = "auto";
   $("pistes").innerHTML = "";
 
-  tour("humain", esc(question));
-  const bloc = tour("machine", '<div class="reflexion"></div><div class="texte"></div>');
-  const reflexion = bloc.querySelector(".reflexion");
-  const texte = bloc.querySelector(".texte");
+  poserPied(tour("humain", esc(question)), { avecOutils: false });
+
+  const bloc = tour("machine", "");
+  const bulle = bloc.querySelector(".bulle");
+  bulle.innerHTML = `
+    <details class="pense" open>
+      <summary><span class="sablier"></span>Réflexion en cours…</summary>
+      <div class="reflexion"></div>
+    </details>
+    <div class="texte"></div>`;
+  const pense = bulle.querySelector(".pense");
+  const reflexion = bulle.querySelector(".reflexion");
+  const texte = bulle.querySelector(".texte");
   let brut = "";
 
-  flux = new EventSource(`/api/v1/assistant/stream?question=${encodeURIComponent(question)}`);
+  const adresse = `/api/v1/assistant/stream?question=${encodeURIComponent(question)}`
+    + `&conversation_id=${encodeURIComponent(filId)}`;
+  flux = new EventSource(adresse);
 
   flux.onmessage = (e) => {
     const ev = JSON.parse(e.data);
@@ -1598,14 +1712,26 @@ function envoyer(question) {
           .forEach((x) => x.className = "etape faite");
         const etape = document.createElement("div");
         etape.className = "etape encours";
-        etape.textContent = ev.label;
+        etape.innerHTML = `<div><b>${esc(ev.label)}</b>${
+          ev.detail ? `<span>${esc(ev.detail)}</span>` : ""}</div>`;
         reflexion.appendChild(etape);
         defiler();
         break;
       }
       case "action":
-        reflexion.insertAdjacentHTML("afterend", resultatEffet(ev.result));
+        texte.insertAdjacentHTML("beforebegin", resultatEffet(ev.result));
         defiler();
+        break;
+      case "answer_start":
+        // La reponse commence : la reflexion se replie d'elle-meme. Elle reste
+        // ouvrable, mais ce n'est plus elle qu'on vient lire.
+        reflexion.querySelectorAll(".etape.encours")
+          .forEach((x) => x.className = "etape faite");
+        pense.open = false;
+        pense.classList.add("finie");
+        pense.querySelector("summary").innerHTML =
+          `<span class="sablier"></span>Voir le raisonnement (${
+            reflexion.children.length} étape${reflexion.children.length > 1 ? "s" : ""})`;
         break;
       case "delta":
         brut += ev.text;
@@ -1613,16 +1739,14 @@ function envoyer(question) {
         defiler();
         break;
       case "done":
-        reflexion.querySelectorAll(".etape.encours")
-          .forEach((x) => x.className = "etape faite");
         texte.innerHTML = markdown(brut);
         if (ev.sources && ev.sources.length) {
           texte.insertAdjacentHTML("beforeend",
             `<div class="muet" style="margin-top:10px;font-size:11.5px">Sources : ${
               ev.sources.map(esc).join(", ")}</div>`);
         }
-        terminer();
-        // Une action a change l'etat du systeme : la vue affichee doit suivre.
+        poserPied(bloc);
+        terminer(ev);
         if (ev.intent === "simulation") rafraichir();
         break;
     }
@@ -1630,20 +1754,28 @@ function envoyer(question) {
 
   flux.onerror = () => {
     if (!brut) {
+      pense.remove();
       texte.innerHTML = '<span style="color:var(--critical)">Assistant injoignable.</span>';
     } else {
       texte.innerHTML = markdown(brut);
     }
-    terminer();
+    poserPied(bloc, { avecOutils: Boolean(brut) });
+    terminer(null);
   };
 
-  function terminer() {
+  function terminer(ev) {
     if (flux) { flux.close(); flux = null; }
     chatOccupe = false;
     $("envoyer").disabled = false;
-    api("/api/v1/assistant/suggestions")
-      .then((p) => afficherPistes(p.suggestions))
-      .catch(() => { /* les pistes sont un confort, pas une dependance */ });
+    // Les suites viennent de la reponse : elles dependent de l'etat constate,
+    // pas d'une liste figee. A defaut, on retombe sur les suggestions.
+    if (ev && ev.follow_ups && ev.follow_ups.length) {
+      afficherPistes(ev.follow_ups);
+    } else {
+      api("/api/v1/assistant/suggestions")
+        .then((p) => afficherPistes(p.suggestions))
+        .catch(() => { /* les pistes sont un confort, pas une dependance */ });
+    }
     defiler();
   }
 }

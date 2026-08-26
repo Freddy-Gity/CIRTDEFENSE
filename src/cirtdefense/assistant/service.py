@@ -20,10 +20,19 @@ from typing import Any
 
 from ..domain.taxonomy import BY_CODE, CATALOG, AttackFamily
 from ..llm import LlmProvider, OfflineProvider
+from .conversation import Conversation, MemoireDesConversations, Raisonnement, Tour
 from .facts import FactCollector, OperationsFacts
 
 
 class Intent(StrEnum):
+    # -- registre social : converser, ce n'est pas seulement repondre --------
+    GREETING = "salutation"
+    THANKS = "remerciement"
+    FAREWELL = "conge"
+    IDENTITY = "identite"
+    CAPABILITIES = "capacites"
+    FOLLOW_UP = "suivi"
+    # -- registre metier -----------------------------------------------------
     SIMULATE = "simulation"
     DAILY_BRIEF = "bilan_du_jour"
     PERIOD_BRIEF = "bilan_periode"
@@ -45,6 +54,13 @@ class Answer:
     sources: list[str] = field(default_factory=list)
     """Origine des chiffrés cités : journal, portefeuille, catalogue."""
     provider: str = "offline"
+    reasoning: list[dict[str, str]] = field(default_factory=list)
+    """Comment cette réponse a été construite, étape par étape."""
+    follow_ups: list[str] = field(default_factory=list)
+    """Suites proposées, tirées de l'état réel et non d'une liste figée."""
+    hours: int = 0
+    period_label: str = ""
+    incident_id: str = ""
     action: dict[str, Any] | None = None
     """Effet demandé par la question, à exécuter par l'appelant.
 
@@ -62,6 +78,10 @@ class Answer:
             "facts": self.facts,
             "sources": self.sources,
             "provider": self.provider,
+            "reasoning": self.reasoning,
+            "follow_ups": self.follow_ups,
+            "hours": self.hours,
+            "period_label": self.period_label,
             "action": self.action,
         }
 
@@ -75,6 +95,39 @@ def _fold(text: str) -> str:
 # les intentions les plus spécifiques sont placees en tête.
 PATTERNS: tuple[tuple[Intent, tuple[str, ...]], ...] = (
     (Intent.INCIDENT_DETAIL, (r"\binc_[0-9a-f]{6,}\b",)),
+    (
+        Intent.GREETING,
+        (
+            r"^\s*(bonjour|bonsoir|salut|coucou|hello|hey|yo|bjr)\b",
+            r"^\s*(bien le bonjour|comment (ca|allez).?vous|ca va)\b",
+        ),
+    ),
+    (Intent.THANKS, (r"^\s*(merci|thanks|nickel|parfait|super|tres bien)\b", r"\bmerci\b")),
+    (
+        Intent.FAREWELL,
+        (r"^\s*(au revoir|a bientot|bonne (journee|soiree|nuit)|bye|ciao|a plus)\b",),
+    ),
+    (
+        Intent.IDENTITY,
+        (
+            r"\bqui\s+(es|est).?tu\b",
+            r"\btu\s+es\s+qui\b",
+            r"\bpresente.?toi\b",
+            r"\bton\s+role\b",
+            r"\bc'?est\s+quoi\s+cette\s+plateforme\b",
+        ),
+    ),
+    (
+        Intent.CAPABILITIES,
+        (
+            r"\bque\s+(sais|peux).?tu\s+faire\b",
+            r"\bqu'?est.ce\s+que\s+tu\s+sais\s+faire\b",
+            r"\bcomment\s+(tu\s+marches|ca\s+marche|t'?utiliser)\b",
+            r"^\s*aide\b",
+            r"^\s*help\b",
+            r"\btes\s+capacites\b",
+        ),
+    ),
     (
         Intent.SIMULATE,
         (
@@ -122,6 +175,92 @@ PATTERNS: tuple[tuple[Intent, tuple[str, ...]], ...] = (
         (r"\bstatistiques?\b", r"\bchiffres?\b", r"\bcombien\b", r"\bindicateurs?\b"),
     ),
 )
+
+# Une question de suivi ne se reconnait pas a un mot-cle metier mais a sa
+# forme : elle est courte, souvent introduite par « et », et renvoie a ce qui
+# vient d'etre dit. Hors conversation elle n'a aucun sens ; c'est pourquoi
+# elle n'entre pas dans PATTERNS et n'est testee qu'avec un fil ouvert.
+_LIBELLE_INTENT: dict[Intent, str] = {
+    Intent.DAILY_BRIEF: "bilan des opérations",
+    Intent.PERIOD_BRIEF: "bilan sur une période",
+    Intent.STATISTICS: "statistiques",
+    Intent.POSTURE: "posture d'autonomie",
+    Intent.REFUSALS: "refus d'agir",
+    Intent.ROLLBACKS: "annulations",
+    Intent.REPORT: "rapport d'opérations",
+    Intent.CATALOG: "catalogue des attaques",
+    Intent.INCIDENT_DETAIL: "détail d'un incident",
+    Intent.SIMULATE: "déclenchement d'une simulation",
+    Intent.GREETING: "salutation",
+    Intent.THANKS: "remerciement",
+    Intent.FAREWELL: "prise de congé",
+    Intent.IDENTITY: "présentation",
+    Intent.CAPABILITIES: "capacités",
+    Intent.UNKNOWN: "hors périmètre",
+}
+
+# Seules les intentions metier portent un contenu qu'une question de suivi
+# peut prolonger. « et sur sept jours ? » apres un bonjour ne veut rien dire :
+# heriter d'une salutation ferait repondre a cote avec aplomb.
+_HERITABLES = frozenset(
+    {
+        Intent.DAILY_BRIEF,
+        Intent.PERIOD_BRIEF,
+        Intent.STATISTICS,
+        Intent.POSTURE,
+        Intent.REFUSALS,
+        Intent.ROLLBACKS,
+        Intent.REPORT,
+        Intent.CATALOG,
+        Intent.INCIDENT_DETAIL,
+    }
+)
+
+_AVEC_PERIODE = frozenset(
+    {
+        Intent.DAILY_BRIEF,
+        Intent.PERIOD_BRIEF,
+        Intent.STATISTICS,
+        Intent.REFUSALS,
+        Intent.ROLLBACKS,
+        Intent.REPORT,
+    }
+)
+
+SUIVI = (
+    r"^\s*et\b",
+    r"^\s*(detaille|precise|explique|developpe|continue|encore|pourquoi|comment)\b",
+    r"\b(plus\s+de\s+detail|en\s+detail|davantage)\b",
+    r"^\s*(oui|ok|d'?accord|vas.?y|je\s+veux\s+bien|volontiers)\b",
+)
+
+
+def _est_un_suivi(folded: str) -> bool:
+    return any(re.search(motif, folded) for motif in SUIVI)
+
+
+def _pourquoi(intent: Intent, folded: str) -> str:
+    """L'indice qui a fait basculer la reconnaissance.
+
+    Montrer le mot declencheur vaut mieux qu'annoncer une intention : on peut
+    contester « j'ai lu *bilan* » ; on ne peut pas contester « j'ai compris ».
+    """
+    for candidate, motifs in PATTERNS:
+        if candidate is not intent:
+            continue
+        for motif in motifs:
+            trouve = re.search(motif, folded)
+            if trouve:
+                extrait = trouve.group(0).strip()
+                return (
+                    f"« {extrait} » reconnu → {_LIBELLE_INTENT.get(intent, intent.value)}"
+                    if extrait
+                    else _LIBELLE_INTENT.get(intent, intent.value)
+                )
+    if intent is Intent.UNKNOWN:
+        return "aucun motif connu dans la question"
+    return _LIBELLE_INTENT.get(intent, intent.value)
+
 
 _PERIODE = re.compile(r"(\d{1,3})\s*(heure|jour|semaine)")
 _CODE = re.compile(r"\b([abcd])\s?-?\s?([1-9])\b")
@@ -234,26 +373,147 @@ class AssistantService:
     ) -> None:
         self._collector = collector
         self._provider = provider or OfflineProvider()
+        self._memoire = MemoireDesConversations()
+
+    def oublier(self, conversation_id: str) -> bool:
+        """Efface un fil. Le journal d'audit, lui, ne s'efface pas."""
+        return self._memoire.oublier(conversation_id)
 
     # -- point d'entrée ------------------------------------------------------
 
-    def ask(self, question: str) -> Answer:
+    def ask(self, question: str, conversation_id: str | None = None) -> Answer:
+        """Répond en tenant le fil, et en montrant comment la réponse se construit."""
+        fil = self._memoire.obtenir(conversation_id)
         folded = _fold(question)
-        intent = self._detect(folded)
-        hours, label = self._period(folded)
+        trace = Raisonnement()
 
+        intent = self._detect(folded)
+        # La forme de la question et son intention sont deux choses distinctes :
+        # « et les annulations ? » est reconnue d'emblee, et reste malgre tout
+        # un suivi — c'est ce qui lui fait heriter la periode du tour precedent.
+        suivi = not fil.vide and _est_un_suivi(folded)
+        if intent is Intent.UNKNOWN and suivi:
+            # « et sur sept jours ? » n'a de sens que rapporte au tour
+            # precedent. Sans le fil, l'assistant declarerait ne pas comprendre
+            # une question parfaitement claire pour son interlocuteur.
+            precedente = fil.derniere_intention()
+            heritee = Intent(precedente) if precedente else Intent.UNKNOWN
+            if heritee in _HERITABLES:
+                intent = heritee
+                trace.ajouter(
+                    "Question de suivi",
+                    f"« {question.strip()} » se rattache au tour précédent "
+                    f"({_LIBELLE_INTENT.get(intent, intent.value)})",
+                )
+            elif _PERIODE.search(folded):
+                # Le tour precedent ne se prolonge pas, mais la question porte
+                # une periode : c'est un bilan qu'on demande.
+                intent = Intent.PERIOD_BRIEF
+                trace.ajouter(
+                    "Question de suivi",
+                    "le tour précédent ne se prolonge pas, mais une période est "
+                    "indiquée → bilan sur cette période",
+                )
+
+        if not trace:
+            trace.ajouter("Intention reconnue", _pourquoi(intent, folded))
+
+        hours, label, herite = self._periode_avec_fil(folded, fil, suivi=suivi)
+        if intent in _AVEC_PERIODE:
+            trace.ajouter(
+                "Période retenue",
+                f"{label}"
+                + (
+                    " — reprise du tour précédent"
+                    if herite
+                    else (" — lue dans la question" if _PERIODE.search(folded) else " par défaut")
+                ),
+            )
+
+        reponse = self._repondre(intent, question, folded, hours, label, fil, trace)
+        reponse.reasoning = trace.to_list()
+        reponse.hours, reponse.period_label = hours, label
+
+        fil.ajouter(Tour(role="humain", texte=question))
+        fil.ajouter(
+            Tour(
+                role="assistant",
+                texte=reponse.text,
+                intent=reponse.intent.value,
+                hours=reponse.hours if reponse.intent in _AVEC_PERIODE else 0,
+                label=reponse.period_label,
+                incident_id=reponse.incident_id,
+            )
+        )
+        return reponse
+
+    def _repondre(
+        self,
+        intent: Intent,
+        question: str,
+        folded: str,
+        hours: int,
+        label: str,
+        fil: Conversation,
+        trace: Raisonnement,
+    ) -> Answer:
         match intent:
+            case Intent.GREETING:
+                return self._salutation(fil, trace)
+            case Intent.THANKS:
+                return self._remerciement(trace)
+            case Intent.FAREWELL:
+                return self._conge(fil, trace)
+            case Intent.IDENTITY:
+                return self._identite(trace)
+            case Intent.CAPABILITIES:
+                return self._capacites(trace)
             case Intent.SIMULATE:
                 return self._simulation(question, folded)
             case Intent.INCIDENT_DETAIL:
-                return self._incident(question, folded)
+                return self._incident(question, folded, fil)
             case Intent.CATALOG:
                 return self._catalog(question)
             case Intent.UNKNOWN:
-                return self._unknown(question)
+                return self._unknown(question, fil)
             case _:
+                trace.ajouter(
+                    "Collecte des faits",
+                    "journal d'audit, portefeuille d'incidents, état du coupe-circuit",
+                )
                 facts = self._collector.collect(hours=hours, label=label)
-                return self._compose(intent, question, facts)
+                trace.ajouter(
+                    "Faits obtenus",
+                    f"{facts.incidents_total} incident(s), "
+                    f"{facts.actions_executed} action(s), "
+                    f"{facts.audit_entries} entrée(s) de journal",
+                )
+                trace.ajouter(
+                    "Vérification",
+                    "chaîne d'audit intacte"
+                    if facts.audit_chain_valid
+                    else "chaîne d'audit ROMPUE — signalé dans la réponse",
+                )
+                return self._compose(intent, question, facts, trace)
+
+    def _periode_avec_fil(
+        self, folded: str, fil: Conversation, *, suivi: bool
+    ) -> tuple[int, str, bool]:
+        """La période lue dans la question prime ; le fil ne sert qu'au suivi.
+
+        Une question posée en entier tient seule : « fais le bilan du jour »
+        veut dire aujourd'hui, même si le tour précédent parlait de sept jours.
+        Seule une question de suivi — « et les annulations ? » — hérite de la
+        période, puisque c'est précisément ce à quoi elle se rattache.
+        """
+        if _PERIODE.search(folded):
+            heures, libelle = self._period(folded)
+            return heures, libelle, False
+        if suivi:
+            heritee = fil.derniere_periode()
+            if heritee:
+                return heritee[0], heritee[1], True
+        return 24, "dernières 24 heures", False
 
     def daily_brief(self) -> Answer:
         """Bilan des opérations du jour — l'usage principal de l'assistant."""
@@ -269,6 +529,152 @@ class AssistantService:
             "Combien d'actions ont été annulées ?",
             "Quels types d'attaques sais-tu traiter ?",
         ]
+
+    # -- registre social -----------------------------------------------------
+    #
+    # Repondre « bonjour » a un bonjour ne coute rien et change tout : un outil
+    # qui ignore la politesse se fait obeir, il ne se fait pas consulter. Ces
+    # reponses restent pourtant ancrees — elles ne racontent que ce que la
+    # plateforme sait, jamais une amabilite creuse.
+
+    def _salutation(self, fil: Conversation, trace: Raisonnement) -> Answer:
+        trace.ajouter("Registre", "salutation — réponse conviviale, puis état courant")
+        trace.ajouter("Collecte des faits", "relevé rapide des dernières 24 heures")
+        faits = self._collector.collect(hours=24, label="dernières 24 heures")
+
+        if fil.nombre_echanges() > 0:
+            ouverture = "Re-bonjour."
+        else:
+            ouverture = "Bonjour. Je suis l'assistant d'exploitation de la plateforme."
+
+        if faits.incidents_total == 0:
+            etat = "Rien à signaler sur les dernières 24 heures : aucun incident traité."
+        else:
+            etat = (
+                f"Sur les dernières 24 heures : **{faits.incidents_total} incident(s)** "
+                f"traité(s) et **{faits.actions_executed} action(s)** exécutée(s) "
+                "sans validation préalable."
+            )
+            if faits.actions_rolled_back:
+                etat += f" {faits.actions_rolled_back} action(s) ont été annulées."
+
+        if not faits.autonomy_effective:
+            etat += (
+                "\n\n⚠️ L'autonomie est actuellement suspendue : aucune action "
+                "n'est exécutée jusqu'au réarmement."
+            )
+
+        return Answer(
+            intent=Intent.GREETING,
+            text=f"{ouverture}\n\n{etat}\n\nQue puis-je faire pour vous ?",
+            facts=faits.to_dict(),
+            sources=["portefeuille d'incidents", "journal d'audit"],
+            provider=self._provider.name,
+            follow_ups=self._suites(faits),
+        )
+
+    def _remerciement(self, trace: Raisonnement) -> Answer:
+        trace.ajouter("Registre", "remerciement — accusé bref, sans relance inutile")
+        return Answer(
+            intent=Intent.THANKS,
+            text="Avec plaisir. Je reste disponible si vous voulez creuser un point.",
+            provider=self._provider.name,
+        )
+
+    def _conge(self, fil: Conversation, trace: Raisonnement) -> Answer:
+        trace.ajouter("Registre", "prise de congé — récapitulatif de la séance")
+        echanges = fil.nombre_echanges()
+        recap = (
+            f"Nous avons échangé sur {echanges} point(s) durant cette séance. "
+            if echanges > 1
+            else ""
+        )
+        return Answer(
+            intent=Intent.FAREWELL,
+            text=(
+                f"Bonne continuation. {recap}La plateforme continue de traiter les "
+                "incidents en autonomie ; vous retrouverez chaque action au journal "
+                "d'audit à votre retour."
+            ),
+            provider=self._provider.name,
+        )
+
+    def _identite(self, trace: Raisonnement) -> Answer:
+        trace.ajouter("Registre", "présentation — rôle et limites")
+        return Answer(
+            intent=Intent.IDENTITY,
+            text=(
+                "Je suis l'assistant d'exploitation de CIRTDEFENSE, une plateforme "
+                "d'orchestration autonome de la réponse aux incidents de sécurité.\n\n"
+                "Concrètement : la plateforme détecte, décide et agit seule ; moi, "
+                "je vous explique ce qu'elle a fait et pourquoi, et je déclenche "
+                "certaines opérations quand vous me le demandez.\n\n"
+                "Une limite que je tiens à poser d'emblée : **je ne réponds qu'à "
+                "partir des données de la plateforme** — journal d'audit, "
+                "portefeuille d'incidents, catalogue CIRT. Si un chiffre n'y figure "
+                "pas, je vous le dis plutôt que de le combler. Un nombre inventé "
+                "dans un bilan de sécurité vous ferait croire informé alors que "
+                "vous ne le seriez pas."
+            ),
+            sources=["configuration de la plateforme"],
+            provider=self._provider.name,
+            follow_ups=["Que sais-tu faire ?", "Fais le bilan des opérations du jour"],
+        )
+
+    def _capacites(self, trace: Raisonnement) -> Answer:
+        trace.ajouter("Registre", "capacités — ce que je sais faire, par famille")
+        return Answer(
+            intent=Intent.CAPABILITIES,
+            text=(
+                "Voici ce que je sais faire.\n\n"
+                "**Rendre compte**\n"
+                "- le bilan des opérations du jour, ou sur la période que vous fixez\n"
+                "- les statistiques : incidents, actions, taux d'annulation\n"
+                "- la posture d'autonomie et l'état du coupe-circuit\n"
+                "- le détail d'un incident, si vous me donnez son identifiant\n\n"
+                "**Expliquer**\n"
+                "- pourquoi le système a refusé d'agir\n"
+                "- quelles actions ont été annulées, et par qui\n"
+                "- quels types d'attaques figurent au catalogue CIRT\n\n"
+                "**Agir**\n"
+                "- déclencher une simulation, par code (« lance A6 »), par nom "
+                "(« simule un rançongiciel ») ou par famille\n"
+                "- générer un rapport d'opérations exportable\n\n"
+                "Posez la question comme elle vous vient : je comprends les "
+                "reformulations et les questions de suivi."
+            ),
+            provider=self._provider.name,
+            follow_ups=[
+                "Fais le bilan des opérations du jour",
+                "Déclenche une simulation de rançongiciel",
+                "Quelle est la posture d'autonomie actuelle ?",
+            ],
+        )
+
+    # -- suites proposées ----------------------------------------------------
+
+    def _suites(self, f: OperationsFacts) -> list[str]:
+        """Suggestions tirées de l'état réel, pas d'une liste figée.
+
+        Proposer « voulez-vous le détail des annulations ? » quand il n'y en a
+        eu aucune serait du bavardage. Chaque suite ci-dessous n'apparaît que
+        si l'état l'a rendue pertinente.
+        """
+        suites: list[str] = []
+        if f.actions_rolled_back:
+            suites.append("Pourquoi ces actions ont-elles été annulées ?")
+        if f.refusals:
+            suites.append("Pourquoi le système a-t-il refusé d'agir ?")
+        if not f.audit_chain_valid:
+            suites.append("Détaille la rupture de la chaîne d'audit")
+        if not f.autonomy_effective:
+            suites.append("Quelle est la posture d'autonomie actuelle ?")
+        if f.incidents_total == 0:
+            suites.append("Déclenche une simulation de rançongiciel")
+        else:
+            suites.append("Montre les statistiques des dernières opérations")
+        suites.append("Génère un rapport des opérations sur 7 jours")
+        return suites[:3]
 
     # -- effets demandés -----------------------------------------------------
 
@@ -344,7 +750,13 @@ class AssistantService:
 
     # -- rédaction -----------------------------------------------------------
 
-    def _compose(self, intent: Intent, question: str, facts: OperationsFacts) -> Answer:
+    def _compose(
+        self,
+        intent: Intent,
+        question: str,
+        facts: OperationsFacts,
+        trace: Raisonnement | None = None,
+    ) -> Answer:
         rendu = {
             Intent.DAILY_BRIEF: self._texte_bilan,
             Intent.PERIOD_BRIEF: self._texte_bilan,
@@ -357,12 +769,22 @@ class AssistantService:
 
         payload = facts.to_dict()
         texte = self._provider.render(question, payload, rendu)
+        if trace is not None:
+            trace.ajouter(
+                "Rédaction",
+                "hors ligne, déterministe"
+                if self._provider.name == "offline"
+                else (
+                    f"mise en forme par {self._provider.name} — les chiffres restent ceux collectés"
+                ),
+            )
         return Answer(
             intent=intent,
             text=texte,
             facts=payload,
             sources=["journal d'audit", "portefeuille d'incidents"],
             provider=self._provider.name,
+            follow_ups=self._suites(facts),
         )
 
     @staticmethod
@@ -512,7 +934,7 @@ class AssistantService:
         if not f.actions_rolled_back:
             return (
                 f"Aucune action annulée sur la période ({f.period_label}). "
-                "Tous les confinements engages ont tenu."
+                "Tous les confinements engagés ont tenu."
             )
         return "\n".join(
             [
@@ -531,7 +953,7 @@ class AssistantService:
 
     # -- intentions particulieres -------------------------------------------
 
-    def _incident(self, question: str, folded: str) -> Answer:
+    def _incident(self, question: str, folded: str, fil: Conversation | None = None) -> Answer:
         match = re.search(r"\binc_[0-9a-f]{6,}\b", folded)
         incident_id = match.group() if match else ""
         detail = self._collector.incident_detail(incident_id)
@@ -605,17 +1027,30 @@ class AssistantService:
             provider=self._provider.name,
         )
 
-    def _unknown(self, question: str) -> Answer:
+    def _unknown(self, question: str, fil: Conversation | None = None) -> Answer:
+        # Un refus n'est pas une fin de non-recevoir : il dit ce qui manque et
+        # ouvre une porte. Sans cela l'utilisateur reformule a l'aveugle.
+        entree = (
+            "Je ne suis pas sûr de comprendre cette demande."
+            if fil and not fil.vide
+            else "Je ne sais pas répondre à cette question."
+        )
         texte = "\n".join(
             [
-                "Je ne sais pas répondre à cette question.",
+                entree,
                 "",
                 "Je m'appuie exclusivement sur les données de la plateforme — "
-                "journal d'audit, portefeuille d'incidents, catalogue — et je ne "
-                "complète jamais un fait manquant.",
+                "journal d'audit, portefeuille d'incidents, catalogue CIRT — et je "
+                "ne complète jamais un fait manquant. Si votre question sort de ce "
+                "périmètre, je préfère vous le dire.",
                 "",
-                "Voici ce que je sais faire :",
-                *[f"- {s}" for s in self.suggestions()],
+                "Reformulez, ou essayez l'une de ces pistes :",
+                *[f"- {s}" for s in self.suggestions()[:4]],
             ]
         )
-        return Answer(intent=Intent.UNKNOWN, text=texte, provider=self._provider.name)
+        return Answer(
+            intent=Intent.UNKNOWN,
+            text=texte,
+            provider=self._provider.name,
+            follow_ups=self.suggestions()[:3],
+        )

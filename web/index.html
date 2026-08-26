@@ -368,7 +368,7 @@ h2:first-child { margin-top: 0; }
 .tour.humain { align-items: flex-end; }
 .tour.humain .bulle {
   background: var(--plane); border: 1px solid var(--grid);
-  border-radius: 14px 14px 3px 14px; padding: 9px 13px; max-width: 86%;
+  border-radius: 16px 16px 4px 16px; padding: 9px 14px; max-width: 86%;
 }
 .tour.machine .bulle { max-width: 100%; line-height: 1.62; }
 .tour.machine .bulle p:first-child { margin-top: 0; }
@@ -382,26 +382,76 @@ h2:first-child { margin-top: 0; }
   background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; flex: none;
 }
 
-/* reflexion : les etapes reellement parcourues, pas une animation decorative */
+/* --------------------------- pied de message ----------------------------
+   Heure, copie, appreciation. Les boutons ne se montrent qu'au survol du
+   message : ils sont disponibles sans encombrer la lecture. */
+.pied-message {
+  display: flex; align-items: center; gap: 2px; font-size: 11px;
+  color: var(--ink-muted); margin-top: 2px; min-height: 22px;
+}
+.tour.humain .pied-message { justify-content: flex-end; padding-right: 3px; }
+.pied-message .heure { margin-right: 4px; }
+.pied-message .outils { display: flex; gap: 1px; opacity: 0; transition: opacity .14s ease; }
+.tour:hover .pied-message .outils,
+.tour:focus-within .pied-message .outils { opacity: 1; }
+.pied-message button {
+  border: none; background: none; color: var(--ink-muted); cursor: pointer;
+  padding: 3px 5px; border-radius: 6px; display: grid; place-items: center;
+}
+.pied-message button:hover { background: var(--plane); color: var(--ink-1); }
+.pied-message button svg { width: 13px; height: 13px; }
+.pied-message button.actif { color: var(--accent); }
+.pied-message button.actif.contre { color: var(--critical); }
+.pied-message .accuse { font-size: 11px; color: var(--good); font-weight: 600; }
+
+/* --------------------------------- reflexion ----------------------------
+   Les etapes reellement parcourues, pas une animation decorative. Repliee
+   une fois la reponse ecrite : disponible pour qui veut contester, discrete
+   pour qui veut juste lire. */
+.pense {
+  border: 1px solid var(--grid); border-radius: 10px; background: var(--plane);
+  margin-bottom: 10px; overflow: hidden;
+}
+.pense > summary {
+  list-style: none; cursor: pointer; padding: 8px 11px; font-size: 12px;
+  color: var(--ink-2); display: flex; align-items: center; gap: 8px; font-weight: 600;
+}
+.pense > summary::-webkit-details-marker { display: none; }
+.pense > summary::after {
+  content: "›"; margin-left: auto; color: var(--ink-muted);
+  transition: transform .18s ease; font-size: 15px; line-height: 1;
+}
+.pense[open] > summary::after { transform: rotate(90deg); }
+.pense > summary:hover { background: color-mix(in srgb, var(--ink-1) 4%, var(--plane)); }
+.pense .sablier {
+  width: 11px; height: 11px; border-radius: 50%; flex: none;
+  border: 2px solid var(--accent); border-top-color: transparent;
+  animation: tourne .8s linear infinite;
+}
+@keyframes tourne { to { transform: rotate(360deg) } }
+.pense.finie .sablier {
+  border: none; background: none; color: var(--good); animation: none;
+  display: grid; place-items: center; width: 13px; height: 13px;
+}
+.pense.finie .sablier::before { content: "✓"; font-size: 11px; font-weight: 700; }
+@media (prefers-reduced-motion: reduce) { .pense .sablier { animation: none } }
+
 .reflexion {
-  font-size: 12px; color: var(--ink-muted);
-  border-left: 2px solid var(--grid); padding: 2px 0 2px 11px;
-  display: flex; flex-direction: column; gap: 4px;
+  font-size: 12px; color: var(--ink-muted); padding: 2px 11px 11px 13px;
+  display: flex; flex-direction: column; gap: 7px;
 }
-.reflexion .etape { display: flex; align-items: center; gap: 7px; animation: etape-entre .2s ease-out; }
-@keyframes etape-entre { from { opacity: 0; transform: translateX(-4px) } }
-.reflexion .etape.encours::before {
-  content: ""; width: 6px; height: 6px; border-radius: 50%;
-  background: var(--accent); animation: pulse 1.1s ease-in-out infinite;
+.reflexion .etape {
+  display: flex; gap: 9px; animation: etape-entre .22s ease-out;
+  border-left: 2px solid var(--grid); padding-left: 10px;
 }
-.reflexion .etape.faite::before {
-  content: "✓"; font-size: 10px; color: var(--good); width: 6px; text-align: center;
-}
-@keyframes pulse { 50% { opacity: .3; transform: scale(.7) } }
-@media (prefers-reduced-motion: reduce) { .reflexion .etape.encours::before { animation: none } }
+.reflexion .etape.encours { border-left-color: var(--accent); }
+.reflexion .etape.faite { border-left-color: var(--good); }
+@keyframes etape-entre { from { opacity: 0; transform: translateY(-3px) } }
+.reflexion .etape b { color: var(--ink-2); font-weight: 600; display: block; }
+.reflexion .etape span { display: block; }
 
 .curseur {
-  display: inline-block; width: 7px; height: 15px; vertical-align: text-bottom;
+  display: inline-block; width: 2px; height: 15px; vertical-align: text-bottom;
   background: var(--ink-1); margin-left: 2px; animation: clignote .9s step-end infinite;
 }
 @keyframes clignote { 50% { opacity: 0 } }
