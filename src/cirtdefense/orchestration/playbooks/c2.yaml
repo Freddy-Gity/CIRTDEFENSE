@@ -1,0 +1,50 @@
+id: pb-a7-c2
+version: "2.0"
+category: c2
+attack_code: A7
+description: >
+  A7 — Canal de commande et contrôle. Le catalogue prescrit le sinkhole DNS
+  avant le blocage : le détournement coupe le canal tout en permettant
+  d'observer quels autres hôtes tentent de le joindre, ce qui vaut mieux
+  qu'un blocage aveugle pour l'investigation qui suivra.
+rules:
+  - id: A7-01
+    label: Sinkhole du domaine de rappel
+    when:
+      indicators_present: [domain]
+    actions:
+      - verb: sinkhole_domain
+        actuator: dns
+        target: "{indicators.domain}"
+        parameters:
+          reason: "domaine de commande et contrôle"
+        expected_effect: >
+          La résolution est détournée vers une adresse contrôlée : le canal est
+          coupe et les hôtes encore infectés se signalent d'eux-mêmes.
+
+  - id: A7-02
+    label: Blocage de la destination externe
+    when:
+      confidence_min: 0.5
+      indicators_present: [dest_ip]
+      target_not_private: dest_ip
+    actions:
+      - verb: block_ip
+        actuator: firewall
+        target: "{indicators.dest_ip}"
+        parameters:
+          direction: egress
+          reason: "canal de commande et contrôle"
+
+  - id: A7-03
+    label: Beaconing confirmé — isolation de l'hôte
+    when:
+      severity_min: high
+      asset_criticality_max: 4
+    actions:
+      - verb: isolate_host
+        actuator: edr
+        target: "{asset.asset_id}"
+        parameters:
+          keep_agent_channel: true
+          reason: "beaconing confirmé, machine sous contrôle externe"

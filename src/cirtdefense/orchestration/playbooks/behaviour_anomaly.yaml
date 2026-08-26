@@ -1,0 +1,40 @@
+id: pb-behaviour-anomaly
+version: "1.0"
+category: behaviour_anomaly
+description: >
+  Réponse à une anomalie comportementale UEBA. Volontairement la plus
+  prudente du catalogue : une anomalie statistique est une presomption, pas
+  une compromission établie.
+rules:
+  - id: BA-01
+    label: Anomalie forte sur un compte identifié
+    when:
+      severity_min: high
+      user_present: true
+      confidence_min: 0.6
+    actions:
+      - verb: revoke_sessions
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          reason: "écart marque au comportement habituel"
+        expected_effect: >
+          L'entité doit se reauthentifier ; un détournement de session en
+          cours est interrompu sans immobiliser l'utilisateur.
+
+  - id: BA-02
+    label: Anomalie moderee — information seule
+    when:
+      severity_max: medium
+    actions:
+      - verb: notify
+        actuator: notify
+        target: "analyste"
+        parameters:
+          channel: analyst
+          severity: low
+          subject: "Anomalie comportementale moderee"
+          body: >
+            Un écart au profil de référence a été constaté. Aucune action
+            corrective n'a été engagee : le niveau d'écart ne justifie pas
+            d'intervenir sur le compte.

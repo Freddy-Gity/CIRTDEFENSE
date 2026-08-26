@@ -1,0 +1,38 @@
+id: pb-c1-elevation-privilege
+version: "2.0"
+category: privilege_escalation
+attack_code: C1
+description: >
+  C1 — Élévation de privilège anormale. Le catalogue prescrit exactement deux
+  gestes : révoquer le privilège accordé et rétablir le rôle antérieur. Ils
+  sont couverts par une action unique et réversible, qui memorise le rôle
+  d'origine avant de le retirer.
+rules:
+  - id: C1-01
+    label: Révocation du privilège et restauration du rôle antérieur
+    when:
+      user_present: true
+    actions:
+      - verb: revoke_privilege
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          privilege: "{indicators.privilege}"
+          previous_role: "{indicators.previous_role}"
+          reason: "changement de rôle hors processus habituel, sans ticket associe"
+        expected_effect: >
+          Le privilège accordé est retiré et le rôle antérieur rétabli.
+          L'action est réversible : le privilège peut être rendu si le
+          changement s'avere légitime.
+
+  - id: C1-02
+    label: Sessions ouvertes sous le privilège obtenu
+    when:
+      user_present: true
+      severity_min: high
+    actions:
+      - verb: revoke_sessions
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          reason: "sessions ouvertes avec un privilège obtenu hors processus"

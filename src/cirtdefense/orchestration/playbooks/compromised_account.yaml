@@ -1,0 +1,36 @@
+id: pb-c4-compte-compromis
+version: "1.0"
+category: compromised_account
+attack_code: C4
+description: >
+  C4 — Compte compromis (impossible travel, horaires atypiques). Les trois
+  actions du catalogue sont appliquées ensemble : suspendre, révoquer les
+  sessions, forcer le second facteur.
+rules:
+  - id: C4-01
+    label: Suspension et révocation
+    when:
+      user_present: true
+      confidence_min: 0.5
+    actions:
+      - verb: lock_account
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          duration_minutes: 120
+          reason: "connexions geographiquement incompatibles"
+        expected_effect: >
+          Le compte est verrouillé temporairement — le verrouillage expire de
+          lui-même, contrairement à une désactivation.
+
+      - verb: revoke_sessions
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          reason: "sessions potentiellement détournées"
+
+      - verb: force_mfa
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          reason: "vérification d'identité exigee à la reprise"

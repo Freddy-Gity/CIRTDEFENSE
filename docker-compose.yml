@@ -1,0 +1,62 @@
+services:
+  cirtdefense:
+    build: .
+    container_name: cirtdefense
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persistance obligatoire : etat du coupe-circuit, journal d'audit,
+      # file du mode degrade.
+      - cirt-data:/data
+      # Base de connaissance et playbooks montes en lecture seule : ils sont
+      # modifiables sans reconstruire l'image, mais pas par le conteneur.
+      - ./src/cirtdefense/enrichment/knowledge:/app/src/cirtdefense/enrichment/knowledge:ro
+      - ./src/cirtdefense/orchestration/playbooks:/app/src/cirtdefense/orchestration/playbooks:ro
+    environment:
+      CIRT_ENV: docker
+      CIRT_SITE_ID: cirt-cm-01
+
+      # --- Posture d'autonomie (EF-07) ---
+      CIRT_AUTONOMY_ENABLED: "true"
+      # `simulation` par defaut : passer a `live` engage des actions reelles
+      # sur les equipements. Ne le faire qu'apres avoir configure les clients
+      # d'actuateurs correspondants.
+      CIRT_ACTUATION_MODE: simulation
+
+      # --- Boucle de controle (EF-25) ---
+      CIRT_POST_ACTION_WATCH_SECONDS: "120"
+      CIRT_ROLLBACK_MAX_LATENCY_SECONDS: "180"
+
+      # --- Coupe-circuit (EF-26) ---
+      CIRT_CIRCUIT_BREAKER_ENABLED: "true"
+      CIRT_BREAKER_ROLLBACK_THRESHOLD: "3"
+      CIRT_BREAKER_WINDOW_SECONDS: "600"
+
+      # Jetons a remplacer imperativement avant tout deploiement.
+      CIRT_ADMIN_TOKEN: ${CIRT_ADMIN_TOKEN:-change-me-admin}
+      CIRT_ANALYST_TOKEN: ${CIRT_ANALYST_TOKEN:-change-me-analyst}
+    restart: unless-stopped
+
+  # Declencheur periodique de la boucle de controle (EF-25). Sans lui, la
+  # verification post-action n'a lieu qu'a la demande, et le rollback autonome
+  # ne serait pas reellement autonome.
+  boucle-de-controle:
+    build: .
+    container_name: cirtdefense-boucle
+    depends_on:
+      - cirtdefense
+    volumes:
+      - cirt-data:/data
+    environment:
+      CIRT_DB_PATH: /data/cirtdefense.db
+      CIRT_DEGRADED_SPOOL: /data/spool
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "while true; do
+         cirtd control-loop > /dev/null 2>&1 || true;
+         sleep 60;
+       done"
+    restart: unless-stopped
+
+volumes:
+  cirt-data:

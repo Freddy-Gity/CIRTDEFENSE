@@ -1,0 +1,99 @@
+name: Recette
+
+# Rejoue la suite complete a chaque push et sur chaque PR. Sans cette
+# execution automatique, les criteres de recette du CDCF §5 ne seraient
+# demontres que sur le poste du developpeur — ce qui ne prouve rien a un
+# relecteur.
+on:
+  push:
+    branches: ["main", "claude/**"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Installer la plateforme et ses outils
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Verifier le style
+        run: python -m ruff check src tests scripts
+
+      - name: Verifier le formatage
+        run: python -m ruff format --check src tests scripts
+
+      - name: Suite complete
+        run: python -m pytest -v
+
+      - name: Criteres de recette (CDCF §5)
+        run: python -m pytest tests/acceptance -v
+
+  demonstration:
+    name: Scenario de demonstration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Installer la plateforme
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      # Le scenario doit rester rejouable de bout en bout : c'est lui qui sera
+      # execute en soutenance. Une regression qui ne casserait aucun test
+      # unitaire mais empecherait la demonstration serait decouverte trop tard.
+      - name: Rejouer le scenario complet
+        run: python scripts/demo_attaque.py
+
+      - name: Verifier que la chaine d'audit reste intacte
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, "src")
+          from cirtdefense.platform import build_platform
+
+          platform = build_platform(db_path=":memory:")
+          try:
+              platform.ingest_and_respond("generic_json", {
+                  "category": "bruteforce", "severity": "high", "confidence": 0.8,
+                  "asset": {"asset_id": "srv-ci", "criticality": 3},
+                  "indicators": {"srcip": "41.202.1.9"},
+              })
+              verification = platform.ledger.verify_chain()
+              print(f"entrees verifiees : {verification.entries_checked}")
+              print(f"chaine intacte    : {verification.valid}")
+              if not verification.valid:
+                  raise SystemExit("chaine d'audit rompue : " + verification.detail)
+          finally:
+              platform.close()
+          PY

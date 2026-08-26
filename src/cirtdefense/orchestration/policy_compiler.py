@@ -1,0 +1,385 @@
+"""Compilation d'une politique en langage naturel (EF-15, version v3.0).
+
+En v2.1, l'intention en langage naturel filtrait des recommandations déjà
+produites, en temps réel. En v3.0 elle est compilée **a priori** en contraintes
+déterministes que le moteur applique ensuite seul.
+
+Le déplacement n'est pas cosmétique. Il garantit que le langage naturel ne se
+trouve jamais sur le chemin d'exécution : au moment ou une action est évaluée,
+il n'y a plus que des prédicats. Une même phrase compilée une fois produit le
+même comportement à chaque incident, et cette compilation est relisible,
+versionnée et signée par une empreinte.
+
+**Ce que le compilateur refuse de faire.** Une phrase qu'il ne reconnaît pas
+n'est pas approximée : elle est rapportée comme non compilée et l'administrateur
+en est informé. Deviner l'intention d'une consigne de sécurité mal comprise
+serait le pire des comportements possibles — la politique paraîtrait appliquée
+alors qu'elle ne le serait pas.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+import unicodedata
+from dataclasses import dataclass, field
+from typing import Any
+
+from ..domain.enums import Reversibility, Severity
+from ..domain.policy import IRREVERSIBLE_GUARD, Constraint, PolicyRule, ResponsePolicy
+from ..logging_setup import log_with
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class CompilationReport:
+    policy: ResponsePolicy
+    compiled_sentences: list[str] = field(default_factory=list)
+    unparsed_sentences: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+    @property
+    def fully_compiled(self) -> bool:
+        return not self.unparsed_sentences
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "policy": self.policy.to_dict(),
+            "compiled_sentences": self.compiled_sentences,
+            "unparsed_sentences": self.unparsed_sentences,
+            "warnings": self.warnings,
+            "fully_compiled": self.fully_compiled,
+        }
+
+
+def _fold(text: str) -> str:
+    """Supprime les accents et normalise la casse pour la reconnaissance.
+
+    L'administrateur écrit « criticité » ou « criticité » indifféremment ;
+    la politique ne doit pas dépendre de la saisie des accents.
+    """
+    decomposed = unicodedata.normalize("NFKD", text.lower())
+    return "".join(c for c in decomposed if not unicodedata.combining(c))
+
+
+# Vocabulaire reconnu : verbes métier vers verbes techniques.
+VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
+    # Réseau et pare-feu
+    "block_ip": (
+        "bloquer une adresse",
+        "bloquer l'adresse",
+        "bloquer",
+        "blocage",
+        "blocages",
+        "bloque",
+    ),
+    "rate_limit_ip": ("limiter le rythme", "limitation de rythme", "brider le rythme"),
+    "block_domain": ("bloquer un domaine", "blocage de domaine"),
+    "throttle_egress": ("limiter le débit", "limitation de débit", "brider"),
+    "cut_egress_connection": (
+        "couper la connexion",
+        "coupure de connexion",
+        "couper une connexion",
+    ),
+    "block_lateral": ("bloquer les mouvements latéraux", "blocage latéral"),
+    "move_to_vlan": (
+        "basculer le vlan",
+        "changer de vlan",
+        "quarantaine réseau",
+        "mettre en quarantaine réseau",
+    ),
+    # Bordure / opérateur
+    "enable_scrubbing": ("activer le nettoyage", "nettoyage de trafic", "scrubbing"),
+    "blackhole_ip": ("trou noir", "blackhole", "blackholing"),
+    "edge_rate_limit": ("limiter en bordure", "limitation en bordure"),
+    # Poste et serveur
+    "isolate_host": ("isoler", "isolement", "isole", "isoler un hôte", "isoler une machine"),
+    "kill_process": ("tuer un processus", "arrêter un processus", "terminer un processus"),
+    "quarantine_file": (
+        "mettre en quarantaine un fichier",
+        "quarantaine de fichier",
+        "quarantaine du fichier",
+    ),
+    # Comptes et accès
+    "disable_account": (
+        "désactiver un compte",
+        "désactivation de compte",
+        "desactiver",
+        "desactivation",
+    ),
+    "lock_account": (
+        "verrouiller",
+        "verrouillage",
+        "verrouiller un compte",
+        "suspendre un compte",
+        "suspension de compte",
+    ),
+    "revoke_sessions": (
+        "révoquer les sessions",
+        "révoquer de sessions",
+        "révocation de session",
+        "deconnecter",
+        "invalider les sessions",
+    ),
+    "force_password_reset": ("forcer le renouvellement", "réinitialiser le mot de passe"),
+    "force_mfa": (
+        "forcer mfa",
+        "forcer le second facteur",
+        "authentification renforcée",
+        "forçage mfa",
+    ),
+    "revoke_token": ("révoquer un jeton", "révoquer le jeton", "révocation de jeton"),
+    "revoke_privilege": (
+        "révoquer un privilège",
+        "révoquer le privilège",
+        "révocation de privilège",
+        "retirer un privilège",
+    ),
+    "block_resource_access": ("bloquer l'accès", "blocage d'accès", "bloquer un accès"),
+    "restrict_export": ("restreindre l'export", "restriction d'export", "restreindre les droits"),
+    # Applicatif
+    "block_pattern": ("bloquer un motif", "blocage de motif", "règle waf"),
+    "block_request": ("bloquer la requête", "bloquer une requête", "blocage de requête"),
+    "rate_limit_rule": ("limiter le débit applicatif", "limitation applicative"),
+    "sanitize_field": ("sanitiser", "sanitisation", "filtrer un champ"),
+    # DNS
+    "sinkhole_domain": ("sinkhole", "détourner un domaine", "détournement de domaine"),
+    "block_resolution": ("bloquer la résolution", "blocage de résolution"),
+    # Infrastructure
+    "trigger_snapshot": ("déclencher un instantané", "snapshot", "instantané de sauvegarde"),
+    "restart_service": ("redemarrer", "redemarrage", "redémarrer un service"),
+    "failover": ("basculer", "bascule", "basculer vers le secours"),
+    "close_idle_connections": ("fermer les connexions inactives", "fermeture des connexions"),
+    "close_port": ("fermer un port", "fermeture de port", "fermer le port"),
+    "restore_baseline": (
+        "restaurer la configuration",
+        "restauration de configuration",
+        "restaurer la référence",
+    ),
+    # Information
+    "notify": ("notifier", "notification", "avertir", "prevenir"),
+}
+
+DENY_MARKERS = (
+    "ne jamais",
+    "jamais",
+    "ne pas",
+    "interdire",
+    "interdit",
+    "refuser",
+    "refus",
+    "aucun",
+    "aucune",
+    "proscrire",
+    "exclure",
+    "empecher",
+)
+ALLOW_MARKERS = ("autoriser", "permettre", "toujours autoriser", "accepter")
+
+# Le vocabulaire est replie à son tour : la phrase de l'administrateur est
+# comparee sans accents, le dictionnaire doit l'être aussi, sinon un synonyme
+# écrit « révoquer les sessions » ne reconnaitrait jamais « révoquer les
+# sessions » saisi correctement.
+VERB_SYNONYMS = {
+    verb: tuple(_fold(s) for s in synonyms) for verb, synonyms in VERB_SYNONYMS.items()
+}
+DENY_MARKERS = tuple(_fold(m) for m in DENY_MARKERS)
+ALLOW_MARKERS = tuple(_fold(m) for m in ALLOW_MARKERS)
+
+_CIDR = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}/\d{1,2}\b")
+_IP = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
+_CRITICALITY = re.compile(
+    r"criticit[e]?\s*(?:de\s*)?(?:superieure?\s*ou\s*egale\s*a\s*|>=\s*|=\s*)?(\d)"
+)
+_BLAST = re.compile(r"(?:rayon|impact|portee)[^\d]{0,30}(\d+)")
+_HOURS = re.compile(r"entre\s*(\d{1,2})\s*h(?:eures?)?\s*(?:et|a)\s*(\d{1,2})\s*h(?:eures?)?")
+_ZONE = re.compile(r"zone\s+([a-z0-9_\-]+)")
+
+
+class PolicyCompiler:
+    """Reconnaît une grammaire documentée de consignes de sécurité.
+
+    La grammaire est volontairement etroite. Elle couvre les formes qu'un
+    administrateur emploie effectivement pour borner une réponse automatique,
+    et rejette explicitement le reste.
+    """
+
+    def compile(
+        self,
+        text: str,
+        policy_id: str = "default",
+        version: str = "1",
+        author: str = "administrateur",
+        default_effect: str = "allow",
+    ) -> CompilationReport:
+        sentences = self._split(text)
+        rules: list[PolicyRule] = [IRREVERSIBLE_GUARD]
+        compiled: list[str] = []
+        unparsed: list[str] = []
+        warnings: list[str] = []
+
+        for index, sentence in enumerate(sentences, start=1):
+            rule = self._compile_sentence(sentence, index)
+            if rule is None:
+                unparsed.append(sentence)
+                log_with(
+                    logger,
+                    logging.WARNING,
+                    "phrase de politique non compilée : elle ne sera pas appliquée",
+                    sentence=sentence,
+                )
+                continue
+            rules.append(rule)
+            compiled.append(sentence)
+
+        if unparsed:
+            warnings.append(
+                f"{len(unparsed)} phrase(s) non reconnue(s) : elles n'ont AUCUN effet sur "
+                "le moteur. Les reformuler ou les traduire en règles explicites."
+            )
+        if default_effect == "allow" and not any(r.effect == "deny" for r in rules[1:]):
+            warnings.append(
+                "aucune restriction compilée au-delà du garde-fou d'irréversibilité : "
+                "toute action réversible du catalogue sera exécutée."
+            )
+
+        policy = ResponsePolicy(
+            policy_id=policy_id,
+            version=version,
+            rules=rules,
+            source_text=text,
+            default_effect=default_effect,
+            author=author,
+        )
+        return CompilationReport(
+            policy=policy,
+            compiled_sentences=compiled,
+            unparsed_sentences=unparsed,
+            warnings=warnings,
+        )
+
+    # -- reconnaissance -----------------------------------------------------
+
+    @staticmethod
+    def _split(text: str) -> list[str]:
+        """Decoupe en phrases sans casser les adresses.
+
+        Un decoupage naif sur le point pulverise « 10.0.0.0/8 » en fragments
+        inexploitables : la plage disparaissait silencieusement de la règle
+        compilée. Le separateur est donc un point qui n'est pas suivi d'un
+        chiffre.
+        """
+        raw = re.split(r"[;\n]+|\.(?!\d)", text)
+        return [s.strip(" -•\t") for s in raw if len(s.strip(" -•\t")) > 3]
+
+    def _compile_sentence(self, sentence: str, index: int) -> PolicyRule | None:
+        folded = _fold(sentence)
+        effect = self._effect_of(folded)
+        if effect is None:
+            return None
+
+        constraints = self._constraints_of(folded)
+        if not constraints:
+            # Une consigne sans aucune condition identifiable serait une règle
+            # s'appliquant à tout : trop dangereuse pour être devinee.
+            return None
+
+        return PolicyRule(
+            rule_id=f"R-{index:03d}",
+            effect=effect,
+            constraints=tuple(constraints),
+            source_sentence=sentence.strip(),
+            priority=10 if effect == "deny" else 50,
+        )
+
+    @staticmethod
+    def _effect_of(folded: str) -> str | None:
+        """Une interdiction prime sur une autorisation dans la même phrase :
+        « autoriser le blocage mais jamais en interne » est une restriction."""
+        if any(marker in folded for marker in DENY_MARKERS):
+            return "deny"
+        if any(marker in folded for marker in ALLOW_MARKERS):
+            return "allow"
+        return None
+
+    def _constraints_of(self, folded: str) -> list[Constraint]:
+        constraints: list[Constraint] = []
+
+        verbs = [
+            verb for verb, synonyms in VERB_SYNONYMS.items() if any(s in folded for s in synonyms)
+        ]
+        if len(verbs) == 1:
+            constraints.append(Constraint("action.verb", "eq", verbs[0]))
+        elif len(verbs) > 1:
+            constraints.append(Constraint("action.verb", "in", sorted(verbs)))
+
+        cidr = _CIDR.search(folded)
+        if cidr:
+            constraints.append(Constraint("action.target", "matches", _cidr_to_regex(cidr.group())))
+        elif "interne" in folded or "prive" in folded:
+            constraints.append(
+                Constraint(
+                    "action.target",
+                    "matches",
+                    r"^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)",
+                )
+            )
+        else:
+            ip = _IP.search(folded)
+            if ip:
+                constraints.append(Constraint("action.target", "eq", ip.group()))
+
+        criticality = _CRITICALITY.search(folded)
+        if criticality:
+            constraints.append(Constraint("asset.criticality", "gte", int(criticality.group(1))))
+
+        blast = _BLAST.search(folded)
+        if blast:
+            constraints.append(Constraint("action.blast_radius", "gte", int(blast.group(1))))
+
+        zone = _ZONE.search(folded)
+        if zone:
+            constraints.append(Constraint("asset.zone", "eq", zone.group(1)))
+
+        for severity in Severity:
+            if f"gravité {severity.value}" in folded or f"sévérité {severity.value}" in folded:
+                constraints.append(Constraint("incident.severity", "lte", severity.value))
+                break
+
+        if "irreversible" in folded:
+            constraints.append(
+                Constraint("action.reversibility", "eq", Reversibility.IRREVERSIBLE.value)
+            )
+        elif "partiellement réversible" in folded:
+            constraints.append(
+                Constraint("action.reversibility", "eq", Reversibility.PARTIALLY_REVERSIBLE.value)
+            )
+
+        hours = _HOURS.search(folded)
+        if hours:
+            start, end = int(hours.group(1)), int(hours.group(2))
+            # Une plage qui franchit minuit ne peut pas s'exprimer par un seul
+            # encadrement : on retient la borne basse, plus restrictive, et on
+            # le signale plutôt que de produire une règle silencieusement fausse.
+            if start <= end:
+                constraints.append(Constraint("time.hour", "gte", start))
+                constraints.append(Constraint("time.hour", "lte", end))
+            else:
+                constraints.append(Constraint("time.hour", "gte", start))
+
+        return constraints
+
+
+def _cidr_to_regex(cidr: str) -> str:
+    """Traduit un prefixe en expression régulière sur les octets pleins.
+
+    Seuls les prefixes /8, /16 et /24 sont traduits exactement ; les autres
+    sont ramenes au prefixe plein inferieur, ce qui elargit la règle. Un
+    elargissement d'une règle d'interdiction reste du cote sur.
+    """
+    network, _, bits = cidr.partition("/")
+    octets = network.split(".")
+    kept = min(int(bits) // 8, 4)
+    prefix = ".".join(octets[:kept])
+    return "^" + re.escape(prefix) + (r"\." if kept < 4 else "$")

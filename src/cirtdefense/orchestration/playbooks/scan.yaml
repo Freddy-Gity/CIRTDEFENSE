@@ -1,0 +1,41 @@
+id: pb-a3-scan
+version: "2.0"
+category: scan
+attack_code: A3
+description: >
+  A3 — Balayage de reconnaissance. Gravité intrinseque basse, mais precurseur :
+  le catalogue prescrit le blocage temporaire de la source. La réponse reste
+  graduée pour une source interne, ou le balayage correspond fréquemment à un
+  outil d'inventaire légitime.
+rules:
+  - id: A3-01
+    label: Blocage temporaire de la source externe
+    when:
+      indicators_present: [srcip]
+      target_not_private: srcip
+    actions:
+      - verb: block_ip
+        actuator: firewall
+        target: "{indicators.srcip}"
+        parameters:
+          duration_minutes: 60
+          reason: "balayage de ports"
+        expected_effect: "La reconnaissance est interrompue."
+
+  - id: A3-02
+    label: Source interne — aucune action corrective
+    when:
+      indicators_present: [srcip]
+      target_private: srcip
+    actions:
+      - verb: notify
+        actuator: notify
+        target: "analyste"
+        parameters:
+          channel: analyst
+          severity: low
+          subject: "A3 — Balayage depuis une source interne"
+          body: >
+            Un balayage a été détecté depuis une adresse interne. Aucune action
+            corrective n'a été engagee : ce comportement correspond
+            fréquemment à un outil d'inventaire légitime.

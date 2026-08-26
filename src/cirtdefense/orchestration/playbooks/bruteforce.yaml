@@ -1,0 +1,75 @@
+id: pb-a4-bruteforce
+version: "2.0"
+category: bruteforce
+attack_code: A4
+description: >
+  A4 — Force brute et credential stuffing. Les trois actions prescrites par le
+  catalogue s'appliquent : verrouiller le compte cible, bloquer la source,
+  exiger un second facteur à la reprise.
+
+  Le verrouillage est préféré à la désactivation : il expire de lui-même et
+  gêne moins l'utilisateur légitime, ce que le catalogue signale comme l'effet
+  résiduel à assumer sur cette ligne.
+rules:
+  - id: A4-01
+    label: Blocage de la source externe
+    when:
+      confidence_min: 0.5
+      indicators_present: [srcip]
+      target_not_private: srcip
+    actions:
+      - verb: block_ip
+        actuator: firewall
+        target: "{indicators.srcip}"
+        parameters:
+          duration_minutes: 120
+          reason: "échecs d'authentification en rafale"
+        expected_effect: "Les tentatives depuis cette adresse cessent."
+
+  - id: A4-02
+    label: Verrouillage du compte cible et second facteur exige
+    when:
+      user_present: true
+    actions:
+      - verb: lock_account
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          duration_minutes: 60
+          reason: "compte cible par une attaque par force brute"
+        expected_effect: >
+          Le compte est verrouillé temporairement ; le verrouillage expire de
+          lui-même, contrairement à une désactivation.
+
+      - verb: force_mfa
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          reason: "vérification d'identité exigee à la reprise"
+
+  - id: A4-03
+    label: Succès après la rafale — sessions présumées compromises
+    when:
+      severity_min: high
+      user_present: true
+    actions:
+      - verb: revoke_sessions
+        actuator: iam
+        target: "{asset.user}"
+        parameters:
+          reason: "authentification réussie après une série d'échecs"
+
+  - id: A4-04
+    label: Source interne — limitation plutôt que blocage
+    when:
+      indicators_present: [srcip]
+      target_private: srcip
+    actions:
+      - verb: rate_limit_ip
+        actuator: firewall
+        target: "{indicators.srcip}"
+        parameters:
+          requests_per_minute: 10
+        expected_effect: >
+          Le rythme des tentatives devient inexploitable sans couper un usage
+          interne potentiellement légitime.

@@ -1,0 +1,53 @@
+id: pb-a1-ddos-volumetrique
+version: "1.0"
+category: ddos_volumetric
+attack_code: A1
+description: >
+  A1 — DDoS volumétrique. L'attenuation se joue en amont : le lien est saturé
+  avant d'atteindre nos équipements, donc aucune règle locale ne suffit.
+rules:
+  - id: A1-01
+    label: Activation du nettoyage de trafic en bordure
+    when:
+      severity_min: medium
+    actions:
+      - verb: enable_scrubbing
+        actuator: edge
+        target: "{asset.asset_id}"
+        parameters:
+          ttl_seconds: 900
+          reason: "pic de trafic entrant, saturation de bande passante"
+        expected_effect: "Le trafic est nettoyé avant d'atteindre le lien sature."
+
+  - id: A1-02
+    label: Trou noir sur la source en tête de volumétrie
+    when:
+      indicators_present: [srcip]
+      target_not_private: srcip
+    actions:
+      - verb: blackhole_ip
+        actuator: edge
+        target: "{indicators.srcip}"
+        parameters:
+          ttl_seconds: 900
+        expected_effect: >
+          La source majoritaire cesse d'être routée. La règle expire d'elle-même,
+          ce qui est la condition de sa réversibilité.
+
+  - id: A1-03
+    label: Attaque distribuee — l'attenuation locale ne suffit pas
+    when:
+      severity_min: high
+    actions:
+      - verb: notify
+        actuator: notify
+        target: "equipe-exploitation"
+        parameters:
+          channel: ops
+          severity: high
+          subject: "A1 — DDoS volumétrique, attenuation en bordure engagee"
+          body: >
+            Un DDoS volumétrique est en cours. Le nettoyage en bordure a été
+            engage. Si la saturation persiste, l'attenuation releve de
+            l'opérateur de transit : aucune action locale supplementaire n'est
+            engagee, celles-ci aggraveraient l'indisponibilité.

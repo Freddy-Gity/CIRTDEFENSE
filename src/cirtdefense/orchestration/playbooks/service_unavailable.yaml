@@ -1,0 +1,35 @@
+id: pb-d3-service-indisponible
+version: "1.0"
+category: service_unavailable
+attack_code: D3
+description: >
+  D3 — Service indisponible. Le catalogue autorise ici une action corrective,
+  contrairement à la dégradation de cause indeterminee : l'indisponibilité
+  constatée par sonde est un fait, pas une inférence.
+rules:
+  - id: D3-01
+    label: Bascule vers un nœud de secours si déclare
+    when:
+      indicators_present: [standby_node]
+    actions:
+      - verb: failover
+        actuator: service
+        target: "{asset.asset_id}"
+        parameters:
+          standby_node: "{indicators.standby_node}"
+          reason: "échecs répétés de la sonde de disponibilité"
+        expected_effect: "Le service repart sur le nœud de secours."
+
+  - id: D3-02
+    label: Redémarrage du service si sous contrôle
+    when:
+      severity_min: high
+    actions:
+      - verb: restart_service
+        actuator: service
+        target: "{asset.asset_id}"
+        parameters:
+          reason: "service injoignable"
+        expected_effect: >
+          Le service redemarre. L'interruption survenue pendant le redémarrage
+          ne se rattrape pas : c'est l'effet résiduel documente au catalogue.

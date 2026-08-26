@@ -1,0 +1,62 @@
+%% Vue des composants et de leurs dependances.
+%% Le domaine ne depend de rien : c'est ce qui rend ses invariants
+%% incontournables, quel que soit le chemin d'appel.
+
+graph TD
+    subgraph Entrees["Entrees"]
+        SRC["Sources externes<br/>Wazuh · Suricata · syslog"]
+        UEBA["UEBA<br/>EF-08 a EF-10"]
+        INFRA["Surveillance infra<br/>EF-21 a EF-23"]
+    end
+
+    subgraph Coeur["Chaine autonome"]
+        ADAPT["Adaptateur<br/>EF-18 a EF-20"]
+        ENR["Enrichissement + garde<br/>EF-03 · EF-04"]
+        PLAN["Planificateur<br/>EF-05 · EF-06"]
+        CAT["Catalogue reversibilite<br/>EF-14"]
+        POL["Politique compilee<br/>EF-15"]
+        CB["Coupe-circuit<br/>EF-26"]
+        EXEC["Executeur<br/>EF-07"]
+    end
+
+    subgraph Retour["Boucle de controle"]
+        WATCH["Surveillance post-action<br/>EF-25"]
+        RB["Rollback autonome<br/>EF-25"]
+    end
+
+    subgraph Sorties["Sorties"]
+        ACT["Actuateurs<br/>pare-feu · EDR · IAM · reseau"]
+        NOTIF["Notification a posteriori<br/>EF-13"]
+        AUDIT["Journal immuable"]
+    end
+
+    DOM["domain/<br/><i>invariants, aucune E/S</i>"]
+
+    SRC --> ADAPT
+    UEBA --> ADAPT
+    INFRA --> ADAPT
+    INFRA --> WATCH
+
+    ADAPT --> ENR --> PLAN --> POL --> CB --> EXEC
+    PLAN -.-> CAT
+    EXEC -.-> CAT
+    EXEC --> WATCH
+    EXEC --> ACT
+    EXEC --> NOTIF
+    WATCH --> RB --> ACT
+    RB --> CB
+
+    ADAPT --> AUDIT
+    ENR --> AUDIT
+    EXEC --> AUDIT
+    RB --> AUDIT
+    CB --> AUDIT
+
+    ADAPT -.-> DOM
+    PLAN -.-> DOM
+    EXEC -.-> DOM
+    RB -.-> DOM
+
+    style DOM stroke-width:3px
+    style EXEC stroke-width:3px
+    style CB stroke-dasharray: 5 5

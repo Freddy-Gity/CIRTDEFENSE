@@ -1,0 +1,36 @@
+id: pb-dos
+version: "1.0"
+category: dos
+description: >
+  Attenuation locale d'un déni de service. Le playbook assume sa limite :
+  contre une attaque volumétrique distribuee, aucune action locale ne suffit.
+rules:
+  - id: DOS-01
+    label: Sources peu nombreuses et identifiées
+    when:
+      indicators_present: [srcip]
+      target_not_private: srcip
+    actions:
+      - verb: rate_limit_ip
+        actuator: firewall
+        target: "{indicators.srcip}"
+        parameters:
+          requests_per_minute: 5
+
+  - id: DOS-02
+    label: Attaque distribuee — constat et notification
+    when:
+      severity_min: high
+    actions:
+      - verb: notify
+        actuator: notify
+        target: "equipe-exploitation"
+        parameters:
+          channel: ops
+          severity: high
+          subject: "Déni de service — attenuation locale insuffisante"
+          body: >
+            Un déni de service est en cours. Les moyens locaux ne permettent
+            pas de l'attenuer : l'attenuation releve de l'opérateur de
+            transit. Aucune action susceptible d'aggraver l'indisponibilité
+            n'a été engagee.

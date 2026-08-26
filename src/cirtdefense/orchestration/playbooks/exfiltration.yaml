@@ -1,0 +1,60 @@
+id: pb-a5-exfiltration
+version: "2.0"
+category: exfiltration
+attack_code: A5
+description: >
+  A5 — Exfiltration de données. La donnée est potentiellement déjà partie :
+  le catalogue prescrit la coupure de la connexion sortante puis la mise en
+  quarantaine réseau de l'hôte source.
+rules:
+  - id: A5-01
+    label: Coupure de la connexion sortante
+    when:
+      indicators_present: [dest_ip]
+      target_not_private: dest_ip
+    actions:
+      - verb: cut_egress_connection
+        actuator: network
+        target: "{asset.asset_id}"
+        parameters:
+          destination: "{indicators.dest_ip}"
+          reason: "transfert sortant anormal"
+        expected_effect: "Le transfert en cours est interrompu."
+
+      - verb: block_ip
+        actuator: firewall
+        target: "{indicators.dest_ip}"
+        parameters:
+          direction: egress
+          reason: "destination d'exfiltration"
+        expected_effect: "La destination devient injoignable, y compris en reprise."
+
+  - id: A5-02
+    label: Quarantaine réseau de l'hôte source
+    when:
+      severity_min: high
+    actions:
+      - verb: move_to_vlan
+        actuator: network
+        target: "{asset.asset_id}"
+        parameters:
+          vlan: quarantine
+          previous_vlan: vlan-production
+          reason: "hôte source d'une exfiltration"
+        expected_effect: >
+          L'hôte est isolé du réseau. Le catalogue qualifie l'action de
+          partiellement réversible : l'interruption de service est assumee.
+
+  - id: A5-03
+    label: Destination non identifiée — limitation du débit sortant
+    when:
+      severity_min: high
+      indicators_absent: [dest_ip]
+    actions:
+      - verb: throttle_egress
+        actuator: network
+        target: "{asset.asset_id}"
+        parameters:
+          bandwidth_mbps: 1
+          previous_bandwidth_mbps: 1000
+        expected_effect: "Le transfert devient trop lent pour aboutir."
