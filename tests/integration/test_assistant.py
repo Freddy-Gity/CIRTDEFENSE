@@ -417,3 +417,118 @@ class TestSuitesProposees:
 
         reponse = platform.assistant.ask("Fais le bilan du jour")
         assert any("annul" in s.lower() for s in reponse.follow_ups)
+
+
+class TestHistoriqueDesConversations:
+    """Conservées pour retrouver un échange de la veille — pas comme trace
+    opposable : ce qui engage la plateforme est au journal d'audit."""
+
+    def test_une_conversation_est_conservee(self, client):
+        client.post(
+            "/api/v1/assistant/ask",
+            json={"question": "Fais le bilan du jour", "conversation_id": "c1"},
+        )
+        liste = client.get("/api/v1/assistant/conversations").json()
+
+        assert liste["count"] == 1
+        fil = liste["conversations"][0]
+        assert fil["conversation_id"] == "c1"
+        assert fil["title"] == "Fais le bilan du jour"
+        assert fil["kind"] == "bilan"
+        assert fil["turns"] == 1
+
+    def test_le_genre_suit_l_intention_metier(self, client):
+        client.post(
+            "/api/v1/assistant/ask",
+            json={"question": "Déclenche une simulation de rançongiciel", "conversation_id": "c2"},
+        )
+        fil = client.get("/api/v1/assistant/conversations").json()["conversations"][0]
+        assert fil["kind"] == "simulation"
+
+    def test_un_bonjour_ne_fait_ni_titre_ni_genre(self, client):
+        """« bonjour » ne dit rien de ce dont on a parlé : le titre doit
+        attendre la première vraie question."""
+        client.post("/api/v1/assistant/ask", json={"question": "Bonjour", "conversation_id": "c3"})
+        client.post(
+            "/api/v1/assistant/ask",
+            json={"question": "Combien d'annulations ?", "conversation_id": "c3"},
+        )
+        fil = client.get("/api/v1/assistant/conversations").json()["conversations"][0]
+        assert fil["title"] == "Combien d'annulations ?"
+        assert fil["kind"] == "bilan"
+
+    def test_relecture_restitue_les_messages(self, client):
+        client.post(
+            "/api/v1/assistant/ask",
+            json={"question": "Fais le bilan du jour", "conversation_id": "c4"},
+        )
+        fil = client.get("/api/v1/assistant/conversations/c4").json()
+
+        assert len(fil["messages"]) == 2
+        assert fil["messages"][0]["role"] == "humain"
+        assert fil["messages"][1]["role"] == "assistant"
+        # La trace est conservée : une conversation relue reste contestable.
+        assert fil["messages"][1]["payload"]["reasoning"]
+
+    def test_filtre_par_genre(self, client):
+        for identifiant, question in [
+            ("f1", "Fais le bilan du jour"),
+            ("f2", "Déclenche une simulation de scan"),
+        ]:
+            client.post(
+                "/api/v1/assistant/ask",
+                json={"question": question, "conversation_id": identifiant},
+            )
+
+        simulations = client.get("/api/v1/assistant/conversations?kind=simulation").json()
+        assert [c["conversation_id"] for c in simulations["conversations"]] == ["f2"]
+
+    def test_filtre_par_fenetre_d_activite(self, client):
+        client.post(
+            "/api/v1/assistant/ask",
+            json={"question": "Fais le bilan du jour", "conversation_id": "f3"},
+        )
+        assert client.get("/api/v1/assistant/conversations?activity=24h").json()["count"] == 1
+
+    def test_fenetre_inconnue_refusee(self, client):
+        assert client.get("/api/v1/assistant/conversations?activity=3ans").status_code == 400
+
+    def test_archivage_et_reactivation(self, client):
+        client.post(
+            "/api/v1/assistant/ask",
+            json={"question": "Fais le bilan du jour", "conversation_id": "f4"},
+        )
+        client.post("/api/v1/assistant/conversations/f4/archive")
+
+        assert client.get("/api/v1/assistant/conversations").json()["count"] == 0
+        archivees = client.get("/api/v1/assistant/conversations?status=archived").json()
+        assert archivees["count"] == 1
+
+        client.post("/api/v1/assistant/conversations/f4/archive?archived=false")
+        assert client.get("/api/v1/assistant/conversations").json()["count"] == 1
+
+    def test_suppression(self, client):
+        client.post(
+            "/api/v1/assistant/ask",
+            json={"question": "Fais le bilan du jour", "conversation_id": "f5"},
+        )
+        assert client.delete("/api/v1/assistant/conversations/f5").status_code == 200
+        assert client.get("/api/v1/assistant/conversations/f5").status_code == 404
+
+    def test_supprimer_une_discussion_n_efface_pas_le_journal(self, client, bruteforce_payload):
+        """Le point à ne pas confondre : effacer la discussion qui a demandé
+        une action n'efface pas l'action."""
+        client.post("/api/v1/events", json={"source": "wazuh", "payload": bruteforce_payload})
+        avant = client.get("/api/v1/audit?limit=200").json()["count"]
+
+        client.post(
+            "/api/v1/assistant/ask",
+            json={"question": "Fais le bilan du jour", "conversation_id": "f6"},
+        )
+        client.delete("/api/v1/assistant/conversations/f6")
+
+        apres = client.get("/api/v1/audit?limit=200").json()["count"]
+        assert apres >= avant
+
+    def test_conversation_inconnue(self, client):
+        assert client.get("/api/v1/assistant/conversations/inexistante").status_code == 404

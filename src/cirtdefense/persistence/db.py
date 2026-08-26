@@ -113,6 +113,36 @@ CREATE TABLE IF NOT EXISTS policies (
     PRIMARY KEY (policy_id, version)
 );
 
+-- Conversations avec l'assistant. Elles sont conservees pour que l'analyste
+-- retrouve un echange de la veille, pas comme trace opposable : ce qui engage
+-- la plateforme est au journal d'audit, qui lui est immuable. Une conversation
+-- s'archive et se supprime ; une entree d'audit, jamais.
+CREATE TABLE IF NOT EXISTS conversations (
+    conversation_id TEXT PRIMARY KEY,
+    title           TEXT NOT NULL DEFAULT '',
+    kind            TEXT NOT NULL DEFAULT 'echange',
+    status          TEXT NOT NULL DEFAULT 'active',
+    started_at      TEXT NOT NULL,
+    last_activity   TEXT NOT NULL,
+    turns           INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_conversations_activite
+    ON conversations(status, last_activity DESC);
+
+CREATE TABLE IF NOT EXISTS conversation_messages (
+    seq             INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id TEXT NOT NULL,
+    role            TEXT NOT NULL,
+    text            TEXT NOT NULL,
+    intent          TEXT NOT NULL DEFAULT '',
+    at              TEXT NOT NULL,
+    payload         TEXT NOT NULL DEFAULT '{}',
+    FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id)
+        ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation
+    ON conversation_messages(conversation_id, seq);
+
 -- Parc surveille declare a la main par l'administrateur. Le parc de
 -- demonstration reste code en dur ; cette table le complete, elle ne le
 -- remplace pas, pour qu'une demonstration parte toujours d'un parc non vide.

@@ -466,3 +466,120 @@ class MonitoredTargetRepository:
             "DELETE FROM monitored_targets WHERE target_id = ?", (target_id,)
         )
         return cursor.rowcount > 0
+
+
+class ConversationRepository:
+    """Conversations avec l'assistant.
+
+    Conservees pour que l'analyste retrouve un échange de la veille, pas comme
+    trace opposable : ce qui engage la plateforme est au journal d'audit, qui
+    lui est immuable. Une conversation s'archive et se supprime ; une entrée
+    d'audit, jamais. Confondre les deux serait grave — on croirait pouvoir
+    effacer une action en effaçant la discussion qui l'a demandée.
+    """
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def toucher(self, conversation_id: str, *, titre: str = "", genre: str = "") -> None:
+        """Crée la conversation si besoin, et repousse sa dernière activité."""
+        maintenant = datetime.now(UTC).isoformat()
+        self._conn.execute(
+            """INSERT INTO conversations
+               (conversation_id, title, kind, status, started_at, last_activity, turns)
+               VALUES (?, ?, ?, 'active', ?, ?, 0)
+               ON CONFLICT(conversation_id) DO UPDATE SET
+                 last_activity = excluded.last_activity,
+                 title = CASE WHEN conversations.title = '' THEN excluded.title
+                              ELSE conversations.title END,
+                 kind  = CASE WHEN excluded.kind <> '' THEN excluded.kind
+                              ELSE conversations.kind END""",
+            (conversation_id, titre, genre or "echange", maintenant, maintenant),
+        )
+
+    def ajouter_message(
+        self,
+        conversation_id: str,
+        role: str,
+        texte: str,
+        *,
+        intent: str = "",
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        self._conn.execute(
+            """INSERT INTO conversation_messages
+               (conversation_id, role, text, intent, at, payload)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                conversation_id,
+                role,
+                texte,
+                intent,
+                datetime.now(UTC).isoformat(),
+                json.dumps(payload or {}, default=str),
+            ),
+        )
+        if role == "humain":
+            self._conn.execute(
+                "UPDATE conversations SET turns = turns + 1 WHERE conversation_id = ?",
+                (conversation_id,),
+            )
+
+    def lister(
+        self,
+        *,
+        genre: str = "tous",
+        depuis: datetime | None = None,
+        statut: str = "active",
+        limit: int = 60,
+    ) -> list[dict[str, Any]]:
+        clauses, parametres = ["turns > 0"], []
+        if statut != "tous":
+            clauses.append("status = ?")
+            parametres.append(statut)
+        if genre != "tous":
+            clauses.append("kind = ?")
+            parametres.append(genre)
+        if depuis is not None:
+            clauses.append("last_activity >= ?")
+            parametres.append(depuis.isoformat())
+
+        rows = self._conn.execute(
+            f"""SELECT * FROM conversations WHERE {" AND ".join(clauses)}
+                ORDER BY last_activity DESC LIMIT ?""",
+            (*parametres, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get(self, conversation_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT * FROM conversations WHERE conversation_id = ?", (conversation_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        messages = self._conn.execute(
+            """SELECT role, text, intent, at, payload FROM conversation_messages
+               WHERE conversation_id = ? ORDER BY seq""",
+            (conversation_id,),
+        ).fetchall()
+        conversation = dict(row)
+        conversation["messages"] = [
+            {**dict(m), "payload": json.loads(m["payload"] or "{}")} for m in messages
+        ]
+        return conversation
+
+    def archiver(self, conversation_id: str, *, archivee: bool = True) -> bool:
+        curseur = self._conn.execute(
+            "UPDATE conversations SET status = ? WHERE conversation_id = ?",
+            ("archived" if archivee else "active", conversation_id),
+        )
+        return curseur.rowcount > 0
+
+    def supprimer(self, conversation_id: str) -> bool:
+        self._conn.execute(
+            "DELETE FROM conversation_messages WHERE conversation_id = ?", (conversation_id,)
+        )
+        curseur = self._conn.execute(
+            "DELETE FROM conversations WHERE conversation_id = ?", (conversation_id,)
+        )
+        return curseur.rowcount > 0
