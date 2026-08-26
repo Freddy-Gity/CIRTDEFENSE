@@ -341,8 +341,166 @@ h2:first-child { margin-top: 0; }
 @keyframes chat-entre { from { opacity: 0; transform: translateY(14px) scale(.98) } }
 #chat.plein {
   right: 50%; bottom: 50%; transform: translate(50%, 50%);
-  width: min(calc(100vw - 64px), 860px); height: min(calc(100vh - 64px), 900px);
+  width: min(calc(100vw - 64px), 1180px); height: min(calc(100vh - 64px), 920px);
+  flex-direction: row;
 }
+#corps-chat { display: flex; flex-direction: column; flex: 1; min-width: 0; overflow: hidden; }
+
+/* ------------------------ barre laterale de l'assistant -----------------
+   Elle n'apparait qu'en grand ecran : dans une bulle de 440 px, un rail
+   d'historique prendrait la place du fil qu'il sert a retrouver. */
+#rail-chat { display: none; }
+#chat.plein #rail-chat {
+  display: flex; flex-direction: column; width: 252px; flex: none;
+  border-right: 1px solid var(--grid); background: var(--rail);
+}
+.marque-chat {
+  display: flex; align-items: center; gap: 9px; padding: 15px 15px 12px;
+}
+.marque-chat .logo {
+  width: 26px; height: 26px; border-radius: 7px; flex: none;
+  background: var(--accent); color: #fff;
+  display: grid; place-items: center; font-weight: 700; font-size: 13px;
+}
+/* Meme police que la marque, corps reduit : l'assistant se presente comme une
+   piece de la plateforme, pas comme un produit voisin. */
+.marque-chat .nom { font-weight: 700; font-size: 14px; letter-spacing: .01em; }
+.marque-chat .sous-nom {
+  font-weight: 700; font-size: 9.5px; letter-spacing: .14em;
+  color: var(--ink-muted); margin-top: 1px;
+}
+
+.barre-outils {
+  display: flex; align-items: center; gap: 4px; padding: 0 11px 11px;
+}
+.barre-outils > button, .barre-outils .menu > button {
+  border: 1px solid var(--grid); background: var(--surface-1); color: var(--ink-2);
+  border-radius: 8px; cursor: pointer; padding: 6px; display: grid; place-items: center;
+  position: relative;
+}
+.barre-outils button:hover { border-color: var(--accent); color: var(--accent); }
+.barre-outils svg { width: 15px; height: 15px; }
+.barre-outils .neuf {
+  margin-left: auto; display: flex; gap: 5px; align-items: center;
+  padding: 6px 10px; font-size: 12px; font-weight: 600;
+}
+.pastille-filtre {
+  position: absolute; top: -3px; right: -3px; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--accent);
+}
+
+.entete-fils {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: none; border: none; cursor: pointer; color: var(--ink-muted);
+  padding: 6px 14px; font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em;
+}
+.entete-fils .chevron {
+  width: 13px; height: 13px; margin-left: auto; transition: transform .18s ease;
+}
+.entete-fils[aria-expanded="false"] .chevron { transform: rotate(-90deg); }
+
+#fils { flex: 1; overflow-y: auto; padding: 2px 9px 12px; display: flex;
+        flex-direction: column; gap: 1px; }
+#fils[hidden] { display: none; }
+.fil-item {
+  display: block; width: 100%; text-align: left; border: none; background: none;
+  padding: 7px 9px; border-radius: 8px; cursor: pointer; color: var(--ink-1);
+}
+.fil-item:hover { background: var(--surface-1); }
+.fil-item[aria-current="true"] {
+  background: var(--surface-1); box-shadow: inset 2px 0 0 var(--accent);
+}
+.fil-item .titre-fil {
+  font-size: 12.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fil-item .meta-fil {
+  font-size: 10.5px; color: var(--ink-muted); margin-top: 2px;
+  display: flex; align-items: center; gap: 6px;
+}
+.genre {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  padding: 0 5px; border-radius: 4px; border: 1px solid var(--grid); color: var(--ink-muted);
+}
+.genre.simulation { color: var(--fam-B); border-color: color-mix(in srgb, var(--fam-B) 40%, transparent); }
+.genre.rapport { color: var(--fam-A); border-color: color-mix(in srgb, var(--fam-A) 40%, transparent); }
+.genre.bilan { color: var(--fam-C); border-color: color-mix(in srgb, var(--fam-C) 40%, transparent); }
+.fil-vide { padding: 14px 11px; font-size: 12px; color: var(--ink-muted); }
+
+/* menu de filtres : ancre a gauche, sinon il deborde du panneau et retombe
+   par-dessus la barre laterale de l'application. */
+/* Le menu est cale sur le bord du rail, pas sur son bouton : ancre au bouton,
+   il depasserait des 252 px de la colonne et se ferait rogner. */
+#menu-filtres .menu-liste { left: -31px; right: auto; z-index: 90; }
+.menu-liste.large { min-width: 214px; max-width: 218px; padding: 9px; }
+.groupe-filtre + .groupe-filtre { margin-top: 11px; }
+.groupe-filtre > b {
+  display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--ink-muted); margin-bottom: 5px;
+}
+.choix { display: flex; flex-wrap: wrap; gap: 4px; }
+.choix button {
+  font-size: 11.5px; padding: 3px 9px; border-radius: 13px;
+  border: 1px solid var(--grid); background: var(--surface-1);
+  color: var(--ink-2); cursor: pointer;
+}
+.choix button[aria-pressed="true"] {
+  border-color: var(--accent); color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface-1));
+}
+
+/* --------------------------- ecran d'accueil ----------------------------
+   Une conversation commence par une page blanche et une invitation, pas par
+   un rapport que personne n'a demande. */
+.accueil {
+  flex: 1; display: flex; flex-direction: column; justify-content: center;
+  align-items: center; gap: 18px; padding: 24px; text-align: center;
+}
+.accueil .salut {
+  font-size: 27px; font-weight: 300; letter-spacing: -.01em; color: var(--ink-1);
+}
+.accueil .salut b { font-weight: 600; }
+.accueil .invite { font-size: 13px; color: var(--ink-muted); max-width: 420px; }
+.accueil .amorces { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center;
+                    max-width: 520px; }
+.accueil .amorces button {
+  font-size: 12px; padding: 7px 13px; border-radius: 16px;
+  border: 1px solid var(--grid); background: var(--surface-1);
+  color: var(--ink-2); cursor: pointer;
+}
+.accueil .amorces button:hover { border-color: var(--accent); color: var(--accent); }
+
+/* saisie centree tant que la conversation n'a pas commence */
+#chat.vierge #saisie-chat {
+  border-top: none; padding: 0 24px 34px; max-width: 660px;
+  margin: 0 auto; width: 100%;
+}
+#chat.vierge #fil { justify-content: center; }
+
+/* accuse de reception : la phrase qui precede le travail */
+.ack {
+  font-size: 13px; color: var(--ink-2); font-style: italic;
+  animation: etape-entre .22s ease-out;
+}
+
+/* historique detaille, dans le corps du panneau */
+.table-fils { width: 100%; }
+.ligne-fil {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 11px 12px; border: none; border-bottom: 1px solid var(--grid);
+  background: none; color: var(--ink-1); cursor: pointer;
+}
+.ligne-fil:hover { background: var(--plane); }
+.ligne-fil .quand { font-size: 11.5px; color: var(--ink-muted); white-space: nowrap; }
+.ligne-fil .titre-fil { flex: 1; font-size: 13px; }
+.ligne-fil .outils-fil { display: flex; gap: 2px; opacity: 0; }
+.ligne-fil:hover .outils-fil { opacity: 1; }
+.ligne-fil .outils-fil button {
+  border: none; background: none; color: var(--ink-muted); cursor: pointer;
+  padding: 4px 6px; border-radius: 6px; font-size: 11px;
+}
+.ligne-fil .outils-fil button:hover { background: var(--surface-1); color: var(--ink-1); }
 #chat header {
   display: flex; align-items: center; gap: 9px; padding: 12px 14px;
   border-bottom: 1px solid var(--grid); flex: none;
@@ -623,6 +781,48 @@ a { color: var(--accent); }
 </button>
 
 <section id="chat" hidden aria-label="Assistant d'exploitation">
+  <aside id="rail-chat">
+    <div class="marque-chat">
+      <div class="logo">C</div>
+      <div>
+        <div class="nom">CIRTDEFENSE</div>
+        <div class="sous-nom">ASSISTANT</div>
+      </div>
+    </div>
+
+    <div class="barre-outils">
+      <button id="voir-historique" title="Voir tout l'historique"
+              aria-label="Voir tout l'historique">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </button>
+      <div class="menu" id="menu-filtres">
+        <button id="filtrer" title="Filtrer les discussions" aria-haspopup="true"
+                aria-expanded="false" aria-label="Filtrer les discussions">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 4h18l-7 8v6l-4 2v-8z"/></svg>
+          <span class="pastille-filtre" id="compte-filtres" hidden></span>
+        </button>
+        <div class="menu-liste large" id="filtres-liste" hidden></div>
+      </div>
+      <button id="nouvelle-discussion" class="neuf" title="Nouvelle discussion">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+        Nouvelle
+      </button>
+    </div>
+
+    <button class="entete-fils" id="basculer-fils" aria-expanded="true">
+      <span>Discussions &amp; Tâches</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" class="chevron"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <div id="fils"></div>
+  </aside>
+
+  <div id="corps-chat">
   <header>
     <span class="jeton-chat"></span>
     <div>
@@ -659,6 +859,7 @@ a { color: var(--accent); }
           <path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
       </button>
     </div>
+  </div>
   </div>
 </section>
 

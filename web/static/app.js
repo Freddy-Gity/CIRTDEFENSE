@@ -1531,6 +1531,7 @@ function ouvrirChat() {
   $("lanceur-chat").hidden = true;
   $("question").focus();
   if (!$("fil").children.length) accueil();
+  chargerFils();
 }
 
 function fermerChat() {
@@ -1543,13 +1544,16 @@ function fermerChat() {
 $("lanceur-chat").addEventListener("click", ouvrirChat);
 $("fermer-chat").addEventListener("click", fermerChat);
 $("agrandir").addEventListener("click", () => $("chat").classList.toggle("plein"));
-$("vider-chat").addEventListener("click", () => {
+const nouvelleDiscussion = () => {
   // Un fil neuf cote serveur aussi : sinon la nouvelle conversation heriterait
   // du contexte de l'ancienne sans que rien ne l'indique a l'ecran.
   filId = `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   $("fil").innerHTML = "";
   accueil();
-});
+  chargerFils();
+};
+$("vider-chat").addEventListener("click", nouvelleDiscussion);
+$("nouvelle-discussion").addEventListener("click", nouvelleDiscussion);
 
 // -- fil de discussion -------------------------------------------------------
 
@@ -1572,9 +1576,14 @@ function tour(role, contenu = "") {
 
 // Le pied n'apparait qu'une fois le message ecrit : horodater un texte encore
 // en cours de frappe donnerait une heure fausse.
-function poserPied(bloc, { avecOutils = true } = {}) {
+function poserPied(bloc, { avecOutils = true, heure = null } = {}) {
   const pied = bloc.querySelector(".pied-message");
-  pied.innerHTML = `<span class="heure">${maintenant()}</span>` + (avecOutils ? `
+  // Une conversation relue porte l'heure d'origine, pas celle de la relecture :
+  // horodater a la relecture donnerait une chronologie fausse.
+  const marque = heure
+    ? new Date(heure).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+    : maintenant();
+  pied.innerHTML = `<span class="heure">${marque}</span>` + (avecOutils ? `
     <span class="outils">
       <button data-outil="copier" title="Copier le message" aria-label="Copier">
         ${iconeChat("copier")}</button>
@@ -1630,22 +1639,39 @@ function poserPied(bloc, { avecOutils = true } = {}) {
 
 const defiler = () => { $("fil").scrollTop = $("fil").scrollHeight; };
 
-async function accueil() {
-  const bloc = tour("machine", '<span class="curseur"></span>');
-  try {
-    const [brief, pistes] = await Promise.all([
-      api("/api/v1/assistant/brief"),
-      api("/api/v1/assistant/suggestions"),
-    ]);
-    await ecrire(bloc.querySelector(".bulle"), brief.text);
-    poserPied(bloc);
-    afficherPistes(pistes.suggestions);
-  } catch (e) {
-    bloc.querySelector(".bulle").innerHTML =
-      `<span style="color:var(--critical)">${esc(e.message)}</span>`;
-    poserPied(bloc, { avecOutils: false });
-  }
-  defiler();
+// Salutation selon l'heure. Rien d'autre : ouvrir l'assistant n'est pas
+// demander un bilan, et lui en servir un d'office impose une lecture que
+// personne n'a sollicitee.
+function salutationDuMoment() {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return "Bonjour";
+  if (h >= 12 && h < 18) return "Bon après-midi";
+  if (h >= 18 && h < 22) return "Bonsoir";
+  return "Belle nuitée";
+}
+
+const AMORCES = [
+  "Fais le bilan des opérations du jour",
+  "Déclenche une simulation de rançongiciel",
+  "Quelle est la posture d'autonomie ?",
+  "Génère un rapport sur 7 jours",
+];
+
+function accueil() {
+  $("chat").classList.add("vierge");
+  $("pistes").innerHTML = "";
+  $("fil").innerHTML = `
+    <div class="accueil">
+      <div class="salut">${esc(salutationDuMoment())}<b>.</b></div>
+      <div class="invite">Posez votre question, ou choisissez une piste.
+        Je m'appuie uniquement sur les données de la plateforme.</div>
+      <div class="amorces">
+        ${AMORCES.map((a) => `<button data-q="${esc(a)}">${esc(a)}</button>`).join("")}
+      </div>
+    </div>`;
+  $("fil").querySelectorAll("[data-q]").forEach((b) =>
+    b.addEventListener("click", () => envoyer(b.dataset.q)));
+  $("question").focus();
 }
 
 // Ecriture progressive du message d'accueil : il n'arrive pas par le flux,
@@ -1684,6 +1710,10 @@ function envoyer(question) {
   $("question").value = "";
   $("question").style.height = "auto";
   $("pistes").innerHTML = "";
+  if ($("chat").classList.contains("vierge")) {
+    $("chat").classList.remove("vierge");
+    $("fil").innerHTML = "";
+  }
 
   poserPied(tour("humain", esc(question)), { avecOutils: false });
 
@@ -1707,6 +1737,11 @@ function envoyer(question) {
   flux.onmessage = (e) => {
     const ev = JSON.parse(e.data);
     switch (ev.type) {
+      case "ack":
+        bloc.querySelector(".signature").insertAdjacentHTML("afterend",
+          `<div class="ack">${esc(ev.text)}</div>`);
+        defiler();
+        break;
       case "thinking": {
         reflexion.querySelectorAll(".etape.encours")
           .forEach((x) => x.className = "etape faite");
@@ -1747,6 +1782,7 @@ function envoyer(question) {
         }
         poserPied(bloc);
         terminer(ev);
+        chargerFils();
         if (ev.intent === "simulation") rafraichir();
         break;
     }
@@ -1816,3 +1852,228 @@ $("question").addEventListener("input", () => {
   zone.style.height = "auto";
   zone.style.height = Math.min(zone.scrollHeight, 132) + "px";
 });
+
+
+// ====================================================== historique des fils
+// Trois axes de filtrage, ceux dont on se sert reellement en poste : de quoi
+// parlait la conversation, quand a-t-elle vecu, est-elle encore courante.
+
+const FILTRES = { kind: "tous", activity: "tous", status: "active" };
+
+const AXES = [
+  { cle: "kind", titre: "Type de conversation", options: [
+    ["tous", "Tous"], ["bilan", "Bilan"], ["simulation", "Simulation"],
+    ["rapport", "Rapports"], ["echange", "Échange"]] },
+  { cle: "activity", titre: "Dernière activité", options: [
+    ["24h", "24 h"], ["7d", "7 jours"], ["21d", "21 jours"],
+    ["30d", "30 jours"], ["tous", "Tous"]] },
+  { cle: "status", titre: "Statut", options: [
+    ["active", "Active"], ["archived", "Archivée"], ["tous", "Tous"]] },
+];
+
+const PAR_DEFAUT = { kind: "tous", activity: "tous", status: "active" };
+const filtresActifs = () =>
+  AXES.filter(({ cle }) => FILTRES[cle] !== PAR_DEFAUT[cle]).length;
+
+let filsConnus = [];
+
+async function chargerFils() {
+  const requete = new URLSearchParams(FILTRES).toString();
+  try {
+    const { conversations } = await api(`/api/v1/assistant/conversations?${requete}`);
+    filsConnus = conversations;
+    peuplerFils(conversations);
+  } catch {
+    // L'historique est un confort : son absence ne doit pas empecher de
+    // converser. On laisse la liste en l'etat plutot que d'afficher une erreur.
+  }
+}
+
+function peuplerFils(conversations) {
+  if (!conversations.length) {
+    $("fils").innerHTML = '<div class="fil-vide">Aucune discussion pour ces filtres.</div>';
+    return;
+  }
+  $("fils").innerHTML = conversations.map((c) => `
+    <button class="fil-item" data-fil="${esc(c.conversation_id)}"
+            aria-current="${c.conversation_id === filId}">
+      <div class="titre-fil">${esc(c.title || "Discussion")}</div>
+      <div class="meta-fil">
+        <span class="genre ${esc(c.kind)}">${esc(c.kind)}</span>
+        <span>${quand(c.last_activity)}</span>
+        ${c.status === "archived" ? "<span>· archivée</span>" : ""}
+      </div>
+    </button>`).join("");
+  $("fils").querySelectorAll("[data-fil]").forEach((b) =>
+    b.addEventListener("click", () => rouvrirFil(b.dataset.fil)));
+}
+
+// « il y a 3 h » se lit plus vite qu'une date complete pour ce qui est recent ;
+// au-dela, la date reste la seule information utile.
+function quand(iso) {
+  if (!iso) return "";
+  const date = new Date(iso);
+  const minutes = Math.round((Date.now() - date.getTime()) / 60000);
+  if (minutes < 1) return "à l'instant";
+  if (minutes < 60) return `il y a ${minutes} min`;
+  if (minutes < 1440) return `il y a ${Math.round(minutes / 60)} h`;
+  if (minutes < 10080) return `il y a ${Math.round(minutes / 1440)} j`;
+  return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+}
+
+const quandComplet = (iso) => iso
+  ? new Date(iso).toLocaleString("fr-FR",
+      { dateStyle: "medium", timeStyle: "short" })
+  : "—";
+
+// -- reprise d'une conversation ---------------------------------------------
+
+async function rouvrirFil(identifiant) {
+  try {
+    const fil = await api(`/api/v1/assistant/conversations/${encodeURIComponent(identifiant)}`);
+    filId = identifiant;
+    $("chat").classList.remove("vierge");
+    $("fil").innerHTML = "";
+    for (const message of fil.messages) {
+      const bloc = tour(message.role === "humain" ? "humain" : "machine", "");
+      const bulle = bloc.querySelector(".bulle");
+      const trace = (message.payload && message.payload.reasoning) || [];
+      bulle.innerHTML = (message.role === "humain")
+        ? esc(message.text)
+        : (trace.length ? traceRepliee(trace) : "") + `<div class="texte">${markdown(message.text)}</div>`;
+      poserPied(bloc, { avecOutils: message.role !== "humain", heure: message.at });
+    }
+    afficherPistes([]);
+    chargerFils();
+    defiler();
+  } catch (e) {
+    erreur(e.message);
+  }
+}
+
+const traceRepliee = (trace) => `
+  <details class="pense finie">
+    <summary><span class="sablier"></span>Voir le raisonnement (${trace.length} étape${
+      trace.length > 1 ? "s" : ""})</summary>
+    <div class="reflexion">${trace.map((e) => `<div class="etape faite">
+      <div><b>${esc(e.label)}</b>${e.detail ? `<span>${esc(e.detail)}</span>` : ""}</div>
+    </div>`).join("")}</div>
+  </details>`;
+
+// -- repli de la liste -------------------------------------------------------
+
+$("basculer-fils").addEventListener("click", () => {
+  const ouvert = $("basculer-fils").getAttribute("aria-expanded") === "true";
+  $("basculer-fils").setAttribute("aria-expanded", String(!ouvert));
+  $("fils").hidden = ouvert;
+});
+
+// -- menu de filtres ---------------------------------------------------------
+
+function dessinerFiltres() {
+  $("filtres-liste").innerHTML = AXES.map(({ cle, titre, options }) => `
+    <div class="groupe-filtre">
+      <b>${esc(titre)}</b>
+      <div class="choix">
+        ${options.map(([valeur, libelle]) => `
+          <button data-axe="${cle}" data-valeur="${valeur}"
+                  aria-pressed="${FILTRES[cle] === valeur}">${esc(libelle)}</button>`).join("")}
+      </div>
+    </div>`).join("");
+
+  $("filtres-liste").querySelectorAll("[data-axe]").forEach((b) =>
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      FILTRES[b.dataset.axe] = b.dataset.valeur;
+      dessinerFiltres();
+      majPastilleFiltres();
+      chargerFils();
+    }));
+}
+
+function majPastilleFiltres() {
+  $("compte-filtres").hidden = filtresActifs() === 0;
+}
+
+$("filtrer").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const ouvert = !$("filtres-liste").hidden;
+  $("filtres-liste").hidden = ouvert;
+  $("filtrer").setAttribute("aria-expanded", String(!ouvert));
+  if (!ouvert) dessinerFiltres();
+});
+document.addEventListener("click", () => {
+  $("filtres-liste").hidden = true;
+  $("filtrer").setAttribute("aria-expanded", "false");
+});
+
+// -- historique detaille, dans le corps du panneau ---------------------------
+
+$("voir-historique").addEventListener("click", async () => {
+  await chargerFils();
+  $("chat").classList.remove("vierge");
+  $("pistes").innerHTML = "";
+
+  const lignes = filsConnus.length ? filsConnus.map((c) => `
+    <div class="ligne-fil" data-fil="${esc(c.conversation_id)}" role="button" tabindex="0">
+      <span class="genre ${esc(c.kind)}">${esc(c.kind)}</span>
+      <span class="titre-fil">${esc(c.title || "Discussion")}
+        <div class="muet" style="font-size:11px">${c.turns} échange(s)</div></span>
+      <span class="quand">${quandComplet(c.last_activity)}</span>
+      <span class="outils-fil">
+        <button data-archiver="${esc(c.conversation_id)}"
+          data-etat="${c.status}">${c.status === "archived" ? "Réactiver" : "Archiver"}</button>
+        <button data-supprimer="${esc(c.conversation_id)}">Supprimer</button>
+      </span>
+    </div>`).join("")
+    : '<div class="fil-vide">Aucune discussion pour ces filtres.</div>';
+
+  $("fil").innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <b style="font-size:14px">Discussions &amp; Tâches</b>
+      <span class="muet" style="font-size:12px">${filsConnus.length} conversation(s)</span>
+      <span class="spacer"></span>
+      <button id="retour-fil">Retour à la discussion</button>
+    </div>
+    <div class="table-fils">${lignes}</div>`;
+
+  $("fil").querySelectorAll(".ligne-fil").forEach((ligne) =>
+    ligne.addEventListener("click", (e) => {
+      if (e.target.closest("[data-archiver],[data-supprimer]")) return;
+      rouvrirFil(ligne.dataset.fil);
+    }));
+
+  $("fil").querySelectorAll("[data-archiver]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const versArchive = b.dataset.etat !== "archived";
+      await post(`/api/v1/assistant/conversations/${encodeURIComponent(b.dataset.archiver)}`
+        + `/archive?archived=${versArchive}`);
+      $("voir-historique").click();
+    }));
+
+  $("fil").querySelectorAll("[data-supprimer]").forEach((b) =>
+    b.addEventListener("click", () => confirmerSuppression(b.dataset.supprimer)));
+
+  $("retour-fil").addEventListener("click", () =>
+    filsConnus.some((c) => c.conversation_id === filId) ? rouvrirFil(filId) : accueil());
+});
+
+function confirmerSuppression(identifiant) {
+  ouvrirModale({
+    titre: "Supprimer cette discussion ?",
+    sous: "Cette action est définitive",
+    corps: `<p>La discussion et ses messages seront effacés.</p>
+      <p class="muet">Les actions qu'elle a déclenchées, elles, restent au
+      journal d'audit : effacer la discussion n'efface pas ce qui a été fait.</p>`,
+    actions: `<button data-fermer>Annuler</button>
+              <button class="primaire" id="confirmer-suppression">Supprimer</button>`,
+    apres: (racine) => {
+      racine.querySelector("#confirmer-suppression").addEventListener("click", async () => {
+        await api(`/api/v1/assistant/conversations/${encodeURIComponent(identifiant)}`,
+          { method: "DELETE" });
+        fermerModale();
+        if (identifiant === filId) nouvelleDiscussion(); else $("voir-historique").click();
+      });
+    },
+  });
+}

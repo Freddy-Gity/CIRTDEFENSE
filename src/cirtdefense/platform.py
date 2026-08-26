@@ -54,6 +54,7 @@ from .persistence.db import connect, init_schema
 from .persistence.repositories import (
     ActionRepository,
     BreakerRepository,
+    ConversationRepository,
     DecisionRepository,
     EventRepository,
     IncidentRepository,
@@ -79,6 +80,7 @@ class Platform:
     policies: PolicyRepository
     notifications: NotificationRepository
     targets: MonitoredTargetRepository
+    conversations: ConversationRepository
     adapter: IngestionAdapter
     enrichment: EnrichmentService
     planner: Planner
@@ -185,6 +187,7 @@ def build_platform(
     policies = PolicyRepository(connection)
     notifications = NotificationRepository(connection)
     targets = MonitoredTargetRepository(connection)
+    conversations = ConversationRepository(connection)
 
     mode = settings.autonomy.actuation_mode
     registry = ActuatorRegistry()
@@ -263,6 +266,7 @@ def build_platform(
     assistant = AssistantService(
         collector,
         build_provider(settings.llm_provider, settings.llm_api_key, settings.llm_model),
+        conversations=conversations,
     )
     reports = ReportBuilder(collector, site_id=settings.site_id)
 
@@ -277,6 +281,7 @@ def build_platform(
         policies=policies,
         notifications=notifications,
         targets=targets,
+        conversations=conversations,
         adapter=IngestionAdapter(events, incidents, ledger),
         enrichment=enrichment,
         planner=planner,

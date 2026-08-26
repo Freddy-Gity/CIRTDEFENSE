@@ -216,6 +216,25 @@ _HERITABLES = frozenset(
     }
 )
 
+# Le genre sert au filtrage de l'historique. Il se fixe sur la premiere
+# intention metier rencontree : une conversation entiere ne doit pas basculer
+# de categorie parce qu'elle se termine par « merci ».
+_GENRES: dict[Intent, str] = {
+    Intent.SIMULATE: "simulation",
+    Intent.REPORT: "rapport",
+    Intent.DAILY_BRIEF: "bilan",
+    Intent.PERIOD_BRIEF: "bilan",
+    Intent.STATISTICS: "bilan",
+    Intent.ROLLBACKS: "bilan",
+    Intent.REFUSALS: "bilan",
+    Intent.INCIDENT_DETAIL: "bilan",
+}
+
+# Un « bonjour » ne dit rien de ce dont on a parle : il ne fait pas un titre.
+_SANS_TITRE = frozenset(
+    {Intent.GREETING, Intent.THANKS, Intent.FAREWELL, Intent.CAPABILITIES, Intent.IDENTITY}
+)
+
 _AVEC_PERIODE = frozenset(
     {
         Intent.DAILY_BRIEF,
@@ -233,6 +252,16 @@ SUIVI = (
     r"\b(plus\s+de\s+detail|en\s+detail|davantage)\b",
     r"^\s*(oui|ok|d'?accord|vas.?y|je\s+veux\s+bien|volontiers)\b",
 )
+
+
+def _titre(question: str) -> str:
+    """Titre lisible tire de la question, coupe sur une frontiere de mot."""
+    propre = " ".join(question.split())
+    if len(propre) <= 52:
+        return propre
+    coupe = propre[:52]
+    espace = coupe.rfind(" ")
+    return (coupe[:espace] if espace > 24 else coupe).rstrip(" ,;:") + "…"
 
 
 def _est_un_suivi(folded: str) -> bool:
@@ -370,14 +399,27 @@ class AssistantService:
         self,
         collector: FactCollector,
         provider: LlmProvider | None = None,
+        conversations: Any | None = None,
     ) -> None:
         self._collector = collector
         self._provider = provider or OfflineProvider()
         self._memoire = MemoireDesConversations()
+        self._conversations = conversations
+        """Dépôt de persistance, facultatif : l'assistant fonctionne sans lui,
+        le fil vivant restant alors purement en mémoire."""
 
     def oublier(self, conversation_id: str) -> bool:
         """Efface un fil. Le journal d'audit, lui, ne s'efface pas."""
-        return self._memoire.oublier(conversation_id)
+        efface = self._memoire.oublier(conversation_id)
+        if self._conversations is not None:
+            efface = self._conversations.supprimer(conversation_id) or efface
+        return efface
+
+    def historique(self, conversation_id: str) -> dict[str, Any] | None:
+        """Relit une conversation conservée, pour la reprendre où elle en était."""
+        if self._conversations is None:
+            return None
+        return self._conversations.get(conversation_id)
 
     # -- point d'entrée ------------------------------------------------------
 
@@ -445,7 +487,36 @@ class AssistantService:
                 incident_id=reponse.incident_id,
             )
         )
+        self._conserver(fil, question, reponse)
         return reponse
+
+    def _conserver(self, fil: Conversation, question: str, reponse: Answer) -> None:
+        """Enregistre le tour, pour que l'analyste retrouve l'échange demain.
+
+        Le titre est la première vraie question du fil : « bonjour » ne dit
+        rien de ce dont on a parlé. Le genre suit la même règle — il se fixe
+        sur la première intention métier rencontrée et ne bouge plus, sinon
+        une conversation entière basculerait de catégorie sur un « merci ».
+        """
+        if self._conversations is None:
+            return
+        titre = _titre(question) if reponse.intent not in _SANS_TITRE else ""
+        self._conversations.toucher(
+            fil.identifiant, titre=titre, genre=_GENRES.get(reponse.intent, "")
+        )
+        self._conversations.ajouter_message(fil.identifiant, "humain", question)
+        self._conversations.ajouter_message(
+            fil.identifiant,
+            "assistant",
+            reponse.text,
+            intent=reponse.intent.value,
+            payload={
+                "reasoning": reponse.reasoning,
+                "follow_ups": reponse.follow_ups,
+                "sources": reponse.sources,
+                "action": reponse.action,
+            },
+        )
 
     def _repondre(
         self,
