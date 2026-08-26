@@ -18,7 +18,22 @@ const court = (texte, max) => {
   return (espace > max * 0.6 ? coupe.slice(0, espace) : coupe).replace(/[ ,;(]+$/, "") + "\u2026";
 };
 
-async function api(url, options) {
+// Jeton de session : les gestes sensibles — declarer une plateforme, basculer
+// l'autonomie — restent reserves a l'administrateur. Le jeton est saisi dans
+// les Reglages et ne quitte jamais ce navigateur.
+const JETON = "cirt-jeton";
+const jeton = () => { try { return localStorage.getItem(JETON) || ""; } catch { return ""; } };
+const poserJeton = (v) => {
+  try { v ? localStorage.setItem(JETON, v) : localStorage.removeItem(JETON); }
+  catch { /* stockage indisponible : la session reste en lecture seule */ }
+};
+
+async function api(url, options = {}) {
+  const porteur = jeton();
+  if (porteur) {
+    options = { ...options, headers: { ...(options.headers || {}),
+      Authorization: `Bearer ${porteur}` } };
+  }
   const r = await fetch(url, options);
   if (!r.ok) {
     const detail = await r.json().catch(() => ({}));
@@ -73,9 +88,6 @@ const VUES = [
   { route: "/demo", icone: "Zap", label: "Démonstration",
     titre: "Démonstration",
     sous: "Simuler les 22 types d'attaques du catalogue CIRT", rendu: vueDemo },
-  { route: "/assistant", icone: "MessagesSquare", label: "Assistant",
-    titre: "Assistant",
-    sous: "Interroger le système en langage naturel", rendu: vueAssistant },
   { route: "/reports", icone: "FileText", label: "Rapports",
     titre: "Rapports d'opérations",
     sous: "Génération et export", rendu: vueRapports },
@@ -93,6 +105,13 @@ const trouver = (chemin) => ROUTES.find((v) => v.route === chemin) || ROUTES[0];
 let vueCourante = null;
 let etatGlobal = null;
 
+// État de la bulle assistant. Déclaré ici parce que la première navigation,
+// plus bas, l'interroge avant d'avoir atteint le bas du fichier.
+let chatOuvert = false;
+let chatOccupe = false;
+let flux = null;
+const CHAT_MASQUE = ["/settings"];
+
 function construireNav() {
   $("nav").innerHTML = VUES.map((v) => {
     if (v.separateur) return '<div class="flex"></div><div class="sep"></div>';
@@ -106,6 +125,12 @@ function construireNav() {
 }
 
 function naviguer(chemin, remplacer = false) {
+  // L'assistant n'a plus d'onglet, mais son adresse reste valide : un lien
+  // profond ou un signet existant doit ouvrir la conversation, pas une 404.
+  if (chemin === "/assistant") {
+    ouvrirChat();
+    chemin = "/dashboard";
+  }
   const vue = trouver(chemin);
   if (location.pathname !== vue.route) {
     history[remplacer ? "replaceState" : "pushState"]({}, "", vue.route);
@@ -117,6 +142,7 @@ function naviguer(chemin, remplacer = false) {
   $("nav").querySelectorAll("a[data-route]").forEach((a) =>
     a.setAttribute("aria-current", a.dataset.route === vue.route ? "page" : "false"));
   $("vue").innerHTML = '<div class="vide">Chargement…</div>';
+  majVisibiliteChat();
   rafraichir();
 }
 window.addEventListener("popstate", () => naviguer(location.pathname, true));
@@ -132,6 +158,84 @@ try {
   const memo = localStorage.getItem("cirt-theme");
   if (memo) document.documentElement.setAttribute("data-theme", memo);
 } catch { /* stockage indisponible */ }
+
+// ------------------------------------------------- bascule d'autonomie
+// Activer ou suspendre, c'est le coupe-circuit EF-26 sous un nom lisible.
+// Suspendre fait cesser d'agir : cela n'ajoute aucune validation par action.
+const listeAutonomie = () => $("autonomie-liste");
+
+$("autonomie").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const ouvert = !listeAutonomie().hidden;
+  listeAutonomie().hidden = ouvert;
+  $("autonomie").setAttribute("aria-expanded", String(!ouvert));
+});
+
+document.addEventListener("click", () => {
+  listeAutonomie().hidden = true;
+  $("autonomie").setAttribute("aria-expanded", "false");
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  listeAutonomie().hidden = true;
+  fermerModale();
+});
+
+listeAutonomie().querySelectorAll("[data-autonomie]").forEach((b) =>
+  b.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    listeAutonomie().hidden = true;
+    await basculerAutonomie(b.dataset.autonomie === "1");
+  }));
+
+async function basculerAutonomie(actif) {
+  const motif = actif ? "réactivation depuis l'interface" : "suspension depuis l'interface";
+  try {
+    await post("/api/v1/admin/autonomy", { enabled: actif, reason: motif });
+    await rafraichir();
+  } catch (e) {
+    // Le geste est reserve a l'administrateur : le dire plutot que d'echouer
+    // en silence, sinon le bouton parait cassé.
+    const cause = /403|401/.test(e.message)
+      ? "Ce geste est réservé à l'administrateur : la session courante ne porte pas ce rôle."
+      : e.message;
+    ouvrirModale({
+      titre: actif ? "Activation refusée" : "Suspension refusée",
+      sous: "Bascule du mode autonomie",
+      corps: `<div class="bandeau suspendu">${esc(cause)}</div>`,
+      actions: '<button data-fermer>Fermer</button>',
+    });
+  }
+}
+
+// ---------------------------------------------------------------- modales
+// Le fond passe en arriere-plan floute : pendant une saisie, la fenetre est
+// le seul point net de l'ecran.
+function ouvrirModale({ titre, sous = "", corps, actions = "", large = false, apres }) {
+  $("modales").innerHTML = `
+    <div class="voile" role="dialog" aria-modal="true" aria-label="${esc(titre)}">
+      <div class="modale${large ? " large" : ""}">
+        <header>
+          <div><h2>${esc(titre)}</h2>${sous ? `<div class="sous">${esc(sous)}</div>` : ""}</div>
+          <button class="fermer" data-fermer aria-label="Fermer">&times;</button>
+        </header>
+        <div class="corps">${corps}</div>
+        ${actions ? `<div class="pied">${actions}</div>` : ""}
+      </div>
+    </div>`;
+
+  const voile = $("modales").querySelector(".voile");
+  voile.addEventListener("click", (e) => { if (e.target === voile) fermerModale(); });
+  $("modales").querySelectorAll("[data-fermer]").forEach((b) =>
+    b.addEventListener("click", fermerModale));
+
+  const premier = $("modales").querySelector("input, select, textarea, button:not(.fermer)");
+  if (premier) premier.focus();
+  if (apres) apres($("modales"));
+}
+
+const fermerModale = () => { $("modales").innerHTML = ""; };
 
 // --------------------------------------------------------------- fragments
 function tuile(valeur, libelle, note = "", couleur = "") {
@@ -198,22 +302,25 @@ async function rafraichir() {
     majEntete(etatGlobal);
     await vueCourante.rendu();
   } catch (e) {
-    $("bandeau").className = "bandeau suspendu";
-    $("bandeau").textContent = "Interface injoignable : " + e.message;
+    $("vue").innerHTML = `<div class="carte" style="border-color:var(--critical)">
+      <b style="color:var(--critical)">Interface injoignable</b>
+      <div class="muet">${esc(e.message)}</div></div>`;
   }
 }
 
 function majEntete(etat) {
   $("site").textContent = `${etat.site_id} · ${etat.environment}`;
   $("pied-rail").textContent = `${etat.site_id} · ${etat.autonomy.actuation_mode}`;
+
   const actif = etat.autonomy.effective;
-  const b = $("bandeau");
-  b.className = "bandeau " + (actif ? "actif" : "suspendu");
-  b.textContent = actif
-    ? `Autonomie ACTIVE — actionnement « ${etat.autonomy.actuation_mode} ». `
-      + "Les actions partent sans validation préalable."
-    : `Autonomie SUSPENDUE — ${etat.circuit_breaker.reason || "coupe-circuit ouvert"}. `
-      + "Aucune action n'est exécutée jusqu'au réarmement par l'administrateur.";
+  const bouton = $("autonomie");
+  bouton.className = "bascule " + (actif ? "actif" : "suspendu");
+  // L'etat est ecrit, pas seulement colore : vert et rouge ne se distinguent
+  // pas pour tout le monde.
+  $("autonomie-texte").textContent = actif ? "Autonomie active" : "Autonomie suspendue";
+  bouton.title = actif
+    ? `Actionnement « ${etat.autonomy.actuation_mode} » — les actions partent sans validation préalable.`
+    : `Suspendue — ${etat.circuit_breaker.reason || "coupe-circuit ouvert"}.`;
 }
 
 function badge(route, valeur) {
@@ -405,69 +512,568 @@ async function vueSurveillance() {
         s.injoignable ? "var(--critical)" : "")}
     </div>
 
-    ${m.probe_is_manual ? `<div class="carte muet" style="margin-bottom:14px">
-      La sonde active est alimentée à la main : l'état de santé est un paramètre
-      du scénario. C'est ce qui permet d'éprouver la boucle de contrôle fermée
-      (EF-25) sans casser un service réel — utilisez « Dégrader » puis lancez la
-      boucle depuis le bouton en bas de page.
-    </div>` : ""}
+    ${plan(m.targets)}
 
-    <h2>Parc supervisé</h2>
-    <div class="carte" style="padding:0;overflow:auto">
-      <table><thead><tr>
-        <th>Plateforme</th><th>Zone</th><th>Criticité</th><th>État</th>
-        <th>Latence</th><th>Erreurs</th><th>Débit</th>
-        <th>Incidents</th><th>Actions</th><th>Constat</th><th></th>
-      </tr></thead><tbody>
-      ${m.targets.map((t) => `<tr>
-        <td><b>${esc(t.target)}</b>${t.ip ? `<div class="muet mono">${esc(t.ip)}</div>` : ""}</td>
-        <td class="muet">${esc(t.zone)}</td>
-        <td class="num">${t.criticality}/5</td>
-        <td><span class="etat ${esc(t.state)}">${esc(t.state)}</span></td>
-        <td class="num">${t.health.latency_ms ? Math.round(t.health.latency_ms) + " ms" : "—"}</td>
-        <td class="num">${(t.health.error_rate * 100).toFixed(1)} %</td>
-        <td class="num">${t.health.throughput || "—"}</td>
-        <td class="num">${t.incidents || "—"}</td>
-        <td class="num">${t.actions_executed || "—"}${
-          t.actions_rolled_back ? ` <span class="muet">(${t.actions_rolled_back} annulée(s))</span>` : ""}</td>
-        <td class="muet">${esc((t.breaches || []).join(" ; ") || "dans les seuils")}</td>
-        <td>${m.probe_is_manual ? `<button data-degrade="${esc(t.target)}"
-              data-etat="${t.state === "nominal" ? "1" : "0"}">${
-              t.state === "nominal" ? "Dégrader" : "Rétablir"}</button>` : ""}</td>
-      </tr>`).join("")}
-      </tbody></table>
+    ${enteteSection("parc", "Parc supervisé", m.targets.length)}
+    <div class="repliable" data-section="parc">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+        <button class="primaire" id="ajouter-plateforme">+ Ajouter une plateforme</button>
+      </div>
+      <div class="carte" style="padding:0;overflow:auto">
+        <table><thead><tr>
+          <th>Plateforme</th><th>Type</th><th>Segment</th><th>Propriétaire</th>
+          <th>Criticité</th><th>État</th><th>Latence</th><th>Erreurs</th>
+          <th>Incidents</th><th>Actions</th><th></th>
+        </tr></thead><tbody>
+        ${m.targets.map((t) => `<tr>
+          <td><button class="lien" data-detail="${esc(t.target)}"><b>${esc(t.target)}</b></button>
+              ${t.ip ? `<div class="muet mono">${esc(t.ip)}</div>` : ""}</td>
+          <td class="muet">${esc(t.kind || "actif")}</td>
+          <td class="muet">${esc(t.zone)}</td>
+          <td class="muet">${esc(court(t.owner, 26) || "—")}</td>
+          <td class="num">${t.criticality}/5</td>
+          <td><span class="etat ${esc(t.state)}">${esc(t.state)}</span></td>
+          <td class="num">${t.health.latency_ms ? Math.round(t.health.latency_ms) + " ms" : "—"}</td>
+          <td class="num">${(t.health.error_rate * 100).toFixed(1)} %</td>
+          <td class="num">${t.incidents || "—"}</td>
+          <td class="num">${t.actions_executed || "—"}${
+            t.actions_rolled_back ? ` <span class="muet">(${t.actions_rolled_back} ann.)</span>` : ""}</td>
+          <td style="white-space:nowrap">
+            <button data-detail="${esc(t.target)}">Ouvrir</button>
+            ${t.declared ? `<button data-retirer="${esc(t.target)}"
+              title="Retirer du parc surveillé">Retirer</button>` : ""}</td>
+        </tr>`).join("")}
+        </tbody></table>
+      </div>
     </div>
 
-    <h2>Surveillance post-action (EF-25)</h2>
-    <div class="carte">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-        <span class="muet">${m.post_action_watches.length} action(s) réversible(s) encore
-          appliquée(s). La boucle compare l'état actuel à la mesure prise AVANT chaque action.</span>
-        <span class="spacer"></span>
-        <button class="primaire" id="boucle">Lancer la boucle de contrôle</button>
+    ${enteteSection("veille", "Surveillance post-action (EF-25)", m.post_action_watches.length)}
+    <div class="repliable" data-section="veille">
+      <div class="carte">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+          <span class="muet">${m.post_action_watches.length} action(s) réversible(s) encore
+            appliquée(s).</span>
+          <span class="spacer"></span>
+          <button class="primaire" id="boucle">Lancer la boucle de contrôle</button>
+        </div>
+        <div id="resultat-boucle"></div>
+        ${m.post_action_watches.length ? `<table><thead><tr>
+          <th>Action</th><th>Geste</th><th>Cible</th><th>Référence prise</th>
+        </tr></thead><tbody>
+          ${m.post_action_watches.map((w) => `<tr>
+            <td class="mono">${esc(w.action_id.slice(0, 18))}</td>
+            <td class="mono">${esc(w.verb)}</td>
+            <td>${esc(w.target)}</td>
+            <td>${w.watched
+              ? '<span class="etat basse">oui</span>'
+              : '<span class="etat moyenne">non — la boucle s\'abstiendra</span>'}</td>
+          </tr>`).join("")}
+        </tbody></table>` : '<div class="vide">Aucune action sous surveillance.</div>'}
       </div>
-      <div id="resultat-boucle"></div>
-      ${m.post_action_watches.length ? `<table><thead><tr>
-        <th>Action</th><th>Geste</th><th>Cible</th><th>Référence prise</th>
-      </tr></thead><tbody>
-        ${m.post_action_watches.map((w) => `<tr>
-          <td class="mono">${esc(w.action_id.slice(0, 18))}</td>
-          <td class="mono">${esc(w.verb)}</td>
-          <td>${esc(w.target)}</td>
-          <td>${w.watched
-            ? '<span class="etat basse">oui</span>'
-            : '<span class="etat moyenne">non — la boucle s\'abstiendra</span>'}</td>
-        </tr>`).join("")}
-      </tbody></table>` : '<div class="vide">Aucune action sous surveillance.</div>'}
     </div>`;
 
-  $("vue").querySelectorAll("button[data-degrade]").forEach((b) =>
-    b.addEventListener("click", async () => {
-      b.disabled = true;
-      await post(`/api/v1/monitoring/simulate/${b.dataset.degrade}?degraded=${b.dataset.etat === "1"}`);
-      await vueSurveillance();
-    }));
+  brancherSections();
+  $("vue").querySelectorAll("[data-detail]").forEach((b) =>
+    b.addEventListener("click", () => ouvrirDetail(b.dataset.detail)));
+  $("vue").querySelectorAll("[data-retirer]").forEach((b) =>
+    b.addEventListener("click", () => retirerPlateforme(b.dataset.retirer)));
+  $("ajouter-plateforme").addEventListener("click", formulairePlateforme);
+  brancherBoucle();
+}
 
+// ------------------------------------------------------- plan et balayage
+// Ce n'est pas une carte du monde : c'est le plan du parc. Les points sont
+// places par leurs coordonnees quand elles sont connues, et repartis par
+// segment sinon — la position d'un actif non geolocalise ne doit jamais se
+// lire comme une donnee.
+function plan(cibles) {
+  if (!cibles.length) return "";
+  const situees = cibles.filter((t) => t.latitude != null && t.longitude != null);
+
+  const lats = situees.map((t) => t.latitude);
+  const lons = situees.map((t) => t.longitude);
+  const etendue = (v) => {
+    const min = Math.min(...v), max = Math.max(...v);
+    const marge = Math.max((max - min) * 0.28, 0.004);
+    return [min - marge, max + marge];
+  };
+  const [latMin, latMax] = situees.length ? etendue(lats) : [0, 1];
+  const [lonMin, lonMax] = situees.length ? etendue(lons) : [0, 1];
+
+  let rang = 0;
+  const position = (t) => {
+    if (t.latitude != null && t.longitude != null) {
+      return {
+        x: 10 + ((t.longitude - lonMin) / (lonMax - lonMin)) * 80,
+        y: 10 + (1 - (t.latitude - latMin) / (latMax - latMin)) * 80,
+        situe: true,
+      };
+    }
+    // Sans coordonnees : une couronne reguliere, visiblement schematique.
+    const n = cibles.length - situees.length;
+    const angle = (rang++ / Math.max(n, 1)) * 2 * Math.PI;
+    return { x: 50 + 36 * Math.cos(angle), y: 50 + 36 * Math.sin(angle), situe: false };
+  };
+
+  const places = cibles.map((t) => ({ cible: t, ...position(t) }));
+  placerEtiquettes(places);
+
+  const points = places.map(({ cible: t, x, y, situe, cote }) => `
+    <button class="plot ${cote}" data-detail="${esc(t.target)}"
+      data-etat="${esc(t.state)}" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%"
+      title="${esc(t.target)} — ${esc(t.state)}${situe ? "" : " (position indicative)"}">
+      <span class="pastille-plan"></span>
+      <span class="etiquette">${esc(t.target)}</span></button>`).join("");
+
+  return `<div class="plan">
+    <svg class="grille-plan" aria-hidden="true">
+      <defs><pattern id="quadrillage" width="46" height="46" patternUnits="userSpaceOnUse">
+        <path d="M46 0H0V46" fill="none" stroke="var(--grid)" stroke-width="1"/>
+      </pattern></defs>
+      <rect width="100%" height="100%" fill="url(#quadrillage)"/>
+    </svg>
+    <div class="cadran">
+      <svg viewBox="0 0 100 100" style="position:absolute;inset:0;width:100%;height:100%"
+           aria-hidden="true">
+        <circle cx="50" cy="50" r="17" fill="none" stroke="var(--grid)"/>
+        <circle cx="50" cy="50" r="32" fill="none" stroke="var(--grid)"/>
+        <circle cx="50" cy="50" r="46" fill="none" stroke="var(--grid)"/>
+        <path d="M50 4V96M4 50H96" stroke="var(--grid)" stroke-dasharray="2 4"/>
+      </svg>
+      <div class="balayage"></div>
+      ${points}
+    </div>
+  </div>
+  <div class="legende-plan">
+    <span><i class="point vert"></i>nominal</span>
+    <span><i class="point" style="background:var(--warning)"></i>dégradé</span>
+    <span><i class="point rouge"></i>injoignable</span>
+    <span>${situees.length}/${cibles.length} plateforme(s) géolocalisée(s) ;
+      les autres sont placées de façon indicative</span>
+  </div>`;
+}
+
+// Placement glouton : chaque etiquette prend la premiere direction libre.
+// Alterner en aveugle laissait des noms superposes des que trois machines
+// etaient voisines — et un nom illisible ne vaut pas mieux qu'un nom absent.
+function placerEtiquettes(places) {
+  const COTES = ["bas", "haut", "droite", "gauche"];
+  const pris = [];
+
+  const boite = (p, cote) => {
+    // Le cadran fait environ 380 px de cote et l'etiquette 10,5 px : un
+    // caractere occupe donc a peu pres 1,7 % de la largeur. Surestimer
+    // ecarte un peu trop les noms ; sous-estimer les laisse se superposer.
+    const largeur = p.cible.target.length * 1.7 + 2;
+    const hauteur = 5.4;
+    switch (cote) {
+      case "haut": return { x: p.x - largeur / 2, y: p.y - 3.6 - hauteur, l: largeur, h: hauteur };
+      case "droite": return { x: p.x + 2.4, y: p.y - hauteur / 2, l: largeur, h: hauteur };
+      case "gauche": return { x: p.x - 2.4 - largeur, y: p.y - hauteur / 2, l: largeur, h: hauteur };
+      default: return { x: p.x - largeur / 2, y: p.y + 3, l: largeur, h: hauteur };
+    }
+  };
+
+  const chevauche = (a, b) =>
+    a.x < b.x + b.l && a.x + a.l > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+  // Les pastilles sont des obstacles au meme titre que les etiquettes : sans
+  // cela un point voisin vient se poser au milieu d'un nom.
+  for (const p of places) {
+    pris.push({ x: p.x - 2.2, y: p.y - 2.2, l: 4.4, h: 4.4 });
+  }
+
+  places.sort((a, b) => a.y - b.y || a.x - b.x);
+  for (const p of places) {
+    const libre = COTES.find((c) => {
+      const b = boite(p, c);
+      return b.x > -6 && b.x + b.l < 106 && !pris.some((autre) => chevauche(b, autre));
+    });
+    // Aucune place libre : dans une grappe dense, mieux vaut un point net et
+    // un nom au survol que deux noms illisibles l'un sur l'autre. Le tableau
+    // en dessous nomme de toute facon chaque plateforme.
+    p.cote = libre || "cache";
+    if (libre) pris.push(boite(p, libre));
+  }
+}
+
+// --------------------------------------------------------- sections repliables
+const REPLIEES = new Set();
+
+function enteteSection(cle, titre, compte) {
+  const ouvert = !REPLIEES.has(cle);
+  return `<button class="entete-section" data-repli="${cle}" aria-expanded="${ouvert}">
+    <h2>${esc(titre)}</h2><span class="compte">${compte}</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" class="chevron"><path d="m6 9 6 6 6-6"/></svg>
+  </button>`;
+}
+
+function brancherSections() {
+  $("vue").querySelectorAll("[data-repli]").forEach((entete) => {
+    const cle = entete.dataset.repli;
+    const corps = $("vue").querySelector(`[data-section="${cle}"]`);
+    if (corps) corps.hidden = REPLIEES.has(cle);
+    entete.addEventListener("click", () => {
+      const replie = REPLIEES.has(cle);
+      if (replie) REPLIEES.delete(cle); else REPLIEES.add(cle);
+      entete.setAttribute("aria-expanded", String(replie));
+      if (corps) corps.hidden = !replie;
+    });
+  });
+}
+
+// --------------------------------------------- declaration d'une plateforme
+const TYPES_PLATEFORME = [
+  "serveur web", "serveur applicatif", "base de données", "serveur de fichiers",
+  "serveur de messagerie", "pare-feu", "routeur", "commutateur",
+  "poste de travail", "équipement industriel", "service infonuagique", "autre",
+];
+
+function formulairePlateforme() {
+  const champ = (nom, libelle, indice, extra = "") => `
+    <div class="champ" data-champ="${nom}">
+      <label for="p-${nom}">${esc(libelle)}</label>
+      <input id="p-${nom}" name="${nom}" ${extra}>
+      <span class="indice">${esc(indice)}</span>
+      <span class="erreur" hidden></span>
+    </div>`;
+
+  ouvrirModale({
+    titre: "Ajouter une plateforme à surveiller",
+    sous: "Ces informations entrent au journal d'audit : elles définissent le périmètre surveillé",
+    corps: `
+      <div class="champs">
+        ${champ("label", "Nom ou libellé", "Sert d'identifiant dans le journal", 'maxlength="80"')}
+        <div class="champ" data-champ="kind">
+          <label for="p-kind">Type</label>
+          <select id="p-kind" name="kind">
+            ${TYPES_PLATEFORME.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}
+          </select>
+          <span class="indice">Nature de l'équipement</span>
+          <span class="erreur" hidden></span>
+        </div>
+        ${champ("ip", "Adresse IP", "IPv4 ou IPv6", 'placeholder="10.0.2.60"')}
+        ${champ("segment", "Segment réseau", "Zone : dmz, interne, bureautique…")}
+        ${champ("owner", "Propriétaire", "À qui une alerte sur cet actif est adressée")}
+        <div class="champ" data-champ="criticality">
+          <label for="p-criticality">Criticité</label>
+          <select id="p-criticality" name="criticality">
+            <option value="1">1 — négligeable</option>
+            <option value="2">2 — faible</option>
+            <option value="3" selected>3 — moyenne</option>
+            <option value="4">4 — forte</option>
+            <option value="5">5 — vitale</option>
+          </select>
+          <span class="indice">Pèse sur la dangerosité et la priorité</span>
+          <span class="erreur" hidden></span>
+        </div>
+        ${champ("latitude", "Latitude (facultatif)", "Pour le placement sur le plan",
+          'type="number" step="0.0001" placeholder="3.8670"')}
+        ${champ("longitude", "Longitude (facultatif)", "Laissée vide, la position est indicative",
+          'type="number" step="0.0001" placeholder="11.5190"')}
+      </div>
+      <div id="erreur-formulaire" style="margin-top:14px"></div>`,
+    actions: `<button data-fermer>Annuler</button>
+              <button class="primaire" id="enregistrer">Enregistrer</button>`,
+    apres: (racine) => {
+      racine.querySelector("#enregistrer")
+        .addEventListener("click", () => enregistrerPlateforme(racine));
+    },
+  });
+}
+
+async function enregistrerPlateforme(racine) {
+  const lire = (n) => racine.querySelector(`[name="${n}"]`).value.trim();
+  const marquer = (n, message) => {
+    const bloc = racine.querySelector(`[data-champ="${n}"]`);
+    bloc.classList.toggle("invalide", Boolean(message));
+    const erreur = bloc.querySelector(".erreur");
+    erreur.hidden = !message;
+    erreur.textContent = message || "";
+  };
+
+  const corps = {
+    label: lire("label"), kind: lire("kind"), ip: lire("ip"),
+    segment: lire("segment"), owner: lire("owner"),
+    criticality: Number(lire("criticality")),
+  };
+  const lat = lire("latitude"), lon = lire("longitude");
+  if (lat) corps.latitude = Number(lat);
+  if (lon) corps.longitude = Number(lon);
+
+  // Verifier avant d'envoyer : un champ manquant se signale a cote du champ,
+  // pas dans un message d'erreur global qu'il faut decoder.
+  let complet = true;
+  for (const [nom, libelle] of [["label", "Le nom"], ["ip", "L'adresse IP"],
+       ["segment", "Le segment"], ["owner", "Le propriétaire"]]) {
+    const manque = !corps[nom] || corps[nom].length < 2;
+    marquer(nom, manque ? `${libelle} est obligatoire.` : "");
+    if (manque) complet = false;
+  }
+  if (!complet) return;
+
+  const bouton = racine.querySelector("#enregistrer");
+  bouton.disabled = true; bouton.textContent = "Enregistrement…";
+  try {
+    await post("/api/v1/monitoring/targets", corps);
+    fermerModale();
+    await vueSurveillance();
+  } catch (e) {
+    const cause = /403|401/.test(e.message)
+      ? "Déclarer une plateforme est réservé à l'administrateur : la session courante ne porte pas ce rôle."
+      : e.message;
+    racine.querySelector("#erreur-formulaire").innerHTML =
+      `<div class="bandeau suspendu">${esc(cause)}</div>`;
+    bouton.disabled = false; bouton.textContent = "Enregistrer";
+  }
+}
+
+async function retirerPlateforme(cible) {
+  ouvrirModale({
+    titre: "Retirer du parc surveillé ?",
+    sous: cible,
+    corps: `<p>Cette plateforme ne sera plus mesurée ni affichée. Les incidents
+      déjà enregistrés sur elle restent au portefeuille et au journal d'audit :
+      retirer un actif du périmètre n'efface pas son histoire.</p>
+      <div id="erreur-retrait"></div>`,
+    actions: `<button data-fermer>Annuler</button>
+              <button class="primaire" id="confirmer-retrait">Retirer</button>`,
+    apres: (racine) => {
+      racine.querySelector("#confirmer-retrait").addEventListener("click", async () => {
+        try {
+          await api(`/api/v1/monitoring/targets/${encodeURIComponent(cible)}`,
+            { method: "DELETE" });
+          fermerModale();
+          await vueSurveillance();
+        } catch (e) {
+          racine.querySelector("#erreur-retrait").innerHTML =
+            `<div class="bandeau suspendu">${esc(e.message)}</div>`;
+        }
+      });
+    },
+  });
+}
+
+// ------------------------------------------------ fenetre d'une plateforme
+async function ouvrirDetail(cible) {
+  ouvrirModale({
+    titre: cible, sous: "Chargement…", large: true,
+    corps: '<div class="vide">Lecture des mesures…</div>',
+  });
+  try {
+    const d = await api(`/api/v1/monitoring/targets/${encodeURIComponent(cible)}`);
+    afficherDetail(d);
+  } catch (e) {
+    ouvrirModale({
+      titre: cible, large: true,
+      corps: `<div class="bandeau suspendu">${esc(e.message)}</div>`,
+      actions: "<button data-fermer>Fermer</button>",
+    });
+  }
+}
+
+function afficherDetail(d) {
+  const r = d.summary;
+  const sain = d.state === "nominal";
+
+  ouvrirModale({
+    titre: d.hostname || d.target,
+    sous: `${d.kind || "actif"} · ${d.zone} · ${d.ip || "sans adresse"}${
+      d.owner ? ` · ${d.owner}` : ""}`,
+    large: true,
+    corps: `
+      <div class="grille" style="margin-bottom:16px">
+        ${tuile(d.state, "État courant", (d.breaches || []).join(" ; ") || "dans les seuils",
+          sain ? "var(--success-text)" : d.state === "degrade" ? "var(--serious)" : "var(--critical)")}
+        ${tuile(r.incidents, "Incidents sur cet actif",
+          r.worst_priority ? `pire priorité : ${r.worst_priority}` : "aucun")}
+        ${tuile(r.actions_executed, "Actions exécutées",
+          r.actions_rolled_back ? `${r.actions_rolled_back} annulée(s)` : "aucune annulation")}
+        ${tuile(d.criticality + "/5", "Criticité déclarée", `${r.audit_entries} entrée(s) d'audit`)}
+      </div>
+
+      <div class="carte" style="margin-bottom:16px;display:flex;gap:10px;
+           align-items:center;flex-wrap:wrap">
+        <b>Simulation sur cette plateforme</b>
+        <span class="spacer"></span>
+        <button id="d-degrader">${sain ? "Dégrader" : "Rétablir"}</button>
+        <select id="d-scenario" style="padding:7px 9px;border-radius:8px;
+          border:1px solid var(--grid);background:var(--plane);color:var(--ink-1)">
+          <option value="">— scénario du catalogue —</option>
+        </select>
+        <button class="primaire" id="d-lancer">Lancer</button>
+      </div>
+      <div id="d-resultat" style="margin-bottom:16px"></div>
+
+      <h3 style="margin:0 0 8px">Mesure</h3>
+      <div class="carte" style="padding:0;overflow:auto;margin-bottom:18px">
+        <table><thead><tr><th>Indicateur</th><th>Mesuré</th><th>Seuil</th></tr></thead>
+        <tbody>
+          <tr><td>Latence</td><td class="num">${d.health.latency_ms
+            ? Math.round(d.health.latency_ms) + " ms" : "—"}</td>
+            <td class="num muet">${d.thresholds.max_latency_ms} ms</td></tr>
+          <tr><td>Taux d'erreur</td><td class="num">${(d.health.error_rate * 100).toFixed(1)} %</td>
+            <td class="num muet">${(d.thresholds.max_error_rate * 100).toFixed(0)} %</td></tr>
+          <tr><td>Débit</td><td class="num">${d.health.throughput || "—"}</td>
+            <td class="num muet">${d.thresholds.min_throughput}</td></tr>
+          <tr><td>Joignable</td><td>${d.health.reachable ? "oui" : "non"}</td>
+            <td class="muet">—</td></tr>
+        </tbody></table>
+      </div>
+
+      <h3 style="margin:0 0 8px">Incidents (${d.incidents.length})</h3>
+      <div class="carte" style="padding:0;overflow:auto;margin-bottom:18px">
+        ${d.incidents.length ? `<table><thead><tr>
+          <th>Type</th><th>Libellé</th><th>Criticité</th><th>Dangerosité</th>
+          <th>Priorité</th><th>État</th><th>Actions</th><th>Mise à jour</th>
+        </tr></thead><tbody>
+        ${d.incidents.map((i) => `<tr>
+          <td class="mono"><b>${esc(i.attack_code || "—")}</b></td>
+          <td>${esc(court(i.attack_label || i.category, 38))}</td>
+          <td><span class="etat ${esc(i.severity)}">${esc(i.severity)}</span></td>
+          <td><span class="etat ${bandeDanger(i.dangerousness)}">${i.dangerousness}/10</span></td>
+          <td>${esc(i.priority || "—")}</td>
+          <td><span class="etat ${i.status === "contained" ? "basse" : "moyenne"}">${
+            esc(i.status)}</span></td>
+          <td class="num">${i.actions}</td>
+          <td class="muet">${heureCourte(i.updated_at)}</td>
+        </tr>`).join("")}</tbody></table>`
+        : '<div class="vide">Aucun incident sur cette plateforme.</div>'}
+      </div>
+
+      <h3 style="margin:0 0 8px">Chronologie d'audit (${d.timeline.length})</h3>
+      <div class="carte" style="padding:0;overflow:auto;max-height:280px">
+        ${d.timeline.length ? `<table><thead><tr>
+          <th>Horodatage</th><th>Événement</th><th>Acteur</th>
+        </tr></thead><tbody>
+        ${d.timeline.map((e) => `<tr>
+          <td class="muet mono">${heureCourte(e.recorded_at)}</td>
+          <td class="mono">${esc(e.event_type)}</td>
+          <td class="muet">${esc(e.actor)}</td>
+        </tr>`).join("")}</tbody></table>`
+        : '<div class="vide">Aucune entrée.</div>'}
+      </div>`,
+    actions: "<button data-fermer>Fermer</button>",
+    apres: (racine) => brancherDetail(racine, d),
+  });
+}
+
+async function brancherDetail(racine, d) {
+  const resultat = racine.querySelector("#d-resultat");
+
+  // Le catalogue n'est charge qu'a l'ouverture de la fenetre : la liste des
+  // scenarios ne sert a rien tant qu'aucune plateforme n'est selectionnee.
+  try {
+    const { by_family: familles } = await api("/api/v1/demo/scenarios");
+    const select = racine.querySelector("#d-scenario");
+    if (select) {
+      Object.entries(familles).forEach(([code, liste]) => {
+        const groupe = document.createElement("optgroup");
+        groupe.label = `${code} — ${LIB_FAMILLE[code] || code}`;
+        liste.forEach((sc) => {
+          const opt = document.createElement("option");
+          opt.value = sc.code;
+          opt.textContent = `${sc.code} — ${court(sc.title, 44)}`;
+          groupe.appendChild(opt);
+        });
+        select.appendChild(groupe);
+      });
+    }
+  } catch { /* le catalogue est un confort : la degradation reste possible */ }
+
+  racine.querySelector("#d-degrader").addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    const degrader = d.state === "nominal";
+    try {
+      await post(`/api/v1/monitoring/simulate/${encodeURIComponent(d.target)}?degraded=${degrader}`);
+      await ouvrirDetail(d.target);
+      vueSurveillance();
+    } catch (err) {
+      resultat.innerHTML = `<div class="bandeau suspendu">${esc(err.message)}</div>`;
+      e.target.disabled = false;
+    }
+  });
+
+  racine.querySelector("#d-lancer").addEventListener("click", async (e) => {
+    const code = racine.querySelector("#d-scenario").value;
+    if (!code) {
+      resultat.innerHTML = '<div class="bandeau suspendu">Choisissez un scénario à lancer.</div>';
+      return;
+    }
+    e.target.disabled = true; e.target.textContent = "Exécution…";
+    try {
+      const r = await post(`/api/v1/demo/run/${code}`);
+      resultat.innerHTML = resultatCible(r, d.target);
+      const raz = resultat.querySelector("#d-raz");
+      if (raz) {
+        raz.addEventListener("click", async () => {
+          raz.disabled = true;
+          await post("/api/v1/demo/reset");
+          await ouvrirDetail(d.target);
+          vueSurveillance();
+        });
+      }
+      // Les chiffres de la fenetre datent d'avant le lancement : les relire.
+      const frais = await api(`/api/v1/monitoring/targets/${encodeURIComponent(d.target)}`);
+      majChiffresDetail(racine, frais);
+      vueSurveillance();
+    } catch (err) {
+      resultat.innerHTML = `<div class="bandeau suspendu">${esc(err.message)}</div>`;
+    } finally {
+      e.target.disabled = false; e.target.textContent = "Lancer";
+    }
+  });
+}
+
+function resultatCible(r, cible) {
+  if (!r.accepted) {
+    // Le rejet vient de la deduplication (EF-19) : rejouer la meme observation
+    // dans la meme minute ne doit pas faire agir deux fois. Ce n'est pas une
+    // panne, c'est la garantie qui s'exerce — mais il faut dire quoi faire.
+    const duplique = /duplic/i.test(r.reason || "");
+    return `<div class="bandeau suspendu">
+      ${esc(r.reason || "scénario non traité")}
+      ${duplique ? `<div style="margin-top:8px;font-weight:400">
+        La même observation a déjà été traitée : le moteur refuse d'agir deux fois
+        sur un événement identique. Remettez la démonstration à zéro, ou attendez
+        la minute suivante, ou choisissez un autre scénario.
+        <button id="d-raz" style="margin-left:8px">Remettre à zéro</button>
+      </div>` : ""}
+    </div>`;
+  }
+  const c = r.decision.classification || {};
+  const actions = (r.execution?.results || []);
+  const surCible = actions.filter((a) => String(a.target || "").includes(cible));
+
+  return `<div class="carte" style="background:var(--plane)">
+    <b>${esc(r.code)} — ${esc(r.scenario.title)}</b>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin:9px 0">
+      <span>Catégorie : <b>${esc(c.category || "—")}</b></span>
+      <span>Criticité : <span class="etat ${esc(c.severity || "moyenne")}">${
+        esc(c.severity || "—")}</span></span>
+      <span>Dangerosité : <span class="etat ${bandeDanger(c.dangerousness || 0)}">${
+        c.dangerousness ?? "—"}/10</span></span>
+      <span>Priorité : <b>${esc(c.priority || "—")}</b></span>
+    </div>
+    <div class="muet">${actions.length} action(s) exécutée(s)${
+      surCible.length ? `, dont ${surCible.length} visant ${esc(cible)}` : ""}.
+      Incident ${esc(r.incident_id || "—")}.</div>
+    ${actions.length ? `<div style="margin-top:9px">${actions.map((a) =>
+      `<div class="mono" style="font-size:12px">${esc(a.verb || "")} →
+        ${esc(a.target || "")} <span class="muet">(${esc(a.status)})</span></div>`)
+      .join("")}</div>` : ""}
+  </div>`;
+}
+
+function majChiffresDetail(racine, d) {
+  const tuiles = racine.querySelectorAll(".tuile .valeur");
+  if (tuiles.length < 3) return;
+  tuiles[1].textContent = d.summary.incidents;
+  tuiles[2].textContent = d.summary.actions_executed;
+}
+
+function brancherBoucle() {
   $("boucle").addEventListener("click", async () => {
     const bouton = $("boucle");
     bouton.disabled = true; bouton.textContent = "Exécution…";
@@ -519,13 +1125,6 @@ async function vueCatalogue() {
         "irréversibles — geste humain requis", "var(--critical)")}
     </div>
 
-    <div class="carte muet" style="margin-bottom:16px">
-      La réversibilité n'est pas une métadonnée de priorisation mais la
-      <b>condition opérationnelle</b> qui autorise le moteur à agir seul (Axe 2).
-      Une action absente de ce catalogue, ou déclarée irréversible, n'est jamais
-      exécutée automatiquement — quelle que soit la gravité de la menace.
-    </div>
-
     <h2>Actions exécutables en autonomie (${autonomes.length})</h2>
     <div class="carte" style="padding:0;overflow:auto">
       <table><thead><tr>
@@ -535,10 +1134,6 @@ async function vueCatalogue() {
     </div>
 
     <h2>Exclues du périmètre autonome (${exclues.length})</h2>
-    <div class="carte muet" style="margin-bottom:10px">
-      Ces entrées figurent au catalogue précisément pour rendre visible ce que
-      l'autonomie ne couvre pas. Elles restent des gestes humains.
-    </div>
     <div class="carte" style="padding:0;overflow:auto">
       <table><thead><tr>
         <th>Action</th><th>Description</th><th>Réversibilité</th><th>Annulation</th>
@@ -553,11 +1148,6 @@ async function vueDemo() {
 
   $("vue").innerHTML = `
     <div class="carte" style="margin-bottom:16px">
-      <div class="muet" style="margin-bottom:10px">
-        Chaque bouton fabrique la charge utile qu'un collecteur émettrait réellement
-        pour l'attaque décrite, puis la remet à l'adaptateur d'ingestion. La plateforme
-        ne fait aucune différence avec une alerte venue d'un Wazuh de production.
-      </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="primaire" data-famille="">Tout le catalogue (${data.count})</button>
         ${Object.entries(LIB_FAMILLE).map(([k, v]) =>
@@ -687,51 +1277,6 @@ function afficherLot(r) {
     </tr>`).join("")}</tbody></table></div>`;
 }
 
-// ============================================================ /assistant
-async function vueAssistant() {
-  const { suggestions } = await api("/api/v1/assistant/suggestions");
-
-  $("vue").innerHTML = `
-    <div class="carte muet" style="margin-bottom:14px">
-      L'assistant répond exclusivement à partir des données de la plateforme —
-      journal d'audit, portefeuille, catalogue. Une question hors de ce périmètre
-      reçoit un refus explicite, jamais une réponse fabriquée.
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-      ${suggestions.map((s) => `<button data-q="${esc(s)}">${esc(s)}</button>`).join("")}
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:16px">
-      <input id="question" placeholder="Posez une question sur les opérations…" style="flex:1">
-      <button class="primaire" id="envoyer">Demander</button>
-    </div>
-    <div id="reponse" class="md"></div>`;
-
-  const poser = async (question) => {
-    $("reponse").innerHTML = '<div class="muet">…</div>';
-    try {
-      const r = await post("/api/v1/assistant/ask", { question });
-      $("reponse").innerHTML = `<div class="carte">
-        <div class="muet" style="margin-bottom:10px">${esc(question)}</div>
-        <div class="md">${markdown(r.text)}</div>
-        ${r.sources.length ? `<div class="muet" style="margin-top:12px;padding-top:10px;
-          border-top:1px solid var(--grid)">Sources : ${r.sources.map(esc).join(", ")}
-          · rédaction : ${esc(r.provider)}</div>` : ""}
-      </div>`;
-    } catch (e) {
-      $("reponse").innerHTML = `<div class="carte" style="border-color:var(--critical)">${esc(e.message)}</div>`;
-    }
-  };
-
-  $("vue").querySelectorAll("button[data-q]").forEach((b) =>
-    b.addEventListener("click", () => poser(b.dataset.q)));
-  $("envoyer").addEventListener("click", () => {
-    const q = $("question").value.trim(); if (q) poser(q);
-  });
-  $("question").addEventListener("keydown", (e) => { if (e.key === "Enter") $("envoyer").click(); });
-
-  const brief = await api("/api/v1/assistant/brief");
-  $("reponse").innerHTML = `<div class="carte"><div class="md">${markdown(brief.text)}</div></div>`;
-}
 
 // ============================================================== /reports
 async function vueRapports() {
@@ -742,12 +1287,6 @@ async function vueRapports() {
 
   $("vue").innerHTML = `
     <div class="carte" style="margin-bottom:16px">
-      <div class="muet" style="margin-bottom:12px">
-        Un rapport n'est pas un bilan plus long : c'est une pièce destinée à être
-        transmise, archivée et opposée. Il porte son périmètre, sa période et
-        l'état de la chaîne d'audit — de quoi être rejugé par quelqu'un qui
-        n'était pas là.
-      </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <span class="muet">Période :</span>
         <select id="periode">
@@ -864,11 +1403,22 @@ async function vueReglages() {
       </div>
     </div>
 
-    <h2>Notifications a posteriori non acquittées (${notifications.count})</h2>
-    <div class="carte muet" style="margin-bottom:10px">
-      L'analyste est informé après coup de chaque action exécutée. Cette notification
-      est son unique point d'entrée dans la boucle : il ne valide rien en amont.
+    <h2>Jeton de session</h2>
+    <div class="carte" style="margin-bottom:18px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <input id="jeton" type="password" placeholder="Jeton administrateur ou analyste"
+               value="${esc(jeton())}" style="flex:1;min-width:240px">
+        <button class="primaire" id="poser-jeton">Enregistrer</button>
+        <button id="oublier-jeton">Oublier</button>
+        <span class="etat ${jeton() ? "basse" : "moyenne"}" id="etat-jeton">${
+          jeton() ? "jeton présent" : "lecture seule"}</span>
+      </div>
+      <div class="muet" style="margin-top:9px">Sans jeton, l'interface reste consultable
+        mais aucun geste réservé n'est possible : déclarer une plateforme, basculer
+        l'autonomie ou annuler une action exigent un rôle.</div>
     </div>
+
+    <h2>Notifications a posteriori non acquittées (${notifications.count})</h2>
     <div class="carte" style="padding:0;overflow:auto;margin-bottom:18px">
       ${notifications.count ? `<table><thead><tr>
         <th>Émise</th><th>Gravité</th><th>Objet</th><th>Incident</th><th></th>
@@ -912,6 +1462,15 @@ async function vueReglages() {
       </div>
     </div>`;
 
+  $("poser-jeton").addEventListener("click", async () => {
+    poserJeton($("jeton").value.trim());
+    await vueReglages();
+  });
+  $("oublier-jeton").addEventListener("click", async () => {
+    poserJeton("");
+    await vueReglages();
+  });
+
   $("choix-theme").addEventListener("change", (e) => {
     const v = e.target.value;
     if (v) {
@@ -936,3 +1495,192 @@ naviguer(location.pathname, true);
 setInterval(() => {
   if (["/dashboard", "/monitoring"].includes(vueCourante?.route)) rafraichir();
 }, 20000);
+
+// ============================================================ bulle assistant
+// Une conversation plutot qu'un formulaire. Trois choses la distinguent d'un
+// simple champ de recherche : le fil garde le contexte de la seance, la
+// reflexion est montree au lieu d'etre masquee, et le texte s'ecrit pendant
+// qu'on le lit. Ce n'est pas un modele qui redige au fil de l'eau — la
+// reponse est deterministe, le rythme sert la lecture.
+
+function majVisibiliteChat() {
+  const masquer = CHAT_MASQUE.includes(location.pathname);
+  $("lanceur-chat").hidden = masquer || chatOuvert;
+  if (masquer && chatOuvert) fermerChat();
+}
+
+function ouvrirChat() {
+  chatOuvert = true;
+  $("chat").hidden = false;
+  $("lanceur-chat").hidden = true;
+  $("question").focus();
+  if (!$("fil").children.length) accueil();
+}
+
+function fermerChat() {
+  chatOuvert = false;
+  $("chat").hidden = true;
+  majVisibiliteChat();
+  if (flux) { flux.close(); flux = null; }
+}
+
+$("lanceur-chat").addEventListener("click", ouvrirChat);
+$("fermer-chat").addEventListener("click", fermerChat);
+$("agrandir").addEventListener("click", () => $("chat").classList.toggle("plein"));
+$("vider-chat").addEventListener("click", () => { $("fil").innerHTML = ""; accueil(); });
+
+// -- fil de discussion -------------------------------------------------------
+
+function tour(role, contenu = "") {
+  const bloc = document.createElement("div");
+  bloc.className = `tour ${role}`;
+  bloc.innerHTML = role === "machine"
+    ? `<div class="signature"><span class="jeton">C</span>Assistant</div>
+       <div class="bulle"></div>`
+    : `<div class="bulle"></div>`;
+  bloc.querySelector(".bulle").innerHTML = contenu;
+  $("fil").appendChild(bloc);
+  defiler();
+  return bloc;
+}
+
+const defiler = () => { $("fil").scrollTop = $("fil").scrollHeight; };
+
+async function accueil() {
+  const bloc = tour("machine", '<span class="curseur"></span>');
+  try {
+    const [brief, pistes] = await Promise.all([
+      api("/api/v1/assistant/brief"),
+      api("/api/v1/assistant/suggestions"),
+    ]);
+    bloc.querySelector(".bulle").innerHTML = markdown(brief.text);
+    afficherPistes(pistes.suggestions);
+  } catch (e) {
+    bloc.querySelector(".bulle").innerHTML =
+      `<span style="color:var(--critical)">${esc(e.message)}</span>`;
+  }
+  defiler();
+}
+
+function afficherPistes(suggestions) {
+  // Trois pistes suffisent : au-dela, elles mangent la hauteur du fil et la
+  // reponse qu'on vient de lire sort de l'ecran.
+  $("pistes").innerHTML = suggestions.slice(0, 3)
+    .map((q) => `<button data-q="${esc(q)}">${esc(q)}</button>`).join("");
+  $("pistes").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => envoyer(b.dataset.q)));
+  defiler();
+}
+
+// -- envoi et reception en flux ---------------------------------------------
+
+function envoyer(question) {
+  if (chatOccupe || !question.trim()) return;
+  chatOccupe = true;
+  $("envoyer").disabled = true;
+  $("question").value = "";
+  $("question").style.height = "auto";
+  $("pistes").innerHTML = "";
+
+  tour("humain", esc(question));
+  const bloc = tour("machine", '<div class="reflexion"></div><div class="texte"></div>');
+  const reflexion = bloc.querySelector(".reflexion");
+  const texte = bloc.querySelector(".texte");
+  let brut = "";
+
+  flux = new EventSource(`/api/v1/assistant/stream?question=${encodeURIComponent(question)}`);
+
+  flux.onmessage = (e) => {
+    const ev = JSON.parse(e.data);
+    switch (ev.type) {
+      case "thinking": {
+        reflexion.querySelectorAll(".etape.encours")
+          .forEach((x) => x.className = "etape faite");
+        const etape = document.createElement("div");
+        etape.className = "etape encours";
+        etape.textContent = ev.label;
+        reflexion.appendChild(etape);
+        defiler();
+        break;
+      }
+      case "action":
+        reflexion.insertAdjacentHTML("afterend", resultatEffet(ev.result));
+        defiler();
+        break;
+      case "delta":
+        brut += ev.text;
+        texte.innerHTML = markdown(brut) + '<span class="curseur"></span>';
+        defiler();
+        break;
+      case "done":
+        reflexion.querySelectorAll(".etape.encours")
+          .forEach((x) => x.className = "etape faite");
+        texte.innerHTML = markdown(brut);
+        if (ev.sources && ev.sources.length) {
+          texte.insertAdjacentHTML("beforeend",
+            `<div class="muet" style="margin-top:10px;font-size:11.5px">Sources : ${
+              ev.sources.map(esc).join(", ")}</div>`);
+        }
+        terminer();
+        // Une action a change l'etat du systeme : la vue affichee doit suivre.
+        if (ev.intent === "simulation") rafraichir();
+        break;
+    }
+  };
+
+  flux.onerror = () => {
+    if (!brut) {
+      texte.innerHTML = '<span style="color:var(--critical)">Assistant injoignable.</span>';
+    } else {
+      texte.innerHTML = markdown(brut);
+    }
+    terminer();
+  };
+
+  function terminer() {
+    if (flux) { flux.close(); flux = null; }
+    chatOccupe = false;
+    $("envoyer").disabled = false;
+    api("/api/v1/assistant/suggestions")
+      .then((p) => afficherPistes(p.suggestions))
+      .catch(() => { /* les pistes sont un confort, pas une dependance */ });
+    defiler();
+  }
+}
+
+function resultatEffet(r) {
+  if (!r || !r.executed) {
+    return `<div class="effet"><div class="titre-effet">Effet non appliqué</div>
+      ${esc(r && r.reason ? r.reason : "aucun effet")}</div>`;
+  }
+  if (r.kind === "report") {
+    return `<div class="effet"><div class="titre-effet">Rapport généré</div>
+      Période de ${r.hours} heures — <a href="/api/v1/assistant/report.md?hours=${r.hours}"
+      download>télécharger en Markdown</a></div>`;
+  }
+  const lignes = (r.results || []).map((x) => `<tr>
+    <td class="mono"><b>${esc(x.code)}</b></td>
+    <td>${esc(court(x.label, 40))}</td>
+    <td class="num">${x.actions_executed}</td>
+    <td><span class="etat ${x.outcome === "autonomous_execution" ? "basse" : "moyenne"}">${
+      esc(x.outcome === "autonomous_execution" ? "traité" : x.outcome || "refusé")}</span></td>
+  </tr>`).join("");
+
+  return `<div class="effet">
+    <div class="titre-effet">${r.scenarios_run} scénario(s) — ${
+      r.actions_executed} action(s) exécutée(s)</div>
+    <table><thead><tr><th>Code</th><th>Scénario</th><th>Actions</th><th>Issue</th></tr></thead>
+    <tbody>${lignes}</tbody></table></div>`;
+}
+
+// -- saisie ------------------------------------------------------------------
+
+$("envoyer").addEventListener("click", () => envoyer($("question").value));
+$("question").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); envoyer($("question").value); }
+});
+$("question").addEventListener("input", () => {
+  const zone = $("question");
+  zone.style.height = "auto";
+  zone.style.height = Math.min(zone.scrollHeight, 132) + "px";
+});

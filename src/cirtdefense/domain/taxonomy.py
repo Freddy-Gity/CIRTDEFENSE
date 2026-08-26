@@ -296,7 +296,7 @@ APPLICATION_ATTACKS: tuple[AttackType, ...] = (
     AttackType(
         code="B2",
         family=AttackFamily.APPLICATION,
-        label="XSS (stocke / reflete)",
+        label="XSS (stocké / reflété)",
         category="xss",
         detection_sources=("Surveillance applicative",),
         signal="Contenu suspect dans les champs soumis (balises script, encodages)",
