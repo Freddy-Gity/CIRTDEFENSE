@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from ...assistant.service import Answer, Intent
+from ...assistant.service import Answer
 from ...demo.scenarios import SCENARIOS, build_payload, get_scenario
 from ..deps import PlatformDep
 
@@ -19,6 +19,11 @@ router = APIRouter(prefix="/api/v1/assistant", tags=["assistant"])
 
 class QuestionRequest(BaseModel):
     question: str = Field(min_length=2, max_length=1000)
+    conversation_id: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Fil de discussion : sans lui, chaque question repart de zéro",
+    )
 
 
 @router.post("/ask")
@@ -31,7 +36,7 @@ def ask(request: QuestionRequest, platform: PlatformDep) -> dict:
     produire un rapport — l'assistant reconnaît l'intention et **la route
     l'exécute** : le texte produit ne décide jamais d'une action.
     """
-    reponse = platform.assistant.ask(request.question)
+    reponse = platform.assistant.ask(request.question, conversation_id=request.conversation_id)
     corps = reponse.to_dict()
     if reponse.action:
         corps["action_result"] = _executer(reponse.action, platform)
@@ -39,7 +44,9 @@ def ask(request: QuestionRequest, platform: PlatformDep) -> dict:
 
 
 @router.get("/stream")
-def stream(question: str, platform: PlatformDep) -> StreamingResponse:
+def stream(
+    question: str, platform: PlatformDep, conversation_id: str | None = None
+) -> StreamingResponse:
     """La même réponse, servie en flux pour un affichage progressif.
 
     Le contenu est calculé d'abord et diffusé ensuite : ce n'est pas un modèle
@@ -48,7 +55,7 @@ def stream(question: str, platform: PlatformDep) -> StreamingResponse:
     pas une animation décorative.
     """
     return StreamingResponse(
-        _evenements(question, platform),
+        _evenements(question, platform, conversation_id),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
@@ -58,42 +65,42 @@ def _sse(type_: str, **donnees: object) -> str:
     return f"data: {json.dumps({'type': type_, **donnees}, ensure_ascii=False)}\n\n"
 
 
-def _etapes(intent: Intent) -> list[str]:
-    """Ce que l'assistant consulte réellement pour cette intention."""
-    commun = ["Lecture du journal d'audit", "Relevé du portefeuille d'incidents"]
-    match intent:
-        case Intent.SIMULATE:
-            return ["Recherche du scénario au catalogue CIRT", "Préparation de la charge utile"]
-        case Intent.CATALOG:
-            return ["Lecture du catalogue CIRT"]
-        case Intent.POSTURE:
-            return ["Lecture de la posture d'autonomie", "État du coupe-circuit"]
-        case Intent.REPORT:
-            return [*commun, "Vérification de la chaîne d'audit", "Rédaction du rapport"]
-        case Intent.UNKNOWN:
-            return ["Recherche de l'intention"]
-        case _:
-            return commun
+def _evenements(
+    question: str, platform: PlatformDep, conversation_id: str | None = None
+) -> Iterator[str]:
+    """Diffuse la réponse à mesure qu'elle se construit.
 
+    Les étapes annoncées sont celles que l'assistant a réellement suivies —
+    l'intention qu'il a reconnue et sur quel indice, la période qu'il a
+    retenue, les sources lues, la vérification faite. Ce n'est pas une
+    animation : c'est la trace, et elle est contestable.
 
-def _evenements(question: str, platform: PlatformDep) -> Iterator[str]:
-    reponse: Answer = platform.assistant.ask(question)
+    Le contenu est calculé d'abord, diffusé ensuite. Aucun modèle n'écrit au
+    fil de l'eau ; le rythme sert la lecture, pas l'illusion.
+    """
+    yield _sse("thinking", label="Lecture de la question", detail=question.strip()[:120])
+    time.sleep(0.25)
 
-    for etape in _etapes(reponse.intent):
-        yield _sse("thinking", label=etape)
-        time.sleep(0.18)
+    reponse: Answer = platform.assistant.ask(question, conversation_id=conversation_id)
+
+    for etape in reponse.reasoning:
+        yield _sse("thinking", label=etape["label"], detail=etape.get("detail", ""))
+        time.sleep(0.32)
 
     if reponse.action:
-        yield _sse("thinking", label="Exécution de la demande")
+        yield _sse("thinking", label="Exécution de la demande", detail=_dire(reponse.action))
         resultat = _executer(reponse.action, platform)
         yield _sse("action", action=reponse.action, result=resultat)
+        time.sleep(0.2)
+
+    yield _sse("answer_start")
 
     # Découpe par mot : la ponctuation reste collée au mot qui la précède,
     # sinon le texte s'afficherait avec des espaces avant les virgules.
     mots = reponse.text.split(" ")
     for index, mot in enumerate(mots):
         yield _sse("delta", text=mot if index == 0 else f" {mot}")
-        time.sleep(0.012)
+        time.sleep(0.024)
 
     yield _sse(
         "done",
@@ -101,7 +108,24 @@ def _evenements(question: str, platform: PlatformDep) -> Iterator[str]:
         facts=reponse.facts,
         sources=reponse.sources,
         provider=reponse.provider,
+        reasoning=reponse.reasoning,
+        follow_ups=reponse.follow_ups,
     )
+
+
+def _dire(action: dict) -> str:
+    """Ce que l'effet demandé va faire, en clair."""
+    match action.get("kind"):
+        case "run_scenario":
+            return f"scénario {action.get('code')} du catalogue CIRT"
+        case "run_family":
+            return f"tous les scénarios de la famille {action.get('family')}"
+        case "run_all":
+            return "les 22 scénarios du catalogue"
+        case "report":
+            return f"rapport sur {action.get('hours', 24)} heures"
+        case _:
+            return ""
 
 
 def _executer(action: dict, platform: PlatformDep) -> dict:
