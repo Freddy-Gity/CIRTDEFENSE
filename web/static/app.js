@@ -134,12 +134,15 @@ function naviguer(chemin, remplacer = false) {
       history[remplacer ? "replaceState" : "pushState"]({}, "", "/accueil");
     }
     vueCourante = { route: "/accueil" };
+    // Sur l'accueil : ni rail, ni barre du haut — la page se suffit.
+    document.body.classList.add("sur-accueil");
     $("nav").querySelectorAll("a[data-route]").forEach((a) =>
       a.setAttribute("aria-current", "false"));
     majVisibiliteChat();
     vueAccueil();
     return;
   }
+  document.body.classList.remove("sur-accueil");
   // L'assistant n'a plus d'onglet, mais son adresse reste valide : un lien
   // profond ou un signet existant doit ouvrir la conversation, pas une 404.
   if (chemin === "/assistant") {
@@ -175,17 +178,24 @@ window.addEventListener("popstate", () => {
   naviguer(location.pathname, true);
 });
 
+const themeSombre = () => {
+  const forcé = document.documentElement.getAttribute("data-theme");
+  return forcé ? forcé === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+};
+const majIconeTheme = () => $("theme").classList.toggle("sombre", themeSombre());
+
 $("theme").addEventListener("click", () => {
-  const actuel = document.documentElement.getAttribute("data-theme");
-  const sombre = actuel ? actuel === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-  const cible = sombre ? "light" : "dark";
+  const cible = themeSombre() ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", cible);
   try { localStorage.setItem("cirt-theme", cible); } catch { /* stockage indisponible */ }
+  majIconeTheme();
 });
 try {
   const memo = localStorage.getItem("cirt-theme");
   if (memo) document.documentElement.setAttribute("data-theme", memo);
 } catch { /* stockage indisponible */ }
+majIconeTheme();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", majIconeTheme);
 
 // ------------------------------------------------- bascule d'autonomie
 // Activer ou suspendre, c'est le coupe-circuit EF-26 sous un nom lisible.
@@ -2719,6 +2729,7 @@ async function seDeconnecter() {
   poserJeton("");
   SESSION = null;
   delete document.body.dataset.role;
+  document.body.classList.remove("sur-accueil");
   $("pied-session").hidden = true;
   $("lien-accueil").hidden = true;
   if (flux) { flux.close(); flux = null; }
@@ -2741,13 +2752,16 @@ function vueAccueil() {
       </button>`).join("");
   $("vue").innerHTML = `
     <div class="portail">
+      <h1 class="titre-accueil">Accueil</h1>
       ${LOGOS}
       <div class="salut">${esc(SESSION.welcome)}<b>.</b></div>
       <div class="role-badge">${esc(roleLisible(SESSION.role))}</div>
       <div class="tuiles-portail">${tuiles}</div>
+      <button class="deco-portail" id="deco-portail" type="button">Se déconnecter</button>
     </div>`;
   $("vue").querySelectorAll("[data-route]").forEach((t) =>
     t.addEventListener("click", () => naviguer(t.dataset.route)));
+  $("deco-portail").addEventListener("click", seDeconnecter);
 }
 
 $("deconnexion").addEventListener("click", seDeconnecter);

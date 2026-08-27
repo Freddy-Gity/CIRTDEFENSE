@@ -921,11 +921,29 @@ body.hors-session main { display: grid; place-items: center; padding: 24px; }
   border-radius: 10px; padding: 14px 15px; font-size: 13px;
 }
 
-/* page d'accueil (portail) */
-.portail { width: 100%; max-width: 940px; text-align: center; }
+/* page d'accueil (portail) — plein écran, sans rail ni barre du haut */
+body.sur-accueil { grid-template-columns: 1fr; }
+body.sur-accueil #rail,
+body.sur-accueil #entete,
+body.sur-accueil #lanceur-chat,
+body.sur-accueil #chat { display: none !important; }
+body.sur-accueil #contenu { height: 100vh; }
+body.sur-accueil main { display: block; padding: 44px 24px 60px; max-width: none; }
+
+.portail { width: 100%; max-width: 940px; margin: 0 auto; text-align: center; }
+.titre-accueil {
+  font-family: inherit; font-size: 15px; font-weight: 700; letter-spacing: .28em;
+  text-transform: uppercase; color: var(--ink-2); margin: 0 0 26px; text-align: center;
+}
 .portail .logos-auth { margin-bottom: 14px; }
 .portail .salut { font-size: 25px; font-weight: 300; color: var(--ink-1); margin-bottom: 4px; }
 .portail .salut b { font-weight: 600; }
+.deco-portail {
+  margin: 26px auto 0; display: block; border: 1px solid var(--grid);
+  background: var(--surface-1); color: var(--ink-2); border-radius: 9px;
+  padding: 9px 20px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.deco-portail:hover { border-color: var(--critical); color: var(--critical); }
 .portail .role-badge {
   display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .06em;
   text-transform: uppercase; color: var(--accent); margin-bottom: 26px;
@@ -963,6 +981,37 @@ body.hors-session main { display: grid; place-items: center; padding: 24px; }
   border-radius: 7px; padding: 6px 10px; font-size: 12px; cursor: pointer;
 }
 #lien-accueil:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Bascule de thème : un soleil qui devient lune. Les rayons se rétractent et
+   s'effacent, un disque masque vient creuser le croissant. */
+.btn-theme {
+  width: 34px; height: 30px; padding: 0; border-radius: 8px;
+  border: 1px solid var(--ring); background: var(--surface-1); color: var(--ink-2);
+  display: grid; place-items: center; cursor: pointer;
+}
+.btn-theme:hover { border-color: var(--accent); color: var(--accent); }
+.ico-theme { width: 18px; height: 18px; overflow: visible; }
+.ico-theme .disque {
+  transform-origin: center; transition: r .45s cubic-bezier(.4, 0, .2, 1);
+}
+.ico-theme .croissant {
+  transition: transform .5s cubic-bezier(.5, 0, .3, 1);
+}
+.ico-theme .rayons {
+  transform-origin: center;
+  transition: transform .5s cubic-bezier(.5, 0, .3, 1), opacity .3s ease;
+}
+.ico-theme .rayons line {
+  transform-origin: center; transition: transform .45s cubic-bezier(.5, 0, .3, 1);
+}
+/* état sombre : lune */
+.btn-theme.sombre .ico-theme .rayons { transform: rotate(-25deg) scale(.55); opacity: 0; }
+.btn-theme.sombre .ico-theme .rayons line { transform: scaleY(0); }
+.btn-theme.sombre .ico-theme .croissant { transform: translate(-14px, 3px); }
+.btn-theme.sombre .ico-theme .disque { r: 7; }
+@media (prefers-reduced-motion: reduce) {
+  .ico-theme *, .ico-theme { transition-duration: 0s; }
+}
 
 /* La bascule d'autonomie (coupe-circuit EF-26) est un geste d'administrateur :
    masquée pour l'analyste et le décideur. */
@@ -1023,7 +1072,27 @@ body[data-role="super_admin"] .admin-only { display: block; }
     </div>
     <span class="spacer"></span>
     <button id="lien-accueil" type="button" title="Page d'accueil" hidden>Accueil</button>
-    <button id="theme" title="Basculer le thème">Thème</button>
+    <button id="theme" class="btn-theme" title="Basculer le thème clair / sombre"
+            aria-label="Basculer le thème clair / sombre">
+      <svg class="ico-theme" viewBox="0 0 24 24" aria-hidden="true">
+        <mask id="masque-lune">
+          <rect x="0" y="0" width="24" height="24" fill="#fff"/>
+          <circle class="croissant" cx="30" cy="4" r="6" fill="#000"/>
+        </mask>
+        <circle class="disque" cx="12" cy="12" r="5.6" fill="currentColor"
+                mask="url(#masque-lune)"/>
+        <g class="rayons" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="12" y1="1.5" x2="12" y2="3.5"/>
+          <line x1="12" y1="20.5" x2="12" y2="22.5"/>
+          <line x1="3.9" y1="3.9" x2="5.3" y2="5.3"/>
+          <line x1="18.7" y1="18.7" x2="20.1" y2="20.1"/>
+          <line x1="1.5" y1="12" x2="3.5" y2="12"/>
+          <line x1="20.5" y1="12" x2="22.5" y2="12"/>
+          <line x1="3.9" y1="20.1" x2="5.3" y2="18.7"/>
+          <line x1="18.7" y1="5.3" x2="20.1" y2="3.9"/>
+        </g>
+      </svg>
+    </button>
 
     <div class="menu" id="menu-autonomie">
       <button id="autonomie" class="bascule" aria-haspopup="true" aria-expanded="false">
