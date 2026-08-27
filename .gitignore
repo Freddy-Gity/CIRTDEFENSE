@@ -15,3 +15,6 @@ data/
 .coverage
 htmlcov/
 node_modules/
+
+# Claude Code — reglages locaux de session
+.claude/settings.local.json

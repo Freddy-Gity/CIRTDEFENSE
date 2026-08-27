@@ -17,7 +17,7 @@ from fastapi import APIRouter, HTTPException, status
 from ...demo import build_payload, get_scenario, list_scenarios
 from ...demo.scenarios import ASSETS, by_family
 from ...domain.taxonomy import summary as taxonomy_summary
-from ..deps import PlatformDep
+from ..deps import AdminDep, PlatformDep
 
 router = APIRouter(prefix="/api/v1/demo", tags=["demonstration"])
 
@@ -45,7 +45,7 @@ def assets() -> dict:
 
 
 @router.post("/run/{code}", status_code=status.HTTP_202_ACCEPTED)
-def run(code: str, platform: PlatformDep) -> dict:
+def run(code: str, platform: PlatformDep, role: AdminDep) -> dict:
     """Simule l'attaque `code` et rend la chaîne complète de traitement."""
     _refuse_in_live_mode(platform)
 
@@ -77,7 +77,7 @@ def run(code: str, platform: PlatformDep) -> dict:
 
 
 @router.post("/run-all", status_code=status.HTTP_202_ACCEPTED)
-def run_all(platform: PlatformDep, family: str | None = None) -> dict:
+def run_all(platform: PlatformDep, role: AdminDep, family: str | None = None) -> dict:
     """Rejoue toute une famille, ou le catalogue entier.
 
     Utile en soutenance : une seule commande produit un portefeuille complet
@@ -124,7 +124,7 @@ def run_all(platform: PlatformDep, family: str | None = None) -> dict:
 
 
 @router.post("/reset")
-def reset(platform: PlatformDep) -> dict:
+def reset(platform: PlatformDep, role: AdminDep) -> dict:
     """Remet le mode démonstration à zero.
 
     Le journal d'audit n'est **pas** efface : il est immuable par construction,

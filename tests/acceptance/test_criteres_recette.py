@@ -497,8 +497,8 @@ class TestCR17_ModeDemonstration:
         body = client.get("/api/v1/demo/scenarios").json()
         assert body["count"] == 22
 
-    def test_une_attaque_se_declenche_d_un_appel(self, client):
-        body = client.post("/api/v1/demo/run/B3").json()
+    def test_une_attaque_se_declenche_d_un_appel(self, client, admin_headers):
+        body = client.post("/api/v1/demo/run/B3", headers=admin_headers).json()
         assert body["accepted"]
         assert body["execution"]["executed"] >= 1
 
@@ -518,7 +518,9 @@ class TestCR17_ModeDemonstration:
         try:
             set_platform(platform)
             with TestClient(create_app()) as client:
-                response = client.post("/api/v1/demo/run/A1")
+                response = client.post(
+                    "/api/v1/demo/run/A1", headers={"Authorization": "Bearer test-admin"}
+                )
             assert response.status_code == 409
             assert "effets réels" in response.json()["detail"]
         finally:

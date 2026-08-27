@@ -63,6 +63,11 @@ class AutonomySettings:
 class Settings:
     env: str = "dev"
     site_id: str = "cirt-cm-01"
+    site_lat: float = 3.8747
+    """Latitude du siège (par défaut : ANTIC, Nlongkak, Yaoundé). Sert de
+    centre géographique au balayage radar de l'onglet Surveillance."""
+    site_lon: float = 11.5203
+    """Longitude du siège."""
     db_path: Path = field(default_factory=lambda: PROJECT_ROOT / "data" / "cirtdefense.db")
     knowledge_dir: Path = field(
         default_factory=lambda: PROJECT_ROOT / "src" / "cirtdefense" / "enrichment" / "knowledge"
@@ -82,6 +87,8 @@ class Settings:
     api_port: int = 8000
     admin_token: str = "change-me-admin"
     analyst_token: str = "change-me-analyst"
+    session_ttl_hours: int = 12
+    """Durée de vie d'une session ouverte à la connexion (onglet Comptes)."""
     autonomy: AutonomySettings = field(default_factory=AutonomySettings)
 
     @classmethod
@@ -89,6 +96,8 @@ class Settings:
         return cls(
             env=os.getenv("CIRT_ENV", "dev"),
             site_id=os.getenv("CIRT_SITE_ID", "cirt-cm-01"),
+            site_lat=_float("CIRT_SITE_LAT", 3.8747),
+            site_lon=_float("CIRT_SITE_LON", 11.5203),
             db_path=Path(os.getenv("CIRT_DB_PATH", str(PROJECT_ROOT / "data" / "cirtdefense.db"))),
             knowledge_dir=Path(
                 os.getenv(
@@ -108,6 +117,7 @@ class Settings:
             api_port=_int("CIRT_API_PORT", 8000),
             admin_token=os.getenv("CIRT_ADMIN_TOKEN", "change-me-admin"),
             analyst_token=os.getenv("CIRT_ANALYST_TOKEN", "change-me-analyst"),
+            session_ttl_hours=_int("CIRT_SESSION_TTL_HOURS", 12),
             autonomy=AutonomySettings(
                 enabled=_flag("CIRT_AUTONOMY_ENABLED", True),
                 actuation_mode=os.getenv("CIRT_ACTUATION_MODE", "simulation"),

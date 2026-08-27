@@ -16,12 +16,14 @@ from .api.routes import (
     admin,
     assistant,
     audit,
+    auth,
     demo,
     events,
     health,
     incidents,
     monitoring,
     policy,
+    users,
 )
 from .config import get_settings
 from .logging_setup import configure_logging
@@ -55,6 +57,9 @@ async def lifespan(app: FastAPI):
 
 VUES_CLIENT = (
     "/",
+    "/login",
+    "/register",
+    "/accueil",
     "/dashboard",
     "/incidents/portfolio",
     "/monitoring",
@@ -77,6 +82,8 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router)
+    app.include_router(auth.router)
+    app.include_router(users.router)
     app.include_router(events.router)
     app.include_router(incidents.router)
     app.include_router(actions.router)

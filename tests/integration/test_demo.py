@@ -118,28 +118,34 @@ class TestApiDemonstration:
         assert body["count"] == 22
         assert set(body["by_family"]) == {"A", "B", "C", "D"}
 
-    def test_declenchement_unitaire(self, client):
-        body = client.post("/api/v1/demo/run/A6").json()
+    def test_declenchement_unitaire(self, client, admin_headers):
+        body = client.post("/api/v1/demo/run/A6", headers=admin_headers).json()
         assert body["accepted"]
         assert body["decision"]["classification"]["code"] == "A6"
 
-    def test_declenchement_par_famille(self, client):
-        body = client.post("/api/v1/demo/run-all?family=C").json()
+    def test_declenchement_par_famille(self, client, admin_headers):
+        body = client.post("/api/v1/demo/run-all?family=C", headers=admin_headers).json()
         assert body["scenarios_run"] == 4
 
-    def test_famille_inconnue(self, client):
-        assert client.post("/api/v1/demo/run-all?family=Z").status_code == 404
+    def test_famille_inconnue(self, client, admin_headers):
+        assert (
+            client.post("/api/v1/demo/run-all?family=Z", headers=admin_headers).status_code == 404
+        )
 
-    def test_scenario_inconnu(self, client):
-        assert client.post("/api/v1/demo/run/Z9").status_code == 404
+    def test_scenario_inconnu(self, client, admin_headers):
+        assert client.post("/api/v1/demo/run/Z9", headers=admin_headers).status_code == 404
 
-    def test_remise_a_zero_conserve_le_journal(self, client):
+    def test_reserve_a_l_administrateur(self, client):
+        """La démonstration déclenche la chaîne complète : réservée à l'admin."""
+        assert client.post("/api/v1/demo/run/A1").status_code == 403
+
+    def test_remise_a_zero_conserve_le_journal(self, client, admin_headers):
         """Le journal est immuable par construction : une remise à zero qui
         le viderait contredirait le mécanisme qu'il incarne."""
-        client.post("/api/v1/demo/run/A1")
+        client.post("/api/v1/demo/run/A1", headers=admin_headers)
         avant = client.get("/api/v1/audit/verify").json()["entries_checked"]
 
-        body = client.post("/api/v1/demo/reset").json()
+        body = client.post("/api/v1/demo/reset", headers=admin_headers).json()
 
         assert body["reset"]
         assert body["audit_entries_kept"] >= avant

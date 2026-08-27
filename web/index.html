@@ -86,7 +86,6 @@ body {
   margin-left: auto; font-size: 11px; font-weight: 600; padding: 1px 7px;
   border-radius: 999px; background: var(--grid); color: var(--ink-2);
 }
-#rail .pied { padding: 10px 16px 14px; border-top: 1px solid var(--grid); font-size: 11px; color: var(--ink-muted); }
 
 /* --------------------------------- contenu ------------------------------ */
 #contenu { min-width: 0; display: flex; flex-direction: column; height: 100vh; overflow: auto; }
@@ -225,69 +224,141 @@ h2:first-child { margin-top: 0; }
 .champ.invalide input, .champ.invalide select { border-color: var(--critical); }
 .champ .erreur { font-size: 11px; color: var(--critical); }
 
-/* ------------------------------ carte et radar --------------------------
-   Plan de site, pas une carte du monde : les points sont places par leurs
-   coordonnees quand elles sont connues, par leur segment sinon. */
-.plan {
-  position: relative; height: 380px; border-radius: 12px; overflow: hidden;
-  display: grid; place-items: center;
-  background:
-    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--fam-A) 7%, var(--surface-1)), var(--surface-1) 72%);
+/* --------------------------- carte de surveillance ---------------------
+   Une vraie carte : projection Web Mercator, deplacement et zoom. Pas de
+   fond de tuiles (la plateforme reste utilisable hors connexion) : le
+   reperage se fait au graticule lat/lon et aux anneaux de portee. Le
+   balayage radar tourne sans fin autour d'un centre FIXE — le siege — qui
+   reste accroche a sa coordonnee quel que soit le zoom. */
+.carte-geo {
+  position: relative; height: 440px; border-radius: 12px; overflow: hidden;
   border: 1px solid var(--grid);
+  background:
+    radial-gradient(circle at 50% 50%,
+      color-mix(in srgb, var(--fam-A) 8%, var(--surface-1)), var(--surface-1) 74%);
+  cursor: grab; touch-action: none; user-select: none;
 }
-.plan svg.grille-plan { position: absolute; inset: 0; width: 100%; height: 100%; }
-/* Le cadran est carre : sans cela le rapport latitude/longitude serait ecrase
-   par la largeur du bloc et la position des points cesserait d'etre fidele. */
-.cadran { position: relative; height: 100%; aspect-ratio: 1; }
-.cadran .balayage {
-  position: absolute; inset: 4%; border-radius: 50%; pointer-events: none;
+.carte-geo.attrape { cursor: grabbing; }
+.carte-geo:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.geo-grille { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.geo-grille .gl { stroke: var(--grid); stroke-width: 1; }
+.geo-grille .gt {
+  fill: var(--ink-muted); font-size: 9px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.geo-grille .ga {
+  fill: none; stroke: color-mix(in srgb, var(--fam-C) 32%, transparent); stroke-dasharray: 3 4;
+}
+.geo-grille .gac { fill: color-mix(in srgb, var(--fam-C) 55%, var(--ink-muted)); text-anchor: middle; }
+
+/* balayage : la rotation est sur .geo-balayage seule, origine au centre —
+   aucune translation, donc aucune derive. Le parent .geo-radar ne fait que
+   se positionner (JS) sur la coordonnee du siege. */
+.geo-radar {
+  position: absolute; border-radius: 50%; pointer-events: none;
+  transform: translate(-50%, -50%); overflow: hidden;
+}
+.geo-balayage {
+  position: absolute; inset: 0; border-radius: 50%;
   background: conic-gradient(from 0deg,
-    color-mix(in srgb, var(--fam-C) 32%, transparent) 0deg,
-    color-mix(in srgb, var(--fam-C) 6%, transparent) 26deg,
-    transparent 46deg, transparent 360deg);
-  animation: balaye 4.2s linear infinite;
+    color-mix(in srgb, var(--fam-C) 30%, transparent) 0deg,
+    color-mix(in srgb, var(--fam-C) 9%, transparent) 18deg,
+    color-mix(in srgb, var(--fam-C) 2%, transparent) 40deg,
+    transparent 70deg, transparent 360deg);
+  /* le faisceau s'estompe vers l'exterieur : pas de bord franc dans le cadre */
+  -webkit-mask: radial-gradient(closest-side, #000 55%, transparent 100%);
+  mask: radial-gradient(closest-side, #000 55%, transparent 100%);
+  animation: geo-balaye 4s linear infinite;
 }
-@keyframes balaye { to { transform: translate(-50%, -50%) rotate(360deg) } }
-@media (prefers-reduced-motion: reduce) { .cadran .balayage { animation: none; opacity: .25 } }
-.plot {
-  position: absolute; transform: translate(-50%, -50%); cursor: pointer;
-  display: grid; place-items: center; border: none; background: none; padding: 0;
+/* arete de tete du balayage */
+.geo-balayage::before {
+  content: ""; position: absolute; left: 50%; top: 0; width: 1px; height: 50%;
+  background: linear-gradient(color-mix(in srgb, var(--fam-C) 55%, transparent), transparent);
 }
-.plot .pastille-plan {
-  width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--surface-1);
-  background: var(--good); box-shadow: 0 1px 4px rgba(0, 0, 0, .3);
+@keyframes geo-balaye { to { transform: rotate(360deg) } }
+/* Consigne : le balayage ne s'arrete jamais. En mouvement reduit il ralentit
+   seulement. */
+@media (prefers-reduced-motion: reduce) { .geo-balayage { animation-duration: 16s; } }
+
+.geo-calque { position: absolute; inset: 0; pointer-events: none; }
+.geo-plot, .geo-siege { position: absolute; top: 0; left: 0; display: grid; place-items: center; }
+.geo-siege { pointer-events: none; }
+.geo-plot { border: none; background: none; padding: 0; cursor: pointer; pointer-events: auto; }
+.geo-pastille {
+  width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--surface-1);
+  background: var(--good); box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
 }
-.plot[data-etat="degrade"] .pastille-plan { background: var(--warning); }
-.plot[data-etat="injoignable"] .pastille-plan { background: var(--critical); }
-.plot[data-etat="injoignable"]::before {
-  content: ""; position: absolute; width: 13px; height: 13px; border-radius: 50%;
+.geo-plot[data-etat="degrade"] .geo-pastille { background: var(--warning); }
+.geo-plot[data-etat="injoignable"] .geo-pastille { background: var(--critical); }
+.geo-plot[data-etat="injoignable"]::before {
+  content: ""; position: absolute; width: 12px; height: 12px; border-radius: 50%;
   border: 2px solid var(--critical); animation: onde 1.8s ease-out infinite;
 }
 @keyframes onde { to { transform: scale(3.6); opacity: 0 } }
-@media (prefers-reduced-motion: reduce) { .plot[data-etat="injoignable"]::before { animation: none } }
-.plot .etiquette {
-  position: absolute; top: 12px; white-space: nowrap; font-size: 10.5px;
-  font-weight: 600; color: var(--ink-2);
-  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
-  padding: 0 3px; border-radius: 3px;
+@media (prefers-reduced-motion: reduce) { .geo-plot[data-etat="injoignable"]::before { animation: none } }
+.geo-siege > span:first-child {
+  width: 13px; height: 13px; transform: rotate(45deg);
+  border: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 24%, var(--surface-1));
 }
-/* Quatre positions possibles : l'etiquette prend la premiere direction libre
-   autour de son point. */
-.plot.haut .etiquette { top: auto; bottom: 12px; }
-.plot.droite .etiquette { top: 50%; left: 11px; transform: translateY(-50%); }
-.plot.gauche .etiquette { top: 50%; right: 11px; transform: translateY(-50%); }
-.plot.cache .etiquette { opacity: 0; transition: opacity .12s ease; }
-.plot:hover, .plot:focus-visible { z-index: 6; }
-.plot:hover .etiquette, .plot:focus-visible .etiquette {
-  opacity: 1; box-shadow: 0 1px 6px rgba(0, 0, 0, .16);
+/* Les plateformes sont souvent groupees sur quelques centaines de metres :
+   les noms ne s'affichent qu'au survol (le tableau en dessous les liste
+   tous). Le siege garde le sien en permanence. */
+.geo-nom {
+  position: absolute; top: 11px; white-space: nowrap; font-size: 10.5px; font-weight: 600;
+  color: var(--ink-2); background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+  padding: 0 3px; border-radius: 3px; pointer-events: none;
+  opacity: 0; transition: opacity .12s ease;
 }
-.plot:hover .pastille-plan, .plot:focus-visible .pastille-plan { transform: scale(1.35); }
+.geo-plot:hover .geo-nom, .geo-plot:focus-visible .geo-nom,
+.geo-siege .geo-nom { opacity: 1; }
+.geo-siege .geo-nom { color: var(--accent); box-shadow: 0 1px 5px rgba(0, 0, 0, .18); }
+.geo-plot:hover, .geo-plot:focus-visible { z-index: 5; }
+.geo-plot:hover .geo-pastille, .geo-plot:focus-visible .geo-pastille { transform: scale(1.3); }
+.geo-plot:hover .geo-nom { box-shadow: 0 1px 6px rgba(0, 0, 0, .2); }
+
+.geo-commandes {
+  position: absolute; right: 10px; top: 10px; z-index: 6;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.geo-commandes button {
+  width: 30px; height: 30px; padding: 0; border-radius: 7px; border: 1px solid var(--grid);
+  background: var(--surface-1); color: var(--ink-1); font-size: 15px; cursor: pointer;
+  display: grid; place-items: center; line-height: 1;
+}
+.geo-commandes button:hover { border-color: var(--accent); color: var(--accent); }
+.geo-rose {
+  position: absolute; left: 10px; top: 10px; z-index: 6;
+  width: 22px; height: 22px; display: grid; place-items: center;
+  font-size: 10px; font-weight: 700; color: var(--ink-muted);
+  border: 1px solid var(--grid); border-radius: 50%; background: var(--surface-1);
+}
+.geo-infos {
+  position: absolute; left: 10px; bottom: 10px; z-index: 6;
+  display: flex; align-items: flex-end; gap: 12px; font-size: 10.5px; color: var(--ink-muted);
+  background: color-mix(in srgb, var(--surface-1) 80%, transparent);
+  padding: 4px 8px; border-radius: 6px;
+}
+.geo-echelle {
+  display: inline-block; height: 5px; align-self: flex-end;
+  border: 1px solid var(--ink-muted); border-top: none; position: relative;
+}
+.geo-echelle::after {
+  content: attr(data-lib); position: absolute; left: 0; top: -13px; white-space: nowrap;
+}
+
 .legende-plan {
   display: flex; gap: 16px; flex-wrap: wrap; font-size: 11.5px;
   color: var(--ink-muted); margin-top: 10px;
 }
 .legende-plan span { display: inline-flex; align-items: center; gap: 6px; }
 .legende-plan i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.geo-pin-siege {
+  width: 9px !important; height: 9px !important; border-radius: 0 !important;
+  transform: rotate(45deg); border: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+}
 
 /* Un nom de plateforme est cliquable : bouton, pas lien, car il n'ouvre pas
    une adresse mais une fenetre. */
@@ -433,22 +504,44 @@ h2:first-child { margin-top: 0; }
 /* Le menu est cale sur le bord du rail, pas sur son bouton : ancre au bouton,
    il depasserait des 252 px de la colonne et se ferait rogner. */
 #menu-filtres .menu-liste { left: -31px; right: auto; z-index: 90; }
-.menu-liste.large { min-width: 214px; max-width: 218px; padding: 9px; }
-.groupe-filtre + .groupe-filtre { margin-top: 11px; }
-.groupe-filtre > b {
-  display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
-  color: var(--ink-muted); margin-bottom: 5px;
+
+/* Menu a deux niveaux. Tout deroule d'un coup, les trois axes et leurs
+   options tenaient sur une hauteur que #chat rognait : on n'atteignait pas
+   le bas. On n'affiche donc qu'un niveau a la fois — les trois axes, puis
+   les options de celui qu'on ouvre. Selecteurs prefixes par #filtres-liste
+   pour passer devant la regle generique `.menu-liste button`. */
+.menu-liste.large { min-width: 206px; max-width: 224px; padding: 4px; }
+
+#filtres-liste .axe-filtre,
+#filtres-liste .retour-filtre {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 8px 9px; border: none; border-radius: 7px; background: none;
+  color: var(--ink-1); font-size: 13px; cursor: pointer;
 }
-.choix { display: flex; flex-wrap: wrap; gap: 4px; }
-.choix button {
-  font-size: 11.5px; padding: 3px 9px; border-radius: 13px;
-  border: 1px solid var(--grid); background: var(--surface-1);
-  color: var(--ink-2); cursor: pointer;
+#filtres-liste .axe-filtre:hover,
+#filtres-liste .retour-filtre:hover { background: var(--plane); }
+#filtres-liste .axe-filtre .nom-axe { flex: 1; }
+#filtres-liste .axe-filtre .val-axe {
+  font-size: 11px; font-weight: 600; color: var(--accent);
+  max-width: 82px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.choix button[aria-pressed="true"] {
-  border-color: var(--accent); color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 9%, var(--surface-1));
+#filtres-liste .fleche {
+  width: 14px; height: 14px; flex: none; color: var(--ink-muted);
 }
+#filtres-liste .retour-filtre {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--ink-muted); border-bottom: 1px solid var(--grid);
+  border-radius: 7px 7px 0 0; margin-bottom: 3px;
+}
+#filtres-liste .options-axe { display: flex; flex-direction: column; gap: 1px; }
+#filtres-liste .options-axe button {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; text-align: left; padding: 7px 9px; border: none; border-radius: 7px;
+  background: none; color: var(--ink-1); font-size: 13px; font-weight: 400; cursor: pointer;
+}
+#filtres-liste .options-axe button:hover { background: var(--plane); }
+#filtres-liste .options-axe button[aria-pressed="true"] { color: var(--accent); font-weight: 600; }
+#filtres-liste .options-axe button svg { width: 14px; height: 14px; flex: none; color: var(--accent); }
 
 /* --------------------------- ecran d'accueil ----------------------------
    Une conversation commence par une page blanche et une invitation, pas par
@@ -519,6 +612,41 @@ h2:first-child { margin-top: 0; }
 }
 #chat header .actions button:hover { background: var(--plane); color: var(--ink-1); }
 #chat header .actions svg { width: 15px; height: 15px; }
+
+/* ----------------------- tiroir d'historique (bulle reduite) -----------
+   Le rail n'est affiche en permanence qu'en mode agrandi (#chat.plein).
+   Tant que la conversation tient dans la bulle reduite, l'historique se
+   consulte par un tiroir qui entre par la gauche, ouvert par #ouvrir-rail. */
+#ouvrir-rail {
+  display: none; border: none; background: none; color: var(--ink-muted);
+  cursor: pointer; padding: 4px 6px; border-radius: 6px; place-items: center;
+}
+#chat:not(.plein) #ouvrir-rail { display: grid; }
+#ouvrir-rail:hover { background: var(--plane); color: var(--ink-1); }
+#ouvrir-rail svg { width: 18px; height: 18px; }
+
+#chat:not(.plein) #rail-chat {
+  display: flex; flex-direction: column;
+  position: absolute; inset: 0 auto 0 0; z-index: 90;
+  width: min(300px, 86%); flex: none;
+  border-right: 1px solid var(--grid); background: var(--rail);
+  transform: translateX(-100%);
+  transition: transform .28s ease;
+}
+#chat:not(.plein).tiroir #rail-chat {
+  transform: translateX(0);
+  box-shadow: 0 0 42px rgba(0, 0, 0, .32);
+}
+@media (prefers-reduced-motion: reduce) {
+  #chat:not(.plein) #rail-chat { transition: none; }
+}
+
+#voile-rail { display: none; }
+#chat:not(.plein).tiroir #voile-rail {
+  display: block; position: absolute; inset: 0; z-index: 85;
+  background: rgba(0, 0, 0, .38); animation: voile-entre .2s ease;
+}
+@keyframes voile-entre { from { opacity: 0 } }
 
 #fil { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex;
        flex-direction: column; gap: 18px; scroll-behavior: smooth; }
@@ -646,6 +774,9 @@ h2:first-child { margin-top: 0; }
 }
 #envoyer {
   width: 30px; height: 30px; border-radius: 8px; border: none; flex: none;
+  /* padding: 0 explicite — la regle generique `button` impose 6px 12px, ce qui
+     reduit la boite de contenu a 6px et decale la fleche vers la droite. */
+  padding: 0;
   background: var(--accent); color: #fff; cursor: pointer; display: grid; place-items: center;
 }
 #envoyer:disabled { opacity: .38; cursor: default; }
@@ -653,6 +784,10 @@ h2:first-child { margin-top: 0; }
 
 @media (max-width: 620px) {
   #chat { right: 10px; bottom: 10px; width: calc(100vw - 20px); height: calc(100vh - 20px); }
+
+  /* Sur mobile, « agrandir » n'a pas d'objet : la bulle occupe deja tout
+     l'ecran et l'historique se consulte par le tiroir. */
+  #agrandir { display: none; }
 }
 
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -727,11 +862,143 @@ a { color: var(--accent); }
            font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 
 @media (max-width: 860px) {
-  body { grid-template-columns: 60px 1fr; }
-  .marque .nom, .marque .ver, .lien-nav span, .lien-nav .pastille, #rail .pied { display: none; }
+  body:not(.hors-session) { grid-template-columns: 60px 1fr; }
+  .marque .nom, .marque .ver, .lien-nav span, .lien-nav .pastille { display: none; }
   .lien-nav { justify-content: center; padding: 10px; }
   .marque { justify-content: center; padding: 14px 0 10px; }
 }
+
+/* ===================== connexion, inscription, accueil ==================
+   Avant la session : le rail et l'en-tête sont masqués, la vue occupe tout
+   l'écran. Logos ANTIC + plateforme centrés en haut, conformément à la
+   demande du CDCF (séparation des rôles). */
+body.hors-session { grid-template-columns: 1fr; }
+body.hors-session #rail,
+body.hors-session #entete,
+body.hors-session #lanceur-chat,
+body.hors-session #chat { display: none !important; }
+body.hors-session #contenu { height: 100vh; }
+body.hors-session main { display: grid; place-items: center; padding: 24px; }
+
+.ecran-auth {
+  width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 18px;
+}
+.logos-auth {
+  display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 4px;
+}
+.logos-auth img { height: 64px; width: auto; display: block; object-fit: contain; }
+.logos-auth .sep-logo { width: 1px; height: 44px; background: var(--grid); }
+.carte-auth {
+  background: var(--surface-1); border: 1px solid var(--grid); border-radius: 14px;
+  padding: 22px 22px 20px; box-shadow: 0 18px 50px rgba(0, 0, 0, .12);
+}
+.carte-auth h1 { font-size: 17px; margin: 0 0 3px; }
+.carte-auth .sous { font-size: 12.5px; color: var(--ink-muted); margin-bottom: 16px; }
+.champ-auth { display: flex; flex-direction: column; gap: 4px; margin-bottom: 11px; }
+.champ-auth label { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.champ-auth input, .champ-auth select {
+  font: inherit; font-size: 13.5px; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid var(--grid); background: var(--plane); color: var(--ink-1);
+}
+.champ-auth input:focus, .champ-auth select:focus { outline: none; border-color: var(--accent); }
+.grille-champs { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.carte-auth button.primaire {
+  width: 100%; justify-content: center; margin-top: 6px; padding: 9px;
+  background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+}
+.carte-auth button.primaire:hover { filter: brightness(1.07); }
+.erreur-auth {
+  font-size: 12.5px; color: var(--critical); margin-top: 10px; min-height: 1em;
+}
+.lien-auth {
+  text-align: center; font-size: 12.5px; margin-top: 4px; color: var(--ink-muted);
+}
+.lien-auth a { color: var(--accent); cursor: pointer; }
+.lien-auth a:hover { text-decoration: underline; }
+.info-auth {
+  background: color-mix(in srgb, var(--fam-C) 10%, var(--surface-1));
+  border: 1px solid color-mix(in srgb, var(--fam-C) 35%, transparent);
+  border-radius: 10px; padding: 14px 15px; font-size: 13px;
+}
+
+/* page d'accueil (portail) */
+.portail { width: 100%; max-width: 940px; text-align: center; }
+.portail .logos-auth { margin-bottom: 14px; }
+.portail .salut { font-size: 25px; font-weight: 300; color: var(--ink-1); margin-bottom: 4px; }
+.portail .salut b { font-weight: 600; }
+.portail .role-badge {
+  display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 26px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 20px; padding: 2px 11px;
+}
+.tuiles-portail {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px; text-align: left;
+}
+.tuile-portail {
+  display: flex; flex-direction: column; gap: 7px; padding: 16px;
+  border: 1px solid var(--grid); border-radius: 12px; background: var(--surface-1);
+  cursor: pointer; color: var(--ink-1); transition: border-color .14s, transform .14s;
+}
+.tuile-portail:hover { border-color: var(--accent); transform: translateY(-2px); }
+.tuile-portail svg { width: 22px; height: 22px; color: var(--accent); }
+.tuile-portail .t-titre { font-weight: 650; font-size: 14px; }
+.tuile-portail .t-sous { font-size: 11.5px; color: var(--ink-muted); }
+
+/* pied du rail : identité de session + déconnexion */
+#pied-session {
+  border-top: 1px solid var(--grid); padding: 10px 12px 12px; display: flex;
+  flex-direction: column; gap: 7px; font-size: 11px;
+}
+#pied-session .qui { color: var(--ink-2); font-weight: 600; }
+#pied-session .qui small { display: block; color: var(--ink-muted); font-weight: 400; }
+#pied-session button {
+  border: 1px solid var(--grid); background: var(--surface-1); color: var(--ink-2);
+  border-radius: 7px; padding: 5px 8px; font-size: 11.5px; cursor: pointer;
+}
+#pied-session button:hover { border-color: var(--critical); color: var(--critical); }
+#lien-accueil {
+  border: 1px solid var(--grid); background: var(--surface-1); color: var(--ink-2);
+  border-radius: 7px; padding: 6px 10px; font-size: 12px; cursor: pointer;
+}
+#lien-accueil:hover { border-color: var(--accent); color: var(--accent); }
+
+/* La bascule d'autonomie (coupe-circuit EF-26) est un geste d'administrateur :
+   masquée pour l'analyste et le décideur. */
+#menu-autonomie { display: none; }
+body[data-role="admin"] #menu-autonomie,
+body[data-role="super_admin"] #menu-autonomie { display: block; }
+
+/* décideur : consultation stricte, aucun geste d'écriture */
+body[data-role="decideur"] .reserve-action { display: none !important; }
+.bandeau-lecture {
+  background: color-mix(in srgb, var(--fam-D) 12%, var(--surface-1));
+  border: 1px solid color-mix(in srgb, var(--fam-D) 40%, transparent);
+  border-radius: 10px; padding: 9px 13px; font-size: 12.5px; color: var(--ink-2);
+  margin-bottom: 16px;
+}
+
+/* sections d'administration des Réglages */
+.admin-only { display: none; }
+body[data-role="admin"] .admin-only,
+body[data-role="super_admin"] .admin-only { display: block; }
+.rangee-compte {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 0; border-bottom: 1px solid var(--grid);
+}
+.rangee-compte:last-child { border-bottom: none; }
+.rangee-compte .ppal { font-weight: 600; }
+.rangee-compte .meta { font-size: 11.5px; color: var(--ink-muted); }
+.rangee-compte .actions-compte { margin-left: auto; display: flex; gap: 6px; }
+.rangee-compte .actions-compte button { padding: 4px 9px; font-size: 12px; }
+.puce-statut {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  padding: 1px 7px; border-radius: 10px; border: 1px solid var(--grid); color: var(--ink-muted);
+}
+.puce-statut.pending { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 45%, transparent); }
+.puce-statut.active { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+.puce-statut.suspended, .puce-statut.refused { color: var(--critical); border-color: color-mix(in srgb, var(--critical) 45%, transparent); }
 </style>
 </head>
 <body>
@@ -742,7 +1009,10 @@ a { color: var(--accent); }
     <div class="nom">CIRTDEFENSE</div>
   </div>
   <nav id="nav"></nav>
-  <div class="pied" id="pied-rail"></div>
+  <div id="pied-session" hidden>
+    <span class="qui" id="qui-session"></span>
+    <button id="deconnexion" type="button">Se déconnecter</button>
+  </div>
 </aside>
 
 <div id="contenu">
@@ -752,7 +1022,7 @@ a { color: var(--accent); }
       <div class="sous" id="sous-vue"></div>
     </div>
     <span class="spacer"></span>
-    <span class="mono muet" id="site"></span>
+    <button id="lien-accueil" type="button" title="Page d'accueil" hidden>Accueil</button>
     <button id="theme" title="Basculer le thème">Thème</button>
 
     <div class="menu" id="menu-autonomie">
@@ -822,8 +1092,15 @@ a { color: var(--accent); }
     <div id="fils"></div>
   </aside>
 
+  <div id="voile-rail"></div>
+
   <div id="corps-chat">
   <header>
+    <button id="ouvrir-rail" title="Historique des discussions"
+            aria-label="Ouvrir l'historique des discussions" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round"><path d="M4 8h16"/><path d="M4 16h9"/></svg>
+    </button>
     <span class="jeton-chat"></span>
     <div>
       <div class="nom-chat">Assistant</div>

@@ -88,6 +88,24 @@ def analyst_headers() -> dict[str, str]:
 
 
 @pytest.fixture
+def superadmin_headers(client: Any) -> dict[str, str]:
+    """Compte super-administrateur créé via l'écran d'installation, et sa session."""
+    reponse = client.post(
+        "/api/v1/auth/setup",
+        json={
+            "nom": "Root",
+            "prenom": "Sara",
+            "username": "superadmin",
+            "email": "sara@antic.cm",
+            "password": "motdepasse-solide",
+            "password_confirm": "motdepasse-solide",
+        },
+    )
+    assert reponse.status_code == 201, reponse.text
+    return {"Authorization": f"Bearer {reponse.json()['token']}"}
+
+
+@pytest.fixture
 def bruteforce_payload() -> dict[str, Any]:
     """Alerte Wazuh de force brute avec source externe et compte cible."""
     return {

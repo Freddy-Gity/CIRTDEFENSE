@@ -179,6 +179,55 @@ CREATE TABLE IF NOT EXISTS notifications (
     payload         TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_notifications_ack ON notifications(acknowledged_at);
+
+-- Comptes et separation des roles (CDCF v3.0 : analyste / decideur /
+-- administrateur). `kind` fige l'origine du compte (comment il a ete cree),
+-- `role` porte les droits effectifs et peut evoluer (analyste -> admin).
+CREATE TABLE IF NOT EXISTS users (
+    user_id        TEXT PRIMARY KEY,
+    kind           TEXT NOT NULL,            -- analyste | decideur | admin
+    role           TEXT NOT NULL,            -- analyste | decideur | admin | super_admin
+    status         TEXT NOT NULL,            -- pending | active | suspended | refused
+    username       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    email          TEXT NOT NULL DEFAULT '' COLLATE NOCASE,
+    nom            TEXT NOT NULL DEFAULT '',
+    prenom         TEXT NOT NULL DEFAULT '',
+    civility       TEXT NOT NULL DEFAULT '',  -- Monsieur | Madame | ''
+    poste          TEXT NOT NULL DEFAULT '',
+    password_hash  TEXT NOT NULL,
+    created_at     TEXT NOT NULL,
+    validated_by   TEXT NOT NULL DEFAULT '',
+    validated_at   TEXT,
+    last_login_at  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+
+-- Postes ouverts au sein du CIRT/ANTIC. Ceux de type `analyste` alimentent
+-- le menu deroulant de l'inscription ; ceux de type `decideur` sont en
+-- un-pour-un avec un compte decideur cree par l'administrateur.
+CREATE TABLE IF NOT EXISTS postes (
+    poste_id   TEXT PRIMARY KEY,
+    kind       TEXT NOT NULL,               -- analyste | decideur
+    label      TEXT NOT NULL,
+    civility   TEXT NOT NULL DEFAULT '',
+    active     INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    created_by TEXT NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_postes_label ON postes(kind, label COLLATE NOCASE);
+
+-- Sessions : la base ne garde que l'empreinte SHA-256 du jeton porteur.
+CREATE TABLE IF NOT EXISTS user_sessions (
+    token_hash  TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    expires_at  TEXT NOT NULL,
+    user_agent  TEXT NOT NULL DEFAULT '',
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON user_sessions(expires_at);
 """
 
 

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import UTC, datetime
+import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from ..domain.action import ActionResult
@@ -13,6 +14,21 @@ from ..domain.enums import IncidentStatus, Severity
 from ..domain.events import DetectionEvent
 from ..domain.incident import Incident
 from ..domain.policy import ResponsePolicy
+
+__all__ = [
+    "EventRepository",
+    "IncidentRepository",
+    "DecisionRepository",
+    "ActionRepository",
+    "PolicyRepository",
+    "BreakerRepository",
+    "NotificationRepository",
+    "MonitoredTargetRepository",
+    "ConversationRepository",
+    "UserRepository",
+    "PosteRepository",
+    "SessionRepository",
+]
 
 
 class EventRepository:
@@ -583,3 +599,258 @@ class ConversationRepository:
             "DELETE FROM conversations WHERE conversation_id = ?", (conversation_id,)
         )
         return curseur.rowcount > 0
+
+
+# ---------------------------------------------------------------------------
+# Comptes, postes, sessions — separation des roles (CDCF v3.0)
+# ---------------------------------------------------------------------------
+
+
+def _nouvel_id(prefixe: str) -> str:
+    return f"{prefixe}_{uuid.uuid4().hex[:16]}"
+
+
+class UserRepository:
+    """Comptes analystes, decideurs et administrateurs."""
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def get(self, user_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
+        return dict(row) if row else None
+
+    def by_username(self, username: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT * FROM users WHERE username = ? COLLATE NOCASE", (username,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def username_taken(self, username: str) -> bool:
+        return self.by_username(username) is not None
+
+    def email_taken(self, email: str) -> bool:
+        if not email:
+            return False
+        row = self._conn.execute(
+            "SELECT 1 FROM users WHERE email = ? COLLATE NOCASE LIMIT 1", (email,)
+        ).fetchone()
+        return row is not None
+
+    def has_super_admin(self) -> bool:
+        row = self._conn.execute(
+            "SELECT 1 FROM users WHERE role = 'super_admin' LIMIT 1"
+        ).fetchone()
+        return row is not None
+
+    def list(self, *, status: str = "", role: str = "", kind: str = "") -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        for colonne, valeur in (("status", status), ("role", role), ("kind", kind)):
+            if valeur:
+                clauses.append(f"{colonne} = ?")
+                params.append(valeur)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = self._conn.execute(
+            f"SELECT * FROM users {where} ORDER BY created_at DESC", params
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def count_by_role(self, role: str) -> int:
+        row = self._conn.execute(
+            "SELECT COUNT(*) AS n FROM users WHERE role = ?", (role,)
+        ).fetchone()
+        return int(row["n"])
+
+    def create(
+        self,
+        *,
+        username: str,
+        password_hash: str,
+        kind: str,
+        role: str,
+        status: str,
+        email: str = "",
+        nom: str = "",
+        prenom: str = "",
+        civility: str = "",
+        poste: str = "",
+        validated_by: str = "",
+    ) -> dict[str, Any]:
+        user_id = _nouvel_id("usr")
+        now = datetime.now(UTC).isoformat()
+        validated_at = now if status == "active" else None
+        self._conn.execute(
+            """INSERT INTO users
+               (user_id, kind, role, status, username, email, nom, prenom,
+                civility, poste, password_hash, created_at, validated_by, validated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                user_id,
+                kind,
+                role,
+                status,
+                username,
+                email,
+                nom,
+                prenom,
+                civility,
+                poste,
+                password_hash,
+                now,
+                validated_by,
+                validated_at,
+            ),
+        )
+        created = self.get(user_id)
+        assert created is not None
+        return created
+
+    def set_status(self, user_id: str, status: str, *, by: str = "") -> None:
+        now = datetime.now(UTC).isoformat()
+        self._conn.execute(
+            """UPDATE users SET status = ?,
+                 validated_by = CASE WHEN ? = 'active' THEN ? ELSE validated_by END,
+                 validated_at = CASE WHEN ? = 'active' THEN ? ELSE validated_at END
+               WHERE user_id = ?""",
+            (status, status, by, status, now, user_id),
+        )
+
+    def set_role(self, user_id: str, role: str) -> None:
+        self._conn.execute("UPDATE users SET role = ? WHERE user_id = ?", (role, user_id))
+
+    def set_password(self, user_id: str, password_hash: str) -> None:
+        self._conn.execute(
+            "UPDATE users SET password_hash = ? WHERE user_id = ?", (password_hash, user_id)
+        )
+
+    def touch_login(self, user_id: str) -> None:
+        self._conn.execute(
+            "UPDATE users SET last_login_at = ? WHERE user_id = ?",
+            (datetime.now(UTC).isoformat(), user_id),
+        )
+
+
+class PosteRepository:
+    """Postes ouverts au sein du CIRT/ANTIC (analystes et decideurs)."""
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def get(self, poste_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute("SELECT * FROM postes WHERE poste_id = ?", (poste_id,)).fetchone()
+        return dict(row) if row else None
+
+    def list(self, *, kind: str = "", active_only: bool = False) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if kind:
+            clauses.append("kind = ?")
+            params.append(kind)
+        if active_only:
+            clauses.append("active = 1")
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = self._conn.execute(
+            f"SELECT * FROM postes {where} ORDER BY kind, label", params
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def label_taken(self, kind: str, label: str) -> bool:
+        row = self._conn.execute(
+            "SELECT 1 FROM postes WHERE kind = ? AND label = ? COLLATE NOCASE LIMIT 1",
+            (kind, label),
+        ).fetchone()
+        return row is not None
+
+    def create(self, *, kind: str, label: str, civility: str = "", by: str = "") -> dict[str, Any]:
+        poste_id = _nouvel_id("pos")
+        self._conn.execute(
+            """INSERT INTO postes
+               (poste_id, kind, label, civility, active, created_at, created_by)
+               VALUES (?, ?, ?, ?, 1, ?, ?)""",
+            (poste_id, kind, label, civility, datetime.now(UTC).isoformat(), by),
+        )
+        created = self.get(poste_id)
+        assert created is not None
+        return created
+
+    def update(
+        self,
+        poste_id: str,
+        *,
+        label: str | None = None,
+        civility: str | None = None,
+        active: bool | None = None,
+    ) -> None:
+        sets: list[str] = []
+        params: list[Any] = []
+        if label is not None:
+            sets.append("label = ?")
+            params.append(label)
+        if civility is not None:
+            sets.append("civility = ?")
+            params.append(civility)
+        if active is not None:
+            sets.append("active = ?")
+            params.append(1 if active else 0)
+        if not sets:
+            return
+        params.append(poste_id)
+        self._conn.execute(f"UPDATE postes SET {', '.join(sets)} WHERE poste_id = ?", params)
+
+    def delete(self, poste_id: str) -> bool:
+        cur = self._conn.execute("DELETE FROM postes WHERE poste_id = ?", (poste_id,))
+        return cur.rowcount > 0
+
+    def seed_defaults(self, defaults: list[tuple[str, str, str]]) -> None:
+        """Insere les postes fournis s'ils n'existent pas — (kind, label, civility)."""
+        for kind, label, civility in defaults:
+            if not self.label_taken(kind, label):
+                self.create(kind=kind, label=label, civility=civility, by="system:seed")
+
+
+class SessionRepository:
+    """Sessions porteuses opaques ; la base ne stocke que l'empreinte du jeton."""
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def open(self, user_id: str, token_hash: str, *, ttl_hours: int, user_agent: str = "") -> None:
+        now = datetime.now(UTC)
+        self._conn.execute(
+            """INSERT OR REPLACE INTO user_sessions
+               (token_hash, user_id, created_at, expires_at, user_agent)
+               VALUES (?, ?, ?, ?, ?)""",
+            (
+                token_hash,
+                user_id,
+                now.isoformat(),
+                (now + timedelta(hours=ttl_hours)).isoformat(),
+                user_agent[:200],
+            ),
+        )
+
+    def resolve(self, token_hash: str) -> str | None:
+        """Retourne l'``user_id`` d'une session valide, sinon None."""
+        row = self._conn.execute(
+            "SELECT user_id, expires_at FROM user_sessions WHERE token_hash = ?",
+            (token_hash,),
+        ).fetchone()
+        if row is None:
+            return None
+        if datetime.fromisoformat(row["expires_at"]) <= datetime.now(UTC):
+            self._conn.execute("DELETE FROM user_sessions WHERE token_hash = ?", (token_hash,))
+            return None
+        return str(row["user_id"])
+
+    def close(self, token_hash: str) -> None:
+        self._conn.execute("DELETE FROM user_sessions WHERE token_hash = ?", (token_hash,))
+
+    def close_all_for(self, user_id: str) -> None:
+        self._conn.execute("DELETE FROM user_sessions WHERE user_id = ?", (user_id,))
+
+    def purge_expired(self) -> None:
+        self._conn.execute(
+            "DELETE FROM user_sessions WHERE expires_at <= ?",
+            (datetime.now(UTC).isoformat(),),
+        )

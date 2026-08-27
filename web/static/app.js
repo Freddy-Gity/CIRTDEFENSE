@@ -113,7 +113,10 @@ let flux = null;
 const CHAT_MASQUE = ["/settings"];
 
 function construireNav() {
-  $("nav").innerHTML = VUES.map((v) => {
+  const liste = SESSION
+    ? VUES.filter((v) => v.separateur || (SESSION.allowed_routes || []).includes(v.route))
+    : VUES;
+  $("nav").innerHTML = liste.map((v) => {
     if (v.separateur) return '<div class="flex"></div><div class="sep"></div>';
     return `<a class="lien-nav" href="${v.route}" data-route="${v.route}">
       ${icone(v.icone)}<span>${esc(v.label)}</span>
@@ -125,11 +128,29 @@ function construireNav() {
 }
 
 function naviguer(chemin, remplacer = false) {
+  // Page d'accueil : logos, message personnalisé et redirections autorisées.
+  if (chemin === "/accueil") {
+    if (location.pathname !== "/accueil") {
+      history[remplacer ? "replaceState" : "pushState"]({}, "", "/accueil");
+    }
+    vueCourante = { route: "/accueil" };
+    $("nav").querySelectorAll("a[data-route]").forEach((a) =>
+      a.setAttribute("aria-current", "false"));
+    majVisibiliteChat();
+    vueAccueil();
+    return;
+  }
   // L'assistant n'a plus d'onglet, mais son adresse reste valide : un lien
   // profond ou un signet existant doit ouvrir la conversation, pas une 404.
   if (chemin === "/assistant") {
     ouvrirChat();
     chemin = "/dashboard";
+  }
+  // Garde de rôle : une route non autorisée renvoie à l'accueil (le serveur
+  // refuse de toute façon les actions correspondantes).
+  if (SESSION && !(SESSION.allowed_routes || []).includes(chemin)) {
+    naviguer("/accueil", true);
+    return;
   }
   const vue = trouver(chemin);
   if (location.pathname !== vue.route) {
@@ -145,7 +166,14 @@ function naviguer(chemin, remplacer = false) {
   majVisibiliteChat();
   rafraichir();
 }
-window.addEventListener("popstate", () => naviguer(location.pathname, true));
+window.addEventListener("popstate", () => {
+  if (!SESSION) {
+    if (location.pathname === "/register") ecranInscription();
+    else ecranConnexion();
+    return;
+  }
+  naviguer(location.pathname, true);
+});
 
 $("theme").addEventListener("click", () => {
   const actuel = document.documentElement.getAttribute("data-theme");
@@ -309,9 +337,6 @@ async function rafraichir() {
 }
 
 function majEntete(etat) {
-  $("site").textContent = `${etat.site_id} · ${etat.environment}`;
-  $("pied-rail").textContent = `${etat.site_id} · ${etat.autonomy.actuation_mode}`;
-
   const actif = etat.autonomy.effective;
   const bouton = $("autonomie");
   bouton.className = "bascule " + (actif ? "actif" : "suspendu");
@@ -512,12 +537,12 @@ async function vueSurveillance() {
         s.injoignable ? "var(--critical)" : "")}
     </div>
 
-    ${plan(m.targets)}
+    ${carteSurveillance(m.targets, m.anchor)}
 
     ${enteteSection("parc", "Parc supervisé", m.targets.length)}
     <div class="repliable" data-section="parc">
       <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
-        <button class="primaire" id="ajouter-plateforme">+ Ajouter une plateforme</button>
+        <button class="primaire reserve-action" id="ajouter-plateforme">+ Ajouter une plateforme</button>
       </div>
       <div class="carte" style="padding:0;overflow:auto">
         <table><thead><tr>
@@ -554,7 +579,7 @@ async function vueSurveillance() {
           <span class="muet">${m.post_action_watches.length} action(s) réversible(s) encore
             appliquée(s).</span>
           <span class="spacer"></span>
-          <button class="primaire" id="boucle">Lancer la boucle de contrôle</button>
+          <button class="primaire reserve-action" id="boucle">Lancer la boucle de contrôle</button>
         </div>
         <div id="resultat-boucle"></div>
         ${m.post_action_watches.length ? `<table><thead><tr>
@@ -573,6 +598,7 @@ async function vueSurveillance() {
     </div>`;
 
   brancherSections();
+  initCarte();
   $("vue").querySelectorAll("[data-detail]").forEach((b) =>
     b.addEventListener("click", () => ouvrirDetail(b.dataset.detail)));
   $("vue").querySelectorAll("[data-retirer]").forEach((b) =>
@@ -581,120 +607,263 @@ async function vueSurveillance() {
   brancherBoucle();
 }
 
-// ------------------------------------------------------- plan et balayage
-// Ce n'est pas une carte du monde : c'est le plan du parc. Les points sont
-// places par leurs coordonnees quand elles sont connues, et repartis par
-// segment sinon — la position d'un actif non geolocalise ne doit jamais se
-// lire comme une donnee.
-function plan(cibles) {
-  if (!cibles.length) return "";
-  const situees = cibles.filter((t) => t.latitude != null && t.longitude != null);
+// ============================================== carte de surveillance
+// Projection Web Mercator, deplacement et zoom. Aucun fond de tuiles : la
+// plateforme reste utilisable hors connexion, le reperage se fait au
+// graticule lat/lon et aux anneaux de portee autour du siege. Le balayage
+// radar (CSS, .geo-balayage) tourne sans fin autour d'un centre accroche a
+// la COORDONNEE du siege — jamais a un point de l'ecran : zoom et
+// deplacement le laissent sur place.
 
-  const lats = situees.map((t) => t.latitude);
-  const lons = situees.map((t) => t.longitude);
-  const etendue = (v) => {
-    const min = Math.min(...v), max = Math.max(...v);
-    const marge = Math.max((max - min) * 0.28, 0.004);
-    return [min - marge, max + marge];
-  };
-  const [latMin, latMax] = situees.length ? etendue(lats) : [0, 1];
-  const [lonMin, lonMax] = situees.length ? etendue(lons) : [0, 1];
+const CARTE = {
+  lat: null, lon: null, zoom: 15,
+  ancre: { lat: 3.8747, lon: 11.5203, label: "Siège" },
+  cibles: [],
+};
+const CARTE_ZMIN = 3, CARTE_ZMAX = 19, CARTE_TUILE = 256, CARTE_R = 6378137;
+const clampLat = (v) => Math.min(85, Math.max(-85, v));
+const wrapLon = (v) => ((((v + 180) % 360) + 360) % 360) - 180;
 
-  let rang = 0;
-  const position = (t) => {
-    if (t.latitude != null && t.longitude != null) {
-      return {
-        x: 10 + ((t.longitude - lonMin) / (lonMax - lonMin)) * 80,
-        y: 10 + (1 - (t.latitude - latMin) / (latMax - latMin)) * 80,
-        situe: true,
-      };
-    }
-    // Sans coordonnees : une couronne reguliere, visiblement schematique.
-    const n = cibles.length - situees.length;
-    const angle = (rang++ / Math.max(n, 1)) * 2 * Math.PI;
-    return { x: 50 + 36 * Math.cos(angle), y: 50 + 36 * Math.sin(angle), situe: false };
-  };
-
-  const places = cibles.map((t) => ({ cible: t, ...position(t) }));
-  placerEtiquettes(places);
-
-  const points = places.map(({ cible: t, x, y, situe, cote }) => `
-    <button class="plot ${cote}" data-detail="${esc(t.target)}"
-      data-etat="${esc(t.state)}" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%"
-      title="${esc(t.target)} — ${esc(t.state)}${situe ? "" : " (position indicative)"}">
-      <span class="pastille-plan"></span>
-      <span class="etiquette">${esc(t.target)}</span></button>`).join("");
-
-  return `<div class="plan">
-    <svg class="grille-plan" aria-hidden="true">
-      <defs><pattern id="quadrillage" width="46" height="46" patternUnits="userSpaceOnUse">
-        <path d="M46 0H0V46" fill="none" stroke="var(--grid)" stroke-width="1"/>
-      </pattern></defs>
-      <rect width="100%" height="100%" fill="url(#quadrillage)"/>
-    </svg>
-    <div class="cadran">
-      <svg viewBox="0 0 100 100" style="position:absolute;inset:0;width:100%;height:100%"
-           aria-hidden="true">
-        <circle cx="50" cy="50" r="17" fill="none" stroke="var(--grid)"/>
-        <circle cx="50" cy="50" r="32" fill="none" stroke="var(--grid)"/>
-        <circle cx="50" cy="50" r="46" fill="none" stroke="var(--grid)"/>
-        <path d="M50 4V96M4 50H96" stroke="var(--grid)" stroke-dasharray="2 4"/>
-      </svg>
-      <div class="balayage"></div>
-      ${points}
-    </div>
-  </div>
-  <div class="legende-plan">
-    <span><i class="point vert"></i>nominal</span>
-    <span><i class="point" style="background:var(--warning)"></i>dégradé</span>
-    <span><i class="point rouge"></i>injoignable</span>
-    <span>${situees.length}/${cibles.length} plateforme(s) géolocalisée(s) ;
-      les autres sont placées de façon indicative</span>
-  </div>`;
+function merc(lat, lon) {
+  const s = Math.min(Math.max(Math.sin((lat * Math.PI) / 180), -0.9999), 0.9999);
+  return { x: (lon + 180) / 360, y: 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI) };
+}
+function mercInv(x, y) {
+  const k = Math.exp((0.5 - y) * 4 * Math.PI);
+  return { lat: (Math.asin((k - 1) / (k + 1)) * 180) / Math.PI, lon: x * 360 - 180 };
 }
 
-// Placement glouton : chaque etiquette prend la premiere direction libre.
-// Alterner en aveugle laissait des noms superposes des que trois machines
-// etaient voisines — et un nom illisible ne vaut pas mieux qu'un nom absent.
-function placerEtiquettes(places) {
-  const COTES = ["bas", "haut", "droite", "gauche"];
-  const pris = [];
+function cadrageInitial(situees) {
+  const lats = situees.map((t) => t.latitude).concat(CARTE.ancre.lat);
+  const lons = situees.map((t) => t.longitude).concat(CARTE.ancre.lon);
+  const dLat = Math.max(...lats) - Math.min(...lats);
+  const dLon = Math.max(...lons) - Math.min(...lons);
+  const etendue = Math.max(dLat, dLon * 0.6, 0.006);
+  return Math.min(CARTE_ZMAX, Math.max(CARTE_ZMIN, Math.floor(Math.log2(360 / etendue)) - 1));
+}
 
-  const boite = (p, cote) => {
-    // Le cadran fait environ 380 px de cote et l'etiquette 10,5 px : un
-    // caractere occupe donc a peu pres 1,7 % de la largeur. Surestimer
-    // ecarte un peu trop les noms ; sous-estimer les laisse se superposer.
-    const largeur = p.cible.target.length * 1.7 + 2;
-    const hauteur = 5.4;
-    switch (cote) {
-      case "haut": return { x: p.x - largeur / 2, y: p.y - 3.6 - hauteur, l: largeur, h: hauteur };
-      case "droite": return { x: p.x + 2.4, y: p.y - hauteur / 2, l: largeur, h: hauteur };
-      case "gauche": return { x: p.x - 2.4 - largeur, y: p.y - hauteur / 2, l: largeur, h: hauteur };
-      default: return { x: p.x - largeur / 2, y: p.y + 3, l: largeur, h: hauteur };
-    }
+function carteSurveillance(cibles, ancre) {
+  if (!cibles.length) return "";
+  CARTE.cibles = cibles;
+  if (ancre && ancre.lat != null) CARTE.ancre = ancre;
+  const situees = cibles.filter((t) => t.latitude != null && t.longitude != null);
+  if (CARTE.lat == null) {
+    CARTE.lat = CARTE.ancre.lat;
+    CARTE.lon = CARTE.ancre.lon;
+    CARTE.zoom = situees.length ? cadrageInitial(situees) : 15;
+  }
+  const hors = cibles.length - situees.length;
+  return `
+    <div class="carte-geo" id="carte-geo" tabindex="0"
+         aria-label="Carte des plateformes supervisées — déplacer, zoomer">
+      <svg class="geo-grille" id="geo-grille" aria-hidden="true"></svg>
+      <div class="geo-radar" id="geo-radar" aria-hidden="true"><span class="geo-balayage"></span></div>
+      <div class="geo-calque" id="geo-calque"></div>
+      <div class="geo-rose" aria-hidden="true">N</div>
+      <div class="geo-commandes">
+        <button type="button" data-zoom="1" aria-label="Zoomer">+</button>
+        <button type="button" data-zoom="-1" aria-label="Dézoomer">−</button>
+        <button type="button" id="geo-recentrer" title="Recentrer sur le siège"
+                aria-label="Recentrer sur le siège">⌖</button>
+      </div>
+      <div class="geo-infos">
+        <span id="geo-echelle" class="geo-echelle" data-lib=""></span>
+        <span id="geo-coord" class="mono"></span>
+      </div>
+    </div>
+    <div class="legende-plan">
+      <span><i class="point vert"></i>nominal</span>
+      <span><i class="point" style="background:var(--warning)"></i>dégradé</span>
+      <span><i class="point rouge"></i>injoignable</span>
+      <span><i class="geo-pin-siege"></i>${esc(CARTE.ancre.label)} — centre du balayage</span>
+      <span>${situees.length}/${cibles.length} plateforme(s) géolocalisée(s)${
+        hors ? ` ; ${hors} sans coordonnées, dans le tableau seulement` : ""}</span>
+    </div>`;
+}
+
+function pasGrille(mpp) {
+  const brut = (100 * mpp) / 111320; // degres pour ~100 px a l'ecran
+  const jolis = [0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10];
+  return jolis.find((d) => d >= brut) || 10;
+}
+
+function grilleSvg(w, h, versEcran, versLatLon, siege, mpp) {
+  const a = versLatLon(0, 0), b = versLatLon(w, h);
+  const latMin = Math.min(a.lat, b.lat), latMax = Math.max(a.lat, b.lat);
+  const lonMin = Math.min(a.lon, b.lon), lonMax = Math.max(a.lon, b.lon);
+  const pas = pasGrille(mpp);
+  const dec = pas < 0.01 ? 3 : pas < 0.1 ? 2 : pas < 1 ? 1 : 0;
+  let g = "";
+  for (let lon = Math.ceil(lonMin / pas) * pas; lon <= lonMax; lon += pas) {
+    const x = versEcran(latMin, lon).x;
+    if (x < -20 || x > w + 20) continue;
+    g += `<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${h}" class="gl"/>`
+      + `<text x="${(x + 3).toFixed(1)}" y="11" class="gt">${lon.toFixed(dec)}°E</text>`;
+  }
+  for (let lat = Math.ceil(latMin / pas) * pas; lat <= latMax; lat += pas) {
+    const y = versEcran(lat, lonMin).y;
+    if (y < -20 || y > h + 20) continue;
+    g += `<line x1="0" y1="${y.toFixed(1)}" x2="${w}" y2="${y.toFixed(1)}" class="gl"/>`
+      + `<text x="3" y="${(y - 3).toFixed(1)}" class="gt">${lat.toFixed(dec)}°N</text>`;
+  }
+  const diag = Math.hypot(w, h);
+  for (const km of [1, 2, 5, 10, 20, 50]) {
+    const r = (km * 1000) / mpp;
+    if (r < 14 || r > diag) continue;
+    g += `<circle cx="${siege.x.toFixed(1)}" cy="${siege.y.toFixed(1)}" r="${r.toFixed(1)}" class="ga"/>`
+      + `<text x="${siege.x.toFixed(1)}" y="${(siege.y - r - 3).toFixed(1)}" class="gt gac">${km} km</text>`;
+  }
+  return g;
+}
+
+function initCarte() {
+  const el = $("carte-geo");
+  if (!el) return;
+  const calque = $("geo-calque"), grille = $("geo-grille"), radar = $("geo-radar");
+
+  const dims = () => ({ w: el.clientWidth || 1, h: el.clientHeight || 1 });
+  const mondePx = () => CARTE_TUILE * 2 ** CARTE.zoom;
+  const mpp = () =>
+    (2 * Math.PI * CARTE_R * Math.cos((CARTE.lat * Math.PI) / 180)) / mondePx();
+
+  function versEcran(lat, lon) {
+    const { w, h } = dims(), c = merc(CARTE.lat, CARTE.lon), p = merc(lat, lon), m = mondePx();
+    return { x: (p.x - c.x) * m + w / 2, y: (p.y - c.y) * m + h / 2 };
+  }
+  function versLatLon(px, py) {
+    const { w, h } = dims(), c = merc(CARTE.lat, CARTE.lon), m = mondePx();
+    return mercInv(c.x + (px - w / 2) / m, c.y + (py - h / 2) / m);
+  }
+  // dxPx > 0 : le contenu suit vers la droite (le centre part vers l'ouest).
+  function deplacer(dxPx, dyPx) {
+    const c = merc(CARTE.lat, CARTE.lon), m = mondePx();
+    const d = mercInv(c.x - dxPx / m, c.y - dyPx / m);
+    CARTE.lat = clampLat(d.lat);
+    CARTE.lon = wrapLon(d.lon);
+  }
+  function appliquerZoom(vise, px, py) {
+    vise = Math.min(CARTE_ZMAX, Math.max(CARTE_ZMIN, vise));
+    if (vise === CARTE.zoom) return;
+    const { w, h } = dims();
+    if (px == null) { px = w / 2; py = h / 2; }
+    const sous = versLatLon(px, py); // point geo sous le curseur
+    CARTE.zoom = vise;
+    const apres = versEcran(sous.lat, sous.lon);
+    deplacer(px - apres.x, py - apres.y); // le ramener sous le curseur
+    demanderRendu();
+  }
+
+  let planifie = false;
+  const demanderRendu = () => {
+    if (planifie) return;
+    planifie = true;
+    requestAnimationFrame(rendre);
   };
 
-  const chevauche = (a, b) =>
-    a.x < b.x + b.l && a.x + a.l > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  function rendre() {
+    planifie = false;
+    const { w, h } = dims(), m = mpp();
+    const situees = CARTE.cibles.filter((t) => t.latitude != null && t.longitude != null);
+    const pos = (lat, lon) => {
+      const s = versEcran(lat, lon);
+      return `translate(calc(${s.x.toFixed(1)}px - 50%), calc(${s.y.toFixed(1)}px - 50%))`;
+    };
 
-  // Les pastilles sont des obstacles au meme titre que les etiquettes : sans
-  // cela un point voisin vient se poser au milieu d'un nom.
-  for (const p of places) {
-    pris.push({ x: p.x - 2.2, y: p.y - 2.2, l: 4.4, h: 4.4 });
+    calque.innerHTML =
+      situees.map((t) => `<button class="geo-plot" data-detail="${esc(t.target)}"
+        data-etat="${esc(t.state)}" style="transform:${pos(t.latitude, t.longitude)}"
+        title="${esc(t.target)} — ${esc(t.state)}">
+        <span class="geo-pastille"></span><span class="geo-nom">${esc(t.target)}</span></button>`).join("")
+      + `<div class="geo-siege" style="transform:${pos(CARTE.ancre.lat, CARTE.ancre.lon)}"
+          title="${esc(CARTE.ancre.label)}"><span></span>
+          <span class="geo-nom">${esc(CARTE.ancre.label)}</span></div>`;
+    calque.querySelectorAll("[data-detail]").forEach((b) =>
+      b.addEventListener("click", () => ouvrirDetail(b.dataset.detail)));
+
+    // balayage : le CENTRE est accroche a la coordonnee du siege (c'est la
+    // consigne) ; le rayon suit la fenetre — les anneaux de portee, eux,
+    // donnent l'echelle geographique reelle.
+    const cs = versEcran(CARTE.ancre.lat, CARTE.ancre.lon);
+    const cote = (Math.hypot(w, h) * 2.3).toFixed(0);
+    radar.style.width = radar.style.height = `${cote}px`;
+    radar.style.left = `${cs.x.toFixed(1)}px`;
+    radar.style.top = `${cs.y.toFixed(1)}px`;
+
+    grille.setAttribute("viewBox", `0 0 ${w} ${h}`);
+    grille.innerHTML = grilleSvg(w, h, versEcran, versLatLon, cs, m);
+
+    $("geo-coord").textContent =
+      `${Math.abs(CARTE.lat).toFixed(5)}°${CARTE.lat >= 0 ? "N" : "S"} ` +
+      `${Math.abs(CARTE.lon).toFixed(5)}°${CARTE.lon >= 0 ? "E" : "O"} · z${CARTE.zoom.toFixed(CARTE.zoom % 1 ? 1 : 0)}`;
+    const bar = $("geo-echelle");
+    const paliers = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000];
+    let choisi = paliers[0];
+    for (const p of paliers) if (p / m <= 120) choisi = p;
+    bar.style.width = `${(choisi / m).toFixed(1)}px`;
+    bar.dataset.lib = choisi >= 1000 ? `${choisi / 1000} km` : `${choisi} m`;
   }
 
-  places.sort((a, b) => a.y - b.y || a.x - b.x);
-  for (const p of places) {
-    const libre = COTES.find((c) => {
-      const b = boite(p, c);
-      return b.x > -6 && b.x + b.l < 106 && !pris.some((autre) => chevauche(b, autre));
-    });
-    // Aucune place libre : dans une grappe dense, mieux vaut un point net et
-    // un nom au survol que deux noms illisibles l'un sur l'autre. Le tableau
-    // en dessous nomme de toute facon chaque plateforme.
-    p.cote = libre || "cache";
-    if (libre) pris.push(boite(p, libre));
-  }
+  // --- deplacement (souris + tactile) et pincement --------------------
+  const pointeurs = new Map();
+  let pince = 0;
+  el.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".geo-commandes")) return;
+    pointeurs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    el.classList.add("attrape");
+  });
+  el.addEventListener("pointermove", (e) => {
+    const p = pointeurs.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (pointeurs.size === 1) {
+      deplacer(dx, dy);
+      demanderRendu();
+    } else if (pointeurs.size === 2) {
+      const [a, b] = [...pointeurs.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pince) {
+        const r = el.getBoundingClientRect();
+        appliquerZoom(CARTE.zoom + Math.log2(dist / pince),
+          (a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top);
+      }
+      pince = dist;
+    }
+  });
+  const relacher = (e) => {
+    pointeurs.delete(e.pointerId);
+    if (pointeurs.size < 2) pince = 0;
+    if (!pointeurs.size) el.classList.remove("attrape");
+    try { el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+  };
+  el.addEventListener("pointerup", relacher);
+  el.addEventListener("pointercancel", relacher);
+
+  el.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const r = el.getBoundingClientRect();
+    appliquerZoom(CARTE.zoom + (e.deltaY < 0 ? 0.5 : -0.5), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+
+  el.querySelectorAll("[data-zoom]").forEach((b) =>
+    b.addEventListener("click", () => appliquerZoom(Math.round(CARTE.zoom) + Number(b.dataset.zoom))));
+  $("geo-recentrer").addEventListener("click", () => {
+    CARTE.lat = CARTE.ancre.lat;
+    CARTE.lon = CARTE.ancre.lon;
+    CARTE.zoom = 15;
+    demanderRendu();
+  });
+
+  el.addEventListener("keydown", (e) => {
+    const d = { ArrowUp: [0, 60], ArrowDown: [0, -60], ArrowLeft: [60, 0], ArrowRight: [-60, 0] }[e.key];
+    if (d) { e.preventDefault(); deplacer(d[0], d[1]); demanderRendu(); }
+    else if (e.key === "+" || e.key === "=") appliquerZoom(Math.round(CARTE.zoom) + 1);
+    else if (e.key === "-" || e.key === "_") appliquerZoom(Math.round(CARTE.zoom) - 1);
+  });
+
+  if (window.ResizeObserver) new ResizeObserver(demanderRendu).observe(el);
+  rendre();
 }
 
 // --------------------------------------------------------- sections repliables
@@ -893,7 +1062,7 @@ function afficherDetail(d) {
         ${tuile(d.criticality + "/5", "Criticité déclarée", `${r.audit_entries} entrée(s) d'audit`)}
       </div>
 
-      <div class="carte" style="margin-bottom:16px;display:flex;gap:10px;
+      <div class="carte" id="d-simulation" style="margin-bottom:16px;display:flex;gap:10px;
            align-items:center;flex-wrap:wrap">
         <b>Simulation sur cette plateforme</b>
         <span class="spacer"></span>
@@ -960,6 +1129,13 @@ function afficherDetail(d) {
 }
 
 async function brancherDetail(racine, d) {
+  // La simulation (dégrader, rejouer un scénario) est un geste d'administrateur :
+  // ses points d'entrée lui sont réservés. On retire la carte pour les autres.
+  if (!estAdmin()) {
+    racine.querySelector("#d-simulation")?.remove();
+    racine.querySelector("#d-resultat")?.remove();
+    return;
+  }
   const resultat = racine.querySelector("#d-resultat");
 
   // Le catalogue n'est charge qu'a l'ouverture de la fenetre : la liste des
@@ -1403,20 +1579,21 @@ async function vueReglages() {
       </div>
     </div>
 
-    <h2>Jeton de session</h2>
+    <h2>Mon compte</h2>
     <div class="carte" style="margin-bottom:18px">
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <input id="jeton" type="password" placeholder="Jeton administrateur ou analyste"
-               value="${esc(jeton())}" style="flex:1;min-width:240px">
-        <button class="primaire" id="poser-jeton">Enregistrer</button>
-        <button id="oublier-jeton">Oublier</button>
-        <span class="etat ${jeton() ? "basse" : "moyenne"}" id="etat-jeton">${
-          jeton() ? "jeton présent" : "lecture seule"}</span>
-      </div>
-      <div class="muet" style="margin-top:9px">Sans jeton, l'interface reste consultable
-        mais aucun geste réservé n'est possible : déclarer une plateforme, basculer
-        l'autonomie ou annuler une action exigent un rôle.</div>
+      <table><tbody>
+        <tr><td>Nom d'utilisateur</td><td class="mono">${esc(SESSION?.username || "—")}</td></tr>
+        <tr><td>Identité</td><td>${esc(
+          [SESSION?.prenom, SESSION?.nom].filter(Boolean).join(" ") || "—")}</td></tr>
+        <tr><td>Rôle</td><td>${esc(roleLisible(SESSION?.role || ""))}</td></tr>
+        ${SESSION?.poste ? `<tr><td>Poste</td><td>${esc(SESSION.poste)}</td></tr>` : ""}
+        ${SESSION?.email ? `<tr><td>E-mail</td><td class="mono">${esc(SESSION.email)}</td></tr>` : ""}
+      </tbody></table>
+      <div style="margin-top:12px"><button id="reg-deconnexion">Se déconnecter</button></div>
     </div>
+
+    <div class="admin-only" id="section-comptes"></div>
+    <div class="admin-only" id="section-postes"></div>
 
     <h2>Notifications a posteriori non acquittées (${notifications.count})</h2>
     <div class="carte" style="padding:0;overflow:auto;margin-bottom:18px">
@@ -1462,14 +1639,8 @@ async function vueReglages() {
       </div>
     </div>`;
 
-  $("poser-jeton").addEventListener("click", async () => {
-    poserJeton($("jeton").value.trim());
-    await vueReglages();
-  });
-  $("oublier-jeton").addEventListener("click", async () => {
-    poserJeton("");
-    await vueReglages();
-  });
+  $("reg-deconnexion").addEventListener("click", seDeconnecter);
+  if (estAdmin()) rendreSectionsAdmin();
 
   $("choix-theme").addEventListener("change", (e) => {
     const v = e.target.value;
@@ -1489,12 +1660,194 @@ async function vueReglages() {
     }));
 }
 
-// ---------------------------------------------------------------- démarrage
-construireNav();
-naviguer(location.pathname, true);
-setInterval(() => {
-  if (["/dashboard", "/monitoring"].includes(vueCourante?.route)) rafraichir();
-}, 20000);
+// -- Reglages : sections reservees a l'administrateur -------------------
+// Validation des inscriptions, promotion analyste -> administrateur,
+// suspension, et gestion des postes (dont les identifiants des decideurs).
+async function rendreSectionsAdmin() {
+  let users = [];
+  let postes = [];
+  try {
+    users = (await api("/api/v1/admin/users")).users || [];
+    postes = (await api("/api/v1/admin/postes")).postes || [];
+  } catch (e) {
+    $("section-comptes").innerHTML = `<div class="muet">Gestion des comptes indisponible : ${esc(e.message)}</div>`;
+    return;
+  }
+  const superAdmin = SESSION.role === "super_admin";
+  const enAttente = users.filter((u) => u.status === "pending");
+  const actifs = users.filter((u) => u.status !== "pending");
+
+  const rangeeCompte = (u) => {
+    const promo = superAdmin && u.role === "analyste"
+      ? `<button data-promo="${esc(u.user_id)}">Promouvoir admin</button>` : "";
+    const retro = superAdmin && u.role === "admin"
+      ? `<button data-retro="${esc(u.user_id)}">Rétrograder</button>` : "";
+    const susp = u.role !== "super_admin" && u.status === "active"
+      ? `<button data-susp="${esc(u.user_id)}">Suspendre</button>` : "";
+    const rea = ["suspended", "refused"].includes(u.status)
+      ? `<button data-rea="${esc(u.user_id)}">Réactiver</button>` : "";
+    return `<div class="rangee-compte">
+      <div>
+        <div class="ppal">${esc([u.prenom, u.nom].filter(Boolean).join(" ") || u.username)}
+          <span class="puce-statut ${esc(u.status)}">${esc(u.status)}</span></div>
+        <div class="meta">${esc(u.username)} · ${esc(roleLisible2(u.role))}${
+          u.poste ? " · " + esc(u.poste) : ""}${u.email ? " · " + esc(u.email) : ""}</div>
+      </div>
+      <div class="actions-compte">${promo}${retro}${susp}${rea}</div>
+    </div>`;
+  };
+
+  $("section-comptes").innerHTML = `
+    <h2>Inscriptions en attente (${enAttente.length})</h2>
+    <div class="carte" style="margin-bottom:18px">
+      ${enAttente.length ? enAttente.map((u) => `<div class="rangee-compte">
+        <div>
+          <div class="ppal">${esc([u.prenom, u.nom].filter(Boolean).join(" ") || u.username)}</div>
+          <div class="meta">${esc(u.username)} · ${esc(u.poste)} · ${esc(u.email)}</div>
+        </div>
+        <div class="actions-compte">
+          <button class="primaire" data-admit="${esc(u.user_id)}">Valider</button>
+          <button data-decline="${esc(u.user_id)}">Écarter</button>
+        </div>
+      </div>`).join("") : '<div class="vide">Aucune inscription en attente.</div>'}
+    </div>
+
+    <h2>Comptes (${actifs.length})</h2>
+    <div class="carte" style="margin-bottom:18px">
+      ${actifs.map(rangeeCompte).join("") || '<div class="vide">Aucun compte.</div>'}
+    </div>`;
+
+  const postesDe = (k) => postes.filter((p) => p.kind === k);
+  const listePostes = (k) => postesDe(k).map((p) => `<div class="rangee-compte">
+      <div><div class="ppal">${esc(p.label)}
+        ${p.active ? "" : '<span class="puce-statut refused">fermé</span>'}</div>
+        ${p.civility ? `<div class="meta">${esc(p.civility)}</div>` : ""}</div>
+      <div class="actions-compte">
+        ${k === "decideur" ? `<button data-decideur="${esc(p.poste_id)}" data-civ="${esc(p.civility)}"
+          data-label="${esc(p.label)}">Créer les identifiants</button>` : ""}
+        <button data-poste-toggle="${esc(p.poste_id)}" data-active="${p.active}">${
+          p.active ? "Fermer" : "Rouvrir"}</button>
+        <button data-poste-suppr="${esc(p.poste_id)}">Supprimer</button>
+      </div>
+    </div>`).join("");
+
+  $("section-postes").innerHTML = `
+    <h2>Postes d'analyste</h2>
+    <div class="carte" style="margin-bottom:14px">
+      ${listePostes("analyste") || '<div class="vide">Aucun poste.</div>'}
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <input id="np-analyste" placeholder="Nouveau poste d'analyste" style="flex:1;min-width:200px">
+        <button class="primaire" data-new-poste="analyste">Ajouter</button>
+      </div>
+    </div>
+
+    <h2>Postes de décideur</h2>
+    <div class="carte" style="margin-bottom:18px">
+      ${listePostes("decideur") || '<div class="vide">Aucun poste.</div>'}
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <input id="np-decideur" placeholder="Nouveau poste (ex. Directeur du CIRT)" style="flex:1;min-width:220px">
+        <select id="np-decideur-civ"><option value="Monsieur">Monsieur</option>
+          <option value="Madame">Madame</option></select>
+        <button class="primaire" data-new-poste="decideur">Ajouter</button>
+      </div>
+    </div>`;
+
+  const recharger = () => rendreSectionsAdmin();
+  const agir = async (url) => { try { await post(url); } catch (e) { erreur(e.message); } recharger(); };
+
+  $("vue").querySelectorAll("[data-admit]").forEach((b) =>
+    b.addEventListener("click", () => agir(`/api/v1/admin/users/${b.dataset.admit}/admit`)));
+  $("vue").querySelectorAll("[data-decline]").forEach((b) =>
+    b.addEventListener("click", () => agir(`/api/v1/admin/users/${b.dataset.decline}/decline`)));
+  $("vue").querySelectorAll("[data-promo]").forEach((b) =>
+    b.addEventListener("click", () => agir(`/api/v1/admin/users/${b.dataset.promo}/promote`)));
+  $("vue").querySelectorAll("[data-retro]").forEach((b) =>
+    b.addEventListener("click", () => agir(`/api/v1/admin/users/${b.dataset.retro}/demote`)));
+  $("vue").querySelectorAll("[data-susp]").forEach((b) =>
+    b.addEventListener("click", () => agir(`/api/v1/admin/users/${b.dataset.susp}/suspend`)));
+  $("vue").querySelectorAll("[data-rea]").forEach((b) =>
+    b.addEventListener("click", () => agir(`/api/v1/admin/users/${b.dataset.rea}/reactivate`)));
+
+  $("vue").querySelectorAll("[data-new-poste]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const kind = b.dataset.newPoste;
+      const label = $(kind === "analyste" ? "np-analyste" : "np-decideur").value.trim();
+      if (label.length < 2) return;
+      const civility = kind === "decideur" ? $("np-decideur-civ").value : "";
+      try { await poster("/api/v1/admin/postes", { kind, label, civility }); }
+      catch (e) { erreur(e.message); }
+      recharger();
+    }));
+  $("vue").querySelectorAll("[data-poste-toggle]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      try {
+        await api(`/api/v1/admin/postes/${b.dataset.posteToggle}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ active: b.dataset.active !== "true" }),
+        });
+      } catch (e) { erreur(e.message); }
+      recharger();
+    }));
+  $("vue").querySelectorAll("[data-poste-suppr]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      try { await api(`/api/v1/admin/postes/${b.dataset.posteSuppr}`, { method: "DELETE" }); }
+      catch (e) { erreur(e.message); }
+      recharger();
+    }));
+  $("vue").querySelectorAll("[data-decideur]").forEach((b) =>
+    b.addEventListener("click", () => formulaireDecideur(
+      b.dataset.decideur, b.dataset.label, b.dataset.civ, recharger)));
+}
+
+const roleLisible2 = (r) => ({
+  super_admin: "Super-administrateur", admin: "Administrateur",
+  analyste: "Analyste", decideur: "Décideur",
+}[r] || r);
+
+function formulaireDecideur(posteId, label, civ, apres) {
+  ouvrirModale({
+    titre: "Identifiants du décideur",
+    sous: label,
+    corps: `
+      <div class="champ-auth"><label>Civilité</label>
+        <select id="d-civ">
+          <option value="Monsieur" ${civ === "Monsieur" ? "selected" : ""}>Monsieur</option>
+          <option value="Madame" ${civ === "Madame" ? "selected" : ""}>Madame</option>
+        </select></div>
+      <div class="grille-champs">
+        <div class="champ-auth"><label>Nom (facultatif)</label><input id="d-nom"></div>
+        <div class="champ-auth"><label>Prénom (facultatif)</label><input id="d-prenom"></div>
+      </div>
+      <div class="champ-auth"><label>Nom d'utilisateur</label><input id="d-user"></div>
+      <div class="champ-auth"><label>Mot de passe provisoire</label><input id="d-mdp"></div>
+      <div class="erreur-auth" id="d-err"></div>`,
+    actions: `<button data-fermer>Annuler</button>
+              <button class="primaire" id="d-creer">Créer le compte</button>`,
+    apres: (racine) => {
+      racine.querySelector("#d-creer").addEventListener("click", async () => {
+        racine.querySelector("#d-err").textContent = "";
+        try {
+          await poster("/api/v1/admin/decideurs", {
+            poste_id: posteId,
+            civility: racine.querySelector("#d-civ").value,
+            nom: racine.querySelector("#d-nom").value.trim(),
+            prenom: racine.querySelector("#d-prenom").value.trim(),
+            username: racine.querySelector("#d-user").value.trim(),
+            password: racine.querySelector("#d-mdp").value,
+          });
+          fermerModale();
+          apres();
+        } catch (e) {
+          racine.querySelector("#d-err").textContent = e.message;
+        }
+      });
+    },
+  });
+}
+
+// Le demarrage est appele en toute fin de fichier : sur un lien profond vers
+// /assistant, `naviguer` ouvre la conversation, ce qui lit `AMORCES` — une
+// const declaree plus bas. L'amorcer ici la prendrait dans sa zone morte.
 
 // ============================================================ bulle assistant
 // Une conversation, pas un formulaire. Quatre choses la distinguent d'un champ
@@ -1537,17 +1890,45 @@ function ouvrirChat() {
 function fermerChat() {
   chatOuvert = false;
   $("chat").hidden = true;
+  fermerTiroir();
   majVisibiliteChat();
   if (flux) { flux.close(); flux = null; }
 }
 
+// -- tiroir d'historique (bulle reduite) -----------------------------------
+// En mode agrandi (#chat.plein) le rail est affiche en permanence ; tant que
+// la conversation tient dans la bulle reduite, il devient un tiroir qui entre
+// par la gauche, declenche par le bouton #ouvrir-rail.
+
+function fermerTiroir() {
+  $("chat").classList.remove("tiroir");
+  $("ouvrir-rail").setAttribute("aria-expanded", "false");
+}
+
+function basculerTiroir() {
+  const ouvert = $("chat").classList.toggle("tiroir");
+  $("ouvrir-rail").setAttribute("aria-expanded", String(ouvert));
+  if (ouvert) chargerFils();
+}
+
 $("lanceur-chat").addEventListener("click", ouvrirChat);
 $("fermer-chat").addEventListener("click", fermerChat);
-$("agrandir").addEventListener("click", () => $("chat").classList.toggle("plein"));
+$("agrandir").addEventListener("click", () => {
+  // Passer en mode agrandi affiche le rail en dur : le tiroir n'a plus lieu
+  // d'etre, on le referme pour ne pas laisser le voile par-dessus.
+  fermerTiroir();
+  $("chat").classList.toggle("plein");
+});
+$("ouvrir-rail").addEventListener("click", basculerTiroir);
+$("voile-rail").addEventListener("click", fermerTiroir);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("chat").classList.contains("tiroir")) fermerTiroir();
+});
 const nouvelleDiscussion = () => {
   // Un fil neuf cote serveur aussi : sinon la nouvelle conversation heriterait
   // du contexte de l'ancienne sans que rien ne l'indique a l'ecran.
   filId = `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  fermerTiroir();
   $("fil").innerHTML = "";
   accueil();
   chargerFils();
@@ -1932,6 +2313,7 @@ async function rouvrirFil(identifiant) {
   try {
     const fil = await api(`/api/v1/assistant/conversations/${encodeURIComponent(identifiant)}`);
     filId = identifiant;
+    fermerTiroir();
     $("chat").classList.remove("vierge");
     $("fil").innerHTML = "";
     for (const message of fil.messages) {
@@ -1968,26 +2350,65 @@ $("basculer-fils").addEventListener("click", () => {
   $("fils").hidden = ouvert;
 });
 
-// -- menu de filtres ---------------------------------------------------------
+// -- menu de filtres --------------------------------------------------------
+// Deux niveaux : la liste des trois axes, puis les options de celui qu'on
+// ouvre. Deroules ensemble, ils depassaient la hauteur que #chat laisse voir.
+
+const FLECHE_D = '<svg class="fleche" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+const FLECHE_G = '<svg class="fleche" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
+const COCHE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+
+let axeOuvert = null;
 
 function dessinerFiltres() {
-  $("filtres-liste").innerHTML = AXES.map(({ cle, titre, options }) => `
-    <div class="groupe-filtre">
-      <b>${esc(titre)}</b>
-      <div class="choix">
-        ${options.map(([valeur, libelle]) => `
-          <button data-axe="${cle}" data-valeur="${valeur}"
-                  aria-pressed="${FILTRES[cle] === valeur}">${esc(libelle)}</button>`).join("")}
-      </div>
-    </div>`).join("");
+  const liste = $("filtres-liste");
 
-  $("filtres-liste").querySelectorAll("[data-axe]").forEach((b) =>
+  if (!axeOuvert) {
+    liste.innerHTML = AXES.map(({ cle, titre, options }) => {
+      const actif = FILTRES[cle] !== PAR_DEFAUT[cle];
+      const libelle = actif
+        ? (options.find(([v]) => v === FILTRES[cle]) || ["", ""])[1] : "";
+      return `<button class="axe-filtre" data-ouvrir="${cle}">
+        <span class="nom-axe">${esc(titre)}</span>
+        ${actif ? `<span class="val-axe">${esc(libelle)}</span>` : ""}
+        ${FLECHE_D}
+      </button>`;
+    }).join("");
+
+    liste.querySelectorAll("[data-ouvrir]").forEach((b) =>
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        axeOuvert = b.dataset.ouvrir;
+        dessinerFiltres();
+      }));
+    return;
+  }
+
+  const axe = AXES.find((a) => a.cle === axeOuvert);
+  liste.innerHTML = `
+    <button class="retour-filtre" data-retour>${FLECHE_G}<span>${esc(axe.titre)}</span></button>
+    <div class="options-axe">
+      ${axe.options.map(([valeur, libelle]) => `
+        <button data-axe="${axe.cle}" data-valeur="${valeur}"
+                aria-pressed="${FILTRES[axe.cle] === valeur}">
+          <span>${esc(libelle)}</span>${FILTRES[axe.cle] === valeur ? COCHE : ""}
+        </button>`).join("")}
+    </div>`;
+
+  liste.querySelector("[data-retour]").addEventListener("click", (e) => {
+    e.stopPropagation();
+    axeOuvert = null;
+    dessinerFiltres();
+  });
+
+  liste.querySelectorAll("[data-axe]").forEach((b) =>
     b.addEventListener("click", (e) => {
       e.stopPropagation();
       FILTRES[b.dataset.axe] = b.dataset.valeur;
-      dessinerFiltres();
       majPastilleFiltres();
       chargerFils();
+      axeOuvert = null;
+      dessinerFiltres();
     }));
 }
 
@@ -2000,17 +2421,20 @@ $("filtrer").addEventListener("click", (e) => {
   const ouvert = !$("filtres-liste").hidden;
   $("filtres-liste").hidden = ouvert;
   $("filtrer").setAttribute("aria-expanded", String(!ouvert));
-  if (!ouvert) dessinerFiltres();
+  // A chaque ouverture, on repart de la liste des axes.
+  if (!ouvert) { axeOuvert = null; dessinerFiltres(); }
 });
 document.addEventListener("click", () => {
   $("filtres-liste").hidden = true;
   $("filtrer").setAttribute("aria-expanded", "false");
+  axeOuvert = null;
 });
 
 // -- historique detaille, dans le corps du panneau ---------------------------
 
 $("voir-historique").addEventListener("click", async () => {
   await chargerFils();
+  fermerTiroir();
   $("chat").classList.remove("vierge");
   $("pistes").innerHTML = "";
 
@@ -2077,3 +2501,274 @@ function confirmerSuppression(identifiant) {
     },
   });
 }
+
+// ==================================== connexion et separation des roles
+// La plateforme distingue quatre roles (CDCF v3.0) : super-administrateur,
+// administrateur, analyste, decideur. Avant la session, le rail et l'en-tete
+// sont masques ; la vue occupe tout l'ecran (connexion / inscription /
+// installation). Une fois connecte, la navigation est filtree sur les routes
+// autorisees renvoyees par /api/v1/auth/me.
+
+let SESSION = null;
+const ROUTES_HORS_SESSION = ["/", "/login", "/register", "/accueil"];
+const estAdmin = () => !!SESSION && (SESSION.role === "admin" || SESSION.role === "super_admin");
+const peutAgir = () => !!SESSION && SESSION.role !== "decideur";
+
+const ROLE_LISIBLE = {
+  super_admin: "Super-administrateur",
+  admin: "Administrateur",
+  analyste: "Analyste",
+  decideur: "Décideur",
+};
+const roleLisible = (r) =>
+  r === "decideur" && SESSION?.poste ? SESSION.poste : (ROLE_LISIBLE[r] || r);
+
+const LOGOS = `
+  <div class="logos-auth">
+    <img src="/static/logo-antic.png" alt="ANTIC" width="56" height="56">
+    <span class="sep-logo"></span>
+    <img src="/static/logo-cirtdefense.svg" alt="CIRTDEFENSE" width="56" height="56">
+  </div>`;
+
+function coquilleHorsSession(actif) {
+  document.body.classList.toggle("hors-session", actif);
+}
+
+async function meSession() {
+  const opts = jeton() ? { headers: { Authorization: `Bearer ${jeton()}` } } : {};
+  const r = await fetch("/api/v1/auth/me", opts);
+  if (r.status === 401) return { non_connecte: true };
+  if (!r.ok) throw new Error("service d'authentification indisponible");
+  return r.json();
+}
+
+async function poster(url, corps) {
+  return api(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(corps),
+  });
+}
+
+// -- ecran de connexion ---------------------------------------------------
+function ecranConnexion(message = "") {
+  coquilleHorsSession(true);
+  if (location.pathname !== "/login") history.replaceState({}, "", "/login");
+  document.title = "Connexion — CIRTDEFENSE";
+  $("vue").innerHTML = `
+    <div class="ecran-auth">
+      ${LOGOS}
+      <div class="carte-auth">
+        <h1>Poste de supervision CIRT</h1>
+        <div class="sous">Agence Nationale des Technologies de l'Information
+          et de la Communication</div>
+        <div class="champ-auth"><label for="c-ident">Nom d'utilisateur</label>
+          <input id="c-ident" autocomplete="username"></div>
+        <div class="champ-auth"><label for="c-mdp">Mot de passe</label>
+          <input id="c-mdp" type="password" autocomplete="current-password"></div>
+        <button class="primaire" id="c-go">Se connecter</button>
+        <div class="erreur-auth" id="c-err">${esc(message)}</div>
+      </div>
+      <div class="lien-auth">Pas de compte ?
+        <a id="c-inscription">Demander un accès analyste</a></div>
+    </div>`;
+  const go = async () => {
+    $("c-err").textContent = "";
+    try {
+      const rep = await poster("/api/v1/auth/login", {
+        username: $("c-ident").value.trim(),
+        password: $("c-mdp").value,
+      });
+      poserJeton(rep.token);
+      SESSION = rep;
+      await entrerSession();
+    } catch (e) {
+      $("c-err").textContent = e.message;
+    }
+  };
+  $("c-go").addEventListener("click", go);
+  $("c-mdp").addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+  $("c-inscription").addEventListener("click", ecranInscription);
+  $("c-ident").focus();
+}
+
+// -- ecran d'inscription (analyste) ------------------------------------
+async function ecranInscription() {
+  coquilleHorsSession(true);
+  if (location.pathname !== "/register") history.replaceState({}, "", "/register");
+  document.title = "Inscription — CIRTDEFENSE";
+  let postes = [];
+  try { postes = (await api("/api/v1/auth/postes")).postes || []; } catch { /* liste vide */ }
+  $("vue").innerHTML = `
+    <div class="ecran-auth">
+      ${LOGOS}
+      <div class="carte-auth">
+        <h1>Demande d'accès analyste</h1>
+        <div class="sous">L'inscription est soumise à la validation de
+          l'administrateur principal.</div>
+        <div class="grille-champs">
+          <div class="champ-auth"><label>Nom</label><input id="i-nom"></div>
+          <div class="champ-auth"><label>Prénom</label><input id="i-prenom"></div>
+        </div>
+        <div class="champ-auth"><label>Nom d'utilisateur</label><input id="i-user"></div>
+        <div class="champ-auth"><label>Adresse e-mail</label>
+          <input id="i-email" type="email" autocomplete="email"></div>
+        <div class="champ-auth"><label>Poste au sein du CIRT / ANTIC</label>
+          <select id="i-poste">${postes.map((p) =>
+            `<option value="${esc(p.poste_id)}">${esc(p.label)}</option>`).join("")}</select></div>
+        <div class="grille-champs">
+          <div class="champ-auth"><label>Mot de passe</label><input id="i-mdp" type="password"></div>
+          <div class="champ-auth"><label>Confirmation</label><input id="i-mdp2" type="password"></div>
+        </div>
+        <button class="primaire" id="i-go">Envoyer la demande</button>
+        <div class="erreur-auth" id="i-err"></div>
+      </div>
+      <div class="lien-auth">Déjà un compte ? <a id="i-connexion">Se connecter</a></div>
+    </div>`;
+  $("i-connexion").addEventListener("click", () => ecranConnexion());
+  $("i-go").addEventListener("click", async () => {
+    $("i-err").textContent = "";
+    try {
+      const rep = await poster("/api/v1/auth/register", {
+        nom: $("i-nom").value.trim(),
+        prenom: $("i-prenom").value.trim(),
+        username: $("i-user").value.trim(),
+        email: $("i-email").value.trim(),
+        password: $("i-mdp").value,
+        password_confirm: $("i-mdp2").value,
+        poste_id: $("i-poste").value,
+      });
+      $("vue").querySelector(".carte-auth").innerHTML = `
+        <h1>Demande enregistrée</h1>
+        <div class="info-auth">${esc(rep.message)}<br><br>
+          Vous pourrez vous connecter dès qu'un administrateur aura validé
+          votre compte.</div>
+        <div class="lien-auth" style="margin-top:14px">
+          <a id="i-retour">Retour à la connexion</a></div>`;
+      $("i-retour").addEventListener("click", () => ecranConnexion());
+    } catch (e) {
+      $("i-err").textContent = e.message;
+    }
+  });
+}
+
+// -- ecran d'installation (super-administrateur, 1er lancement) -----------
+function ecranInstallation() {
+  coquilleHorsSession(true);
+  history.replaceState({}, "", "/login");
+  document.title = "Installation — CIRTDEFENSE";
+  $("vue").innerHTML = `
+    <div class="ecran-auth">
+      ${LOGOS}
+      <div class="carte-auth">
+        <h1>Première mise en service</h1>
+        <div class="sous">Créez le compte super-administrateur de la plateforme.</div>
+        <div class="grille-champs">
+          <div class="champ-auth"><label>Nom</label><input id="s-nom"></div>
+          <div class="champ-auth"><label>Prénom</label><input id="s-prenom"></div>
+        </div>
+        <div class="champ-auth"><label>Nom d'utilisateur</label><input id="s-user"></div>
+        <div class="champ-auth"><label>Adresse e-mail</label><input id="s-email" type="email"></div>
+        <div class="grille-champs">
+          <div class="champ-auth"><label>Mot de passe</label><input id="s-mdp" type="password"></div>
+          <div class="champ-auth"><label>Confirmation</label><input id="s-mdp2" type="password"></div>
+        </div>
+        <button class="primaire" id="s-go">Créer le compte</button>
+        <div class="erreur-auth" id="s-err"></div>
+      </div>
+    </div>`;
+  $("s-go").addEventListener("click", async () => {
+    $("s-err").textContent = "";
+    try {
+      const rep = await poster("/api/v1/auth/setup", {
+        nom: $("s-nom").value.trim(),
+        prenom: $("s-prenom").value.trim(),
+        username: $("s-user").value.trim(),
+        email: $("s-email").value.trim(),
+        password: $("s-mdp").value,
+        password_confirm: $("s-mdp2").value,
+      });
+      poserJeton(rep.token);
+      SESSION = rep;
+      await entrerSession();
+    } catch (e) {
+      $("s-err").textContent = e.message;
+    }
+  });
+}
+
+// -- entree en session : coquille, nav filtree, page d'accueil -----------
+async function entrerSession() {
+  coquilleHorsSession(false);
+  document.body.dataset.role = SESSION.role;
+  construireNav();
+  $("pied-session").hidden = false;
+  $("lien-accueil").hidden = false;
+  $("qui-session").innerHTML = `${esc(SESSION.display_name || SESSION.username)}
+    <small>${esc(roleLisible(SESSION.role))}</small>`;
+
+  const demandee = location.pathname;
+  const cible = ROUTES_HORS_SESSION.includes(demandee)
+    ? "/accueil"
+    : (SESSION.allowed_routes || []).includes(demandee) ? demandee : "/accueil";
+  naviguer(cible, true);
+}
+
+async function seDeconnecter() {
+  try { await poster("/api/v1/auth/logout", {}); } catch { /* session deja fermee */ }
+  poserJeton("");
+  SESSION = null;
+  delete document.body.dataset.role;
+  $("pied-session").hidden = true;
+  $("lien-accueil").hidden = true;
+  if (flux) { flux.close(); flux = null; }
+  fermerChat();
+  ecranConnexion();
+}
+
+// -- page d'accueil (portail) ------------------------------------------
+function vueAccueil() {
+  document.title = "Accueil — CIRTDEFENSE";
+  $("titre-vue").textContent = "Accueil";
+  $("sous-vue").textContent = "";
+  const tuiles = (SESSION.allowed_routes || [])
+    .map((route) => VUES.find((v) => v.route === route))
+    .filter(Boolean)
+    .map((v) => `<button class="tuile-portail" data-route="${v.route}">
+        ${icone(v.icone)}
+        <span class="t-titre">${esc(v.label)}</span>
+        <span class="t-sous">${esc(v.sous)}</span>
+      </button>`).join("");
+  $("vue").innerHTML = `
+    <div class="portail">
+      ${LOGOS}
+      <div class="salut">${esc(SESSION.welcome)}<b>.</b></div>
+      <div class="role-badge">${esc(roleLisible(SESSION.role))}</div>
+      <div class="tuiles-portail">${tuiles}</div>
+    </div>`;
+  $("vue").querySelectorAll("[data-route]").forEach((t) =>
+    t.addEventListener("click", () => naviguer(t.dataset.route)));
+}
+
+$("deconnexion").addEventListener("click", seDeconnecter);
+$("lien-accueil").addEventListener("click", () => naviguer("/accueil"));
+
+// ---------------------------------------------------------------- démarrage
+(async function demarrer() {
+  let me;
+  try {
+    me = await meSession();
+  } catch (e) {
+    coquilleHorsSession(true);
+    $("vue").innerHTML = `<div class="ecran-auth"><div class="carte-auth">
+      <h1>Service indisponible</h1><div class="sous">${esc(e.message)}</div></div></div>`;
+    return;
+  }
+  if (me.setup_required) return ecranInstallation();
+  if (me.non_connecte) return ecranConnexion();
+  SESSION = me;
+  await entrerSession();
+  setInterval(() => {
+    if (vueCourante?.route === "/dashboard") rafraichir();
+  }, 20000);
+})();

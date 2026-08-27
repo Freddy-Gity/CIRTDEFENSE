@@ -83,12 +83,20 @@ def overview(platform: PlatformDep) -> dict:
         "injoignable": sum(1 for x in lignes if x["state"] == "injoignable"),
     }
 
+    settings = platform.settings
     return {
         "probe": platform.probe.name,
         "probe_is_manual": isinstance(platform.probe, StaticProbe),
         "summary": resume,
         "targets": lignes,
         "post_action_watches": _watches(platform),
+        # Centre géographique du balayage radar : le siège, fixe quel que soit
+        # le zoom ou le déplacement de la carte (onglet Surveillance).
+        "anchor": {
+            "lat": settings.site_lat,
+            "lon": settings.site_lon,
+            "label": f"Siège {settings.site_id}",
+        },
     }
 
 

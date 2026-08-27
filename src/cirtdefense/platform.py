@@ -61,7 +61,11 @@ from .persistence.repositories import (
     MonitoredTargetRepository,
     NotificationRepository,
     PolicyRepository,
+    PosteRepository,
+    SessionRepository,
+    UserRepository,
 )
+from .security.access import POSTES_PAR_DEFAUT
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +85,9 @@ class Platform:
     notifications: NotificationRepository
     targets: MonitoredTargetRepository
     conversations: ConversationRepository
+    users: UserRepository
+    postes: PosteRepository
+    sessions: SessionRepository
     adapter: IngestionAdapter
     enrichment: EnrichmentService
     planner: Planner
@@ -188,6 +195,11 @@ def build_platform(
     notifications = NotificationRepository(connection)
     targets = MonitoredTargetRepository(connection)
     conversations = ConversationRepository(connection)
+    users = UserRepository(connection)
+    postes = PosteRepository(connection)
+    sessions = SessionRepository(connection)
+    postes.seed_defaults(POSTES_PAR_DEFAUT)
+    sessions.purge_expired()
 
     mode = settings.autonomy.actuation_mode
     registry = ActuatorRegistry()
@@ -282,6 +294,9 @@ def build_platform(
         notifications=notifications,
         targets=targets,
         conversations=conversations,
+        users=users,
+        postes=postes,
+        sessions=sessions,
         adapter=IngestionAdapter(events, incidents, ledger),
         enrichment=enrichment,
         planner=planner,

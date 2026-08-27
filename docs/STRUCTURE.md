@@ -180,6 +180,18 @@ haut, l'audit et les reglages en bas. Le serveur rend la meme page pour
 chacune de ces routes, sans quoi un lien profond ou un rafraichissement
 renverrait une 404.
 
+**Separation des roles.** Avant toute vue, l'interface passe par une page de
+connexion (logos ANTIC + plateforme, centres) et une page d'accueil
+personnalisee. Quatre roles : super-administrateur (cree a la premiere mise en
+service), administrateur (analyste promu), analyste (s'inscrit, attend une
+validation), decideur (identifiants remis par l'administrateur). `access.py`
+porte la matrice role -> vues : l'analyste et le decideur voient les memes
+vues sauf la Demonstration, mais le decideur est en lecture stricte ; seul
+l'administrateur ouvre la politique, le coupe-circuit, la gestion des comptes
+et des postes. `GET /api/v1/auth/me` renvoie `allowed_routes`, la navigation
+et les gardes de route s'y conforment ; les gardes d'`api/deps.py` continuent
+de proteger les actions.
+
 ---
 
 ## 2. Les cinq principes de decoupage
@@ -277,6 +289,7 @@ Trois limites, a assumer explicitement plutot qu'a decouvrir en soutenance :
    Le choix a ete fait pour que la boucle EF-25 soit demontrable sans casser
    un service.
 
-3. **L'authentification est minimale.** La separation des roles existe et est
-   verifiee a chaque appel sensible, mais l'integration a l'annuaire du CIRT
-   releve du deploiement.
+3. **L'authentification tient dans la plateforme, pas dans un annuaire.**
+   Comptes locaux, mots de passe haches (PBKDF2, bibliotheque standard),
+   sessions porteuses. Suffisant pour un poste interne au CIRT ; l'integration
+   a un annuaire d'entreprise (LDAP, SSO) reste un travail de deploiement.
