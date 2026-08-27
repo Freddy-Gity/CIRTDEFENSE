@@ -1,0 +1,4 @@
+# Normalisation des fins de ligne : LF partout dans le depot.
+* text=auto eol=lf
+*.png binary
+*.svg text eol=lf

@@ -1398,6 +1398,33 @@ const erreur = (m) => {
     `<div class="carte" style="border-color:var(--critical);margin-bottom:16px">${esc(m)}</div>`;
 };
 
+// Notification ephemere : confirme un geste des qu'il aboutit. `genre` vaut
+// "ok" (defaut), "erreur" ou "info".
+const ICONES_TOAST = {
+  ok: '<path d="M20 6 9 17l-5-5"/>',
+  erreur: '<circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16h.01"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/>',
+};
+function toast(message, genre = "ok") {
+  const hote = $("toasts");
+  if (!hote) return;
+  const el = document.createElement("div");
+  el.className = `toast ${genre}`;
+  el.innerHTML = `
+    <svg class="t-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      ${ICONES_TOAST[genre] || ICONES_TOAST.ok}</svg>
+    <span class="t-txt">${esc(message)}</span>
+    <button class="t-fermer" aria-label="Fermer">&times;</button>`;
+  const retirer = () => {
+    el.classList.add("sortie");
+    setTimeout(() => el.remove(), 220);
+  };
+  el.querySelector(".t-fermer").addEventListener("click", retirer);
+  hote.appendChild(el);
+  setTimeout(retirer, genre === "erreur" ? 6500 : 4200);
+}
+
 function afficherResultat(r) {
   if (!r.accepted) {
     $("resultat").innerHTML = `<div class="carte" style="margin-bottom:16px">
@@ -1688,22 +1715,32 @@ async function rendreSectionsAdmin() {
   const actifs = users.filter((u) => u.status !== "pending");
 
   const rangeeCompte = (u) => {
+    const nom = [u.prenom, u.nom].filter(Boolean).join(" ") || u.username;
+    const moi = u.user_id === SESSION.user_id;
+    // Promotion et transfert du rôle de super-administrateur : super-admin seul.
     const promo = superAdmin && u.role === "analyste"
       ? `<button data-promo="${esc(u.user_id)}">Promouvoir admin</button>` : "";
-    const retro = superAdmin && u.role === "admin"
+    const retro = superAdmin && !moi && u.role === "admin"
       ? `<button data-retro="${esc(u.user_id)}">Rétrograder</button>` : "";
-    const susp = u.role !== "super_admin" && u.status === "active"
+    const transf = superAdmin && !moi && u.role === "admin"
+      ? `<button data-transf="${esc(u.user_id)}" data-nom="${esc(nom)}">Transférer super-admin</button>`
+      : "";
+    const susp = !moi && u.role !== "super_admin" && u.status === "active"
       ? `<button data-susp="${esc(u.user_id)}">Suspendre</button>` : "";
     const rea = ["suspended", "refused"].includes(u.status)
       ? `<button data-rea="${esc(u.user_id)}">Réactiver</button>` : "";
+    // Suppression definitive : super-admin seul, jamais son propre compte.
+    const suppr = superAdmin && !moi && u.role !== "super_admin"
+      ? `<button class="danger" data-suppr="${esc(u.user_id)}" data-nom="${esc(nom)}">Supprimer</button>`
+      : "";
     return `<div class="rangee-compte">
       <div>
-        <div class="ppal">${esc([u.prenom, u.nom].filter(Boolean).join(" ") || u.username)}
+        <div class="ppal">${esc(nom)}
           <span class="puce-statut ${esc(u.status)}">${esc(u.status)}</span></div>
         <div class="meta">${esc(u.username)} · ${esc(roleLisible2(u.role))}${
           u.poste ? " · " + esc(u.poste) : ""}${u.email ? " · " + esc(u.email) : ""}</div>
       </div>
-      <div class="actions-compte">${promo}${retro}${susp}${rea}</div>
+      <div class="actions-compte">${promo}${retro}${transf}${susp}${rea}${suppr}</div>
     </div>`;
   };
 
@@ -1763,45 +1800,104 @@ async function rendreSectionsAdmin() {
     </div>`;
 
   const recharger = () => rendreSectionsAdmin();
-  const agir = async (url) => { try { await post(url); } catch (e) { erreur(e.message); } recharger(); };
+  const agir = async (url, ok) => {
+    try {
+      await post(url);
+      if (ok) toast(ok);
+    } catch (e) {
+      toast(e.message, "erreur");
+    }
+    recharger();
+  };
 
   $("vue").querySelectorAll("[data-admit]").forEach((b) =>
-    b.addEventListener("click", () => agir(`/api/v1/admin/users/${b.dataset.admit}/admit`)));
+    b.addEventListener("click", () =>
+      agir(`/api/v1/admin/users/${b.dataset.admit}/admit`, "Inscription validée.")));
   $("vue").querySelectorAll("[data-decline]").forEach((b) =>
-    b.addEventListener("click", () => agir(`/api/v1/admin/users/${b.dataset.decline}/decline`)));
+    b.addEventListener("click", () =>
+      agir(`/api/v1/admin/users/${b.dataset.decline}/decline`, "Inscription écartée.")));
   $("vue").querySelectorAll("[data-promo]").forEach((b) =>
-    b.addEventListener("click", () => agir(`/api/v1/admin/users/${b.dataset.promo}/promote`)));
+    b.addEventListener("click", () =>
+      agir(`/api/v1/admin/users/${b.dataset.promo}/promote`, "Analyste promu administrateur.")));
   $("vue").querySelectorAll("[data-retro]").forEach((b) =>
-    b.addEventListener("click", () => agir(`/api/v1/admin/users/${b.dataset.retro}/demote`)));
+    b.addEventListener("click", () =>
+      agir(`/api/v1/admin/users/${b.dataset.retro}/demote`, "Administrateur rétrogradé.")));
   $("vue").querySelectorAll("[data-susp]").forEach((b) =>
-    b.addEventListener("click", () => agir(`/api/v1/admin/users/${b.dataset.susp}/suspend`)));
+    b.addEventListener("click", () =>
+      agir(`/api/v1/admin/users/${b.dataset.susp}/suspend`, "Compte suspendu.")));
   $("vue").querySelectorAll("[data-rea]").forEach((b) =>
-    b.addEventListener("click", () => agir(`/api/v1/admin/users/${b.dataset.rea}/reactivate`)));
+    b.addEventListener("click", () =>
+      agir(`/api/v1/admin/users/${b.dataset.rea}/reactivate`, "Compte réactivé.")));
+
+  $("vue").querySelectorAll("[data-suppr]").forEach((b) =>
+    b.addEventListener("click", () => ouvrirModale({
+      titre: "Supprimer ce compte ?",
+      sous: "Cette action est définitive",
+      corps: `<p>Le compte <b>${esc(b.dataset.nom)}</b> et ses sessions seront effacés.</p>
+        <p class="muet">Les gestes déjà inscrits au journal d'audit à son nom, eux, restent.</p>`,
+      actions: `<button data-fermer>Annuler</button>
+        <button class="primaire" id="ok-suppr-compte">Supprimer</button>`,
+      apres: (racine) => racine.querySelector("#ok-suppr-compte").addEventListener("click", async () => {
+        try {
+          await api(`/api/v1/admin/users/${b.dataset.suppr}`, { method: "DELETE" });
+          toast("Compte supprimé.");
+        } catch (e) { toast(e.message, "erreur"); }
+        fermerModale();
+        recharger();
+      }),
+    })));
+
+  $("vue").querySelectorAll("[data-transf]").forEach((b) =>
+    b.addEventListener("click", () => ouvrirModale({
+      titre: "Transférer le rôle de super-administrateur ?",
+      sous: b.dataset.nom,
+      corps: `<p><b>${esc(b.dataset.nom)}</b> deviendra super-administrateur.
+        Vous redeviendrez administrateur : vous perdrez la promotion, la
+        suppression de comptes et ce transfert.</p>`,
+      actions: `<button data-fermer>Annuler</button>
+        <button class="primaire" id="ok-transf">Transférer</button>`,
+      apres: (racine) => racine.querySelector("#ok-transf").addEventListener("click", async () => {
+        try {
+          const r = await post(`/api/v1/admin/users/${b.dataset.transf}/transfer-superadmin`);
+          fermerModale();
+          toast(`${b.dataset.nom} est désormais super-administrateur.`, "info");
+          await rafraichirSession();
+        } catch (e) { toast(e.message, "erreur"); fermerModale(); recharger(); }
+      }),
+    })));
 
   $("vue").querySelectorAll("[data-new-poste]").forEach((b) =>
     b.addEventListener("click", async () => {
       const kind = b.dataset.newPoste;
-      const label = $(kind === "analyste" ? "np-analyste" : "np-decideur").value.trim();
-      if (label.length < 2) return;
+      const champ = $(kind === "analyste" ? "np-analyste" : "np-decideur");
+      const label = champ.value.trim();
+      if (label.length < 2) { toast("Libellé trop court.", "erreur"); return; }
       const civility = kind === "decideur" ? $("np-decideur-civ").value : "";
-      try { await poster("/api/v1/admin/postes", { kind, label, civility }); }
-      catch (e) { erreur(e.message); }
+      try {
+        await poster("/api/v1/admin/postes", { kind, label, civility });
+        champ.value = "";
+        toast(`Poste ${kind === "decideur" ? "de décideur" : "d'analyste"} « ${label} » créé.`);
+      } catch (e) { toast(e.message, "erreur"); }
       recharger();
     }));
   $("vue").querySelectorAll("[data-poste-toggle]").forEach((b) =>
     b.addEventListener("click", async () => {
+      const ouvrir = b.dataset.active !== "true";
       try {
         await api(`/api/v1/admin/postes/${b.dataset.posteToggle}`, {
           method: "PATCH", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ active: b.dataset.active !== "true" }),
+          body: JSON.stringify({ active: ouvrir }),
         });
-      } catch (e) { erreur(e.message); }
+        toast(ouvrir ? "Poste rouvert." : "Poste fermé.");
+      } catch (e) { toast(e.message, "erreur"); }
       recharger();
     }));
   $("vue").querySelectorAll("[data-poste-suppr]").forEach((b) =>
     b.addEventListener("click", async () => {
-      try { await api(`/api/v1/admin/postes/${b.dataset.posteSuppr}`, { method: "DELETE" }); }
-      catch (e) { erreur(e.message); }
+      try {
+        await api(`/api/v1/admin/postes/${b.dataset.posteSuppr}`, { method: "DELETE" });
+        toast("Poste supprimé.");
+      } catch (e) { toast(e.message, "erreur"); }
       recharger();
     }));
   $("vue").querySelectorAll("[data-decideur]").forEach((b) =>
@@ -1846,6 +1942,7 @@ function formulaireDecideur(posteId, label, civ, apres) {
             password: racine.querySelector("#d-mdp").value,
           });
           fermerModale();
+          toast(`Compte du poste « ${label} » créé.`);
           apres();
         } catch (e) {
           racine.querySelector("#d-err").textContent = e.message;
@@ -2722,6 +2819,21 @@ async function entrerSession() {
     ? "/accueil"
     : (SESSION.allowed_routes || []).includes(demandee) ? demandee : "/accueil";
   naviguer(cible, true);
+}
+
+// Recharge /api/v1/auth/me et réapplique le rôle (après un transfert de
+// super-administrateur, par exemple) sans re-connexion.
+async function rafraichirSession() {
+  let me;
+  try { me = await meSession(); } catch { return; }
+  if (me.non_connecte || me.setup_required) return seDeconnecter();
+  SESSION = me;
+  document.body.dataset.role = SESSION.role;
+  construireNav();
+  $("qui-session").innerHTML = `${esc(SESSION.display_name || SESSION.username)}
+    <small>${esc(roleLisible(SESSION.role))}</small>`;
+  const ici = vueCourante?.route || location.pathname;
+  naviguer((SESSION.allowed_routes || []).includes(ici) ? ici : "/accueil", true);
 }
 
 async function seDeconnecter() {

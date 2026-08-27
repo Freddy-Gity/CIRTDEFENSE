@@ -719,6 +719,13 @@ class UserRepository:
     def set_role(self, user_id: str, role: str) -> None:
         self._conn.execute("UPDATE users SET role = ? WHERE user_id = ?", (role, user_id))
 
+    def delete(self, user_id: str) -> bool:
+        """Suppression definitive. Les sessions tombent par cascade ; les
+        entrees d'audit deja ecrites par ce compte restent (elles sont
+        immuables et portent l'identifiant en clair)."""
+        cur = self._conn.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+        return cur.rowcount > 0
+
     def set_password(self, user_id: str, password_hash: str) -> None:
         self._conn.execute(
             "UPDATE users SET password_hash = ? WHERE user_id = ?", (password_hash, user_id)

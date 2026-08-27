@@ -232,13 +232,96 @@ class TestSessions:
         assert client.post("/api/v1/auth/logout", headers=superadmin_headers).status_code == 204
         assert client.get("/api/v1/auth/me", headers=superadmin_headers).status_code == 401
 
-    def test_jeton_inconnu_rejete_sur_route_gardee(
-        self, client: Any, superadmin_headers
-    ) -> None:
-        rep = client.get(
-            "/api/v1/admin/users", headers={"Authorization": "Bearer jeton-invente"}
-        )
+    def test_jeton_inconnu_rejete_sur_route_gardee(self, client: Any, superadmin_headers) -> None:
+        rep = client.get("/api/v1/admin/users", headers={"Authorization": "Bearer jeton-invente"})
         assert rep.status_code == 401
+
+
+def _admin_id_et_jeton(client: Any, headers: dict[str, str]) -> tuple[str, str]:
+    """Crée un analyste, l'admet, le promeut administrateur ; renvoie (id, jeton)."""
+    uid = _analyste_id(client, headers)
+    client.post(f"/api/v1/admin/users/{uid}/admit", headers=headers)
+    client.post(f"/api/v1/admin/users/{uid}/promote", headers=headers)
+    jeton = client.post(
+        "/api/v1/auth/login", json={"username": "awa", "password": "analyste-fort-2026"}
+    ).json()["token"]
+    return uid, jeton
+
+
+class TestSuppressionDeCompte:
+    def test_super_admin_supprime_un_compte(self, client: Any, superadmin_headers) -> None:
+        uid = _analyste_id(client, superadmin_headers)
+        assert (
+            client.delete(f"/api/v1/admin/users/{uid}", headers=superadmin_headers).status_code
+            == 204
+        )
+        restants = client.get("/api/v1/admin/users", headers=superadmin_headers).json()["users"]
+        assert uid not in {u["user_id"] for u in restants}
+        assert (
+            client.delete(f"/api/v1/admin/users/{uid}", headers=superadmin_headers).status_code
+            == 404
+        )
+
+    def test_un_admin_ne_peut_pas_supprimer(self, client: Any, superadmin_headers) -> None:
+        _, jeton = _admin_id_et_jeton(client, superadmin_headers)
+        cible = _second_analyste(client, superadmin_headers)
+        rep = client.delete(
+            f"/api/v1/admin/users/{cible}", headers={"Authorization": f"Bearer {jeton}"}
+        )
+        assert rep.status_code == 403
+
+    def test_le_super_admin_ne_se_supprime_pas(self, client: Any, superadmin_headers) -> None:
+        moi = client.get("/api/v1/auth/me", headers=superadmin_headers).json()["user_id"]
+        assert (
+            client.delete(f"/api/v1/admin/users/{moi}", headers=superadmin_headers).status_code
+            == 403
+        )
+
+    def test_on_ne_suspend_pas_son_propre_compte(self, client: Any, superadmin_headers) -> None:
+        _, jeton = _admin_id_et_jeton(client, superadmin_headers)
+        h = {"Authorization": f"Bearer {jeton}"}
+        moi = client.get("/api/v1/auth/me", headers=h).json()["user_id"]
+        assert client.post(f"/api/v1/admin/users/{moi}/suspend", headers=h).status_code == 403
+
+
+class TestTransfertSuperAdmin:
+    def test_transfert_vers_un_administrateur(self, client: Any, superadmin_headers) -> None:
+        admin_id, _ = _admin_id_et_jeton(client, superadmin_headers)
+        rep = client.post(
+            f"/api/v1/admin/users/{admin_id}/transfer-superadmin", headers=superadmin_headers
+        )
+        assert rep.status_code == 200
+        assert rep.json()["votre_role"] == "admin"
+
+        # awa est le nouveau super-admin ; il se connecte et voit la répartition
+        jeton = client.post(
+            "/api/v1/auth/login", json={"username": "awa", "password": "analyste-fort-2026"}
+        ).json()["token"]
+        users = {
+            u["username"]: u
+            for u in client.get(
+                "/api/v1/admin/users", headers={"Authorization": f"Bearer {jeton}"}
+            ).json()["users"]
+        }
+        assert users["awa"]["role"] == "super_admin"
+        assert users["superadmin"]["role"] == "admin"
+
+    def test_transfert_refuse_vers_un_analyste(self, client: Any, superadmin_headers) -> None:
+        uid = _analyste_id(client, superadmin_headers)
+        client.post(f"/api/v1/admin/users/{uid}/admit", headers=superadmin_headers)
+        rep = client.post(
+            f"/api/v1/admin/users/{uid}/transfer-superadmin", headers=superadmin_headers
+        )
+        assert rep.status_code == 422
+
+    def test_un_admin_ne_transfère_pas(self, client: Any, superadmin_headers) -> None:
+        _, jeton = _admin_id_et_jeton(client, superadmin_headers)
+        cible = _second_analyste(client, superadmin_headers)
+        rep = client.post(
+            f"/api/v1/admin/users/{cible}/transfer-superadmin",
+            headers={"Authorization": f"Bearer {jeton}"},
+        )
+        assert rep.status_code == 403
 
 
 class TestDemonstrationReservee:

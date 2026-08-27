@@ -94,6 +94,10 @@ def decline(platform: PlatformDep, admin: AdminUserDep, user_id: str) -> dict[st
 @router.post("/users/{user_id}/suspend")
 def suspend(platform: PlatformDep, admin: AdminUserDep, user_id: str) -> dict[str, Any]:
     user = _get_or_404(platform, user_id)
+    if user["user_id"] == admin["user_id"]:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "vous ne pouvez pas suspendre votre propre compte"
+        )
     if user["role"] == "super_admin":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "le super-administrateur ne se suspend pas")
     platform.users.set_status(user_id, "suspended", by=admin["username"])
@@ -131,6 +135,57 @@ def demote(platform: PlatformDep, admin: SuperAdminDep, user_id: str) -> dict[st
     platform.users.set_role(user_id, "analyste")
     platform.ledger.record("auth.demote", {"username": user["username"]}, actor=_acteur(admin))
     return _public_user(_get_or_404(platform, user_id))
+
+
+@router.post("/users/{user_id}/transfer-superadmin")
+def transfer_superadmin(
+    platform: PlatformDep, admin: SuperAdminDep, user_id: str
+) -> dict[str, Any]:
+    """Transfère le rôle de super-administrateur à un autre **administrateur**.
+
+    L'ancien super-administrateur redevient administrateur : il reste un seul
+    super-administrateur à tout instant.
+    """
+    cible = _get_or_404(platform, user_id)
+    if cible["user_id"] == admin["user_id"]:
+        raise HTTPException(status.HTTP_409_CONFLICT, "vous êtes déjà super-administrateur")
+    if cible["role"] != "admin":
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "seul un administrateur peut recevoir le rôle de super-administrateur",
+        )
+    platform.users.set_role(cible["user_id"], "super_admin")
+    platform.users.set_role(admin["user_id"], "admin")
+    platform.ledger.record(
+        "account.transfer_superadmin",
+        {"de": admin["username"], "vers": cible["username"]},
+        actor=_acteur(admin),
+    )
+    return {
+        "nouveau_super_admin": cible["username"],
+        "votre_role": "admin",
+    }
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(platform: PlatformDep, admin: SuperAdminDep, user_id: str) -> None:
+    """Suppression définitive d'un compte — réservée au super-administrateur."""
+    user = _get_or_404(platform, user_id)
+    if user["user_id"] == admin["user_id"]:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "vous ne pouvez pas supprimer votre propre compte"
+        )
+    if user["role"] == "super_admin":
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "le compte super-administrateur ne se supprime pas"
+        )
+    platform.sessions.close_all_for(user_id)
+    platform.users.delete(user_id)
+    platform.ledger.record(
+        "account.delete",
+        {"username": user["username"], "role": user["role"], "poste": user["poste"]},
+        actor=_acteur(admin),
+    )
 
 
 # ---------------------------------------------------------------- postes

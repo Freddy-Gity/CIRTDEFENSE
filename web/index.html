@@ -1013,6 +1013,40 @@ body.sur-accueil main { display: block; padding: 44px 24px 60px; max-width: none
   .ico-theme *, .ico-theme { transition-duration: 0s; }
 }
 
+/* Notifications éphémères (toasts) — confirment un geste d'administration
+   dès qu'il aboutit (création d'un poste, promotion, suppression…). */
+#toasts {
+  position: fixed; right: 16px; bottom: 16px; z-index: 200;
+  display: flex; flex-direction: column; gap: 8px; max-width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto; display: flex; align-items: flex-start; gap: 9px;
+  background: var(--surface-1); border: 1px solid var(--grid);
+  border-left: 3px solid var(--good); border-radius: 10px;
+  padding: 11px 12px; font-size: 12.5px; color: var(--ink-1);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .2);
+  animation: toast-entre .22s cubic-bezier(.4, 0, .2, 1);
+}
+.toast.sortie { animation: toast-sort .2s ease forwards; }
+.toast.erreur { border-left-color: var(--critical); }
+.toast.info { border-left-color: var(--accent); }
+.toast .t-ico { flex: none; width: 15px; height: 15px; margin-top: 1px; }
+.toast.ok .t-ico { color: var(--good); }
+.toast.erreur .t-ico { color: var(--critical); }
+.toast.info .t-ico { color: var(--accent); }
+.toast .t-txt { flex: 1; line-height: 1.45; }
+.toast .t-fermer {
+  flex: none; border: none; background: none; color: var(--ink-muted);
+  cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px;
+}
+.toast .t-fermer:hover { color: var(--ink-1); }
+@keyframes toast-entre { from { opacity: 0; transform: translateY(12px) } }
+@keyframes toast-sort { to { opacity: 0; transform: translateX(24px) } }
+@media (prefers-reduced-motion: reduce) {
+  .toast, .toast.sortie { animation: none; }
+}
+
 /* La bascule d'autonomie (coupe-circuit EF-26) est un geste d'administrateur :
    masquée pour l'analyste et le décideur. */
 #menu-autonomie { display: none; }
@@ -1039,8 +1073,15 @@ body[data-role="super_admin"] .admin-only { display: block; }
 .rangee-compte:last-child { border-bottom: none; }
 .rangee-compte .ppal { font-weight: 600; }
 .rangee-compte .meta { font-size: 11.5px; color: var(--ink-muted); }
-.rangee-compte .actions-compte { margin-left: auto; display: flex; gap: 6px; }
+.rangee-compte .actions-compte { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
 .rangee-compte .actions-compte button { padding: 4px 9px; font-size: 12px; }
+.rangee-compte .actions-compte button.danger {
+  color: var(--critical);
+  border-color: color-mix(in srgb, var(--critical) 45%, transparent);
+}
+.rangee-compte .actions-compte button.danger:hover {
+  background: color-mix(in srgb, var(--critical) 10%, var(--surface-1));
+}
 .puce-statut {
   font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
   padding: 1px 7px; border-radius: 10px; border: 1px solid var(--grid); color: var(--ink-muted);
@@ -1210,6 +1251,7 @@ body[data-role="super_admin"] .admin-only { display: block; }
 </section>
 
 <div id="modales"></div>
+<div id="toasts" aria-live="polite" aria-atomic="false"></div>
 
 <script src="/static/app.js"></script>
 </body>
