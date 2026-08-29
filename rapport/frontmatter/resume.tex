@@ -1,0 +1,25 @@
+\chapter*{R\'esum\'e}
+\initial{L}es \'equipes nationales de r\'eponse aux incidents font face \`a un
+d\'es\'equilibre structurel : le volume d'alertes cro\^it plus vite que l'effectif
+capable de les traiter, et le d\'elai de r\'eaction reste born\'e par la disponibilit\'e
+d'un analyste. Les plateformes d'orchestration existantes n'y r\'epondent
+qu'imparfaitement, car elles s'arr\^etent \`a la recommandation : la d\'ecision, donc
+l'attente, demeure humaine. Le pr\'esent travail examine la question inverse
+--- \`a quelles conditions un syst\`eme peut-il agir seul ? --- et y r\'epond par une
+contrainte unique : \emph{la r\'eversibilit\'e est la condition de l'autonomie}. La
+plateforme con\c cue, CIRTDEFENSE, ex\'ecute sans validation pr\'ealable les seules
+actions qu'elle sait annuler, refuse d'agir sur un contexte non document\'e,
+applique une politique r\'edig\'ee en langage naturel et compil\'ee \`a l'avance,
+surveille l'effet de ses propres gestes et les annule d'elle-m\^eme s'ils d\'egradent
+la cible. Face \`a une menace absente de son catalogue, elle ne se tait pas : elle
+d\'eduit un confinement des seuls indicateurs observ\'es, engage ce qui est
+r\'eversible et soumet \`a l'humain ce qui laisse une trace durable. Chaque geste est
+inscrit dans un journal cha\^in\'e par empreintes, seule trace opposable. La
+mod\'elisation suit le processus unifi\'e et le formalisme UML~2.5 ; la r\'ealisation
+est valid\'ee par XXX tests automatis\'es, dont XX crit\`eres de recette d\'eriv\'es
+directement des exigences.
+
+\paragraph{Mots cl\'es : r\'eponse autonome aux incidents, r\'eversibilit\'e, orchestration
+de la s\'ecurit\'e, tra\c cabilit\'e, UML.}
+
+\clearpage

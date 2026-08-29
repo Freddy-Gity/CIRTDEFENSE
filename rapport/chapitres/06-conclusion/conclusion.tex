@@ -1,0 +1,48 @@
+\let\textcircled=\pgftextcircled
+\chapter*{Conclusion g\'en\'erale}
+\label{chap:conclusion}
+\addstarredchapter{Conclusion g\'en\'erale}
+\markboth{Conclusion g\'en\'erale}{}
+
+\section*{Rappel de la probl\'ematique}
+\initial{L}e travail partait d'une question : \`a quelles conditions un syst\`eme
+peut-il ex\'ecuter une action corrective sans validation humaine pr\'ealable, sans que
+le co\^ut d'une erreur d\'epasse le b\'en\'efice de la rapidit\'e ?
+
+\section*{D\'emarche et r\'esultats}
+La r\'eponse apport\'ee tient en une contrainte : \emph{la r\'eversibilit\'e est la
+condition de l'autonomie}. [Reprendre les r\'esultats chiffr\'es du
+chapitre~\ref{chap:implementation}.]
+
+\section*{Apports}
+\begin{itemize}
+  \item \textbf{Apport conceptuel} --- le d\'eplacement de la question, d'une
+        confiance dans la d\'etection vers une borne sur le co\^ut de l'erreur ;
+  \item \textbf{Apport m\'ethodologique} --- la propagation d'une contrainte unique
+        \`a tous les niveaux du mod\`ele, v\'erifiable dans chaque vue ;
+  \item \textbf{Apport op\'erationnel} --- une plateforme fonctionnant hors ligne,
+        dont chaque geste est opposable.
+\end{itemize}
+
+\section*{Limites}
+\begin{enumerate}
+  \item La mesure de r\'ef\'erence de la boucle de contr\^ole n'est pas persist\'ee : apr\`es
+        un red\'emarrage, la boucle s'abstient sur les actions ant\'erieures.
+  \item L'enrichissement du catalogue reste subordonn\'e \`a une validation humaine ;
+        c'est le seul point de la cha\^ine o\`u une attente subsiste.
+  \item Les actionneurs ont \'et\'e \'eprouv\'es en posture de simulation ; le
+        raccordement \`a des \'equipements de production reste \`a mener.
+  \item [\`A compl\'eter : limites du jeu de donn\'ees, du p\'erim\`etre, de la dur\'ee.]
+\end{enumerate}
+
+\section*{Perspectives}
+\begin{enumerate}
+  \item \textbf{Persistance des mesures de r\'ef\'erence}, pour que la boucle de
+        contr\^ole survive \`a un red\'emarrage ;
+  \item \textbf{Raccordement aux \'equipements du parc}, avec une phase d'observation
+        en posture de simulation avant bascule ;
+  \item \textbf{Apprentissage des seuils de d\'egradation} par cible, pour r\'eduire les
+        annulations inutiles ;
+  \item \textbf{Fed\'eration inter-CIRT}, pour partager les qualifications valid\'ees
+        sans partager les donn\'ees d'incident.
+\end{enumerate}

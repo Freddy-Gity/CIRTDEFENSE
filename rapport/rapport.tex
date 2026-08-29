@@ -1,0 +1,123 @@
+%%%===========================================================================
+%%% CIRTDEFENSE — Rapport de stage
+%%%
+%%% Fichier maitre. Il ne contient aucun texte : il ordonne les parties.
+%%% Compilation :  make        (ou voir README.md)
+%%%
+%%% Arborescence
+%%%   preambule.tex ......... preambule du modele (memoir), inchange
+%%%   uml.tex ............... outillage de dessin UML en TikZ
+%%%   glossaire.tex ......... acronymes et entrees de glossaire du projet
+%%%   frontmatter/ .......... pages liminaires
+%%%   chapitres/ ............ un dossier par chapitre, figures comprises
+%%%===========================================================================
+
+\input{preambule}
+\input{uml}
+\input{glossaire}
+
+\begin{document}
+\sloppy
+
+\lstloadlanguages{bash, Python, sql}
+\lstset{basicstyle=\scriptsize\ttfamily,
+    keywordstyle=\color{umlaccent}\ttfamily,
+    identifierstyle=\ttfamily,
+    commentstyle=\color{umlgris}\itshape\ttfamily,
+    stringstyle=\sffamily,
+    showstringspaces=false,
+    breaklines=true,
+    numbers=left,
+    numberstyle=\tiny}
+
+% Pagination des pages liminaires dans la table des matieres.
+\addtocontents{toc}{\hspace{-0.60cm}{\bf D\'edicace} \nobreak \mbox{}\hfill{\bf i}\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf } \nobreak \mbox{}\hfill{\bf }\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf Remerciements} \nobreak \mbox{}\hfill{\bf ii}\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf } \nobreak \mbox{}\hfill{\bf }\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf Abr\'eviations} \nobreak \mbox{}\hfill{\bf iii}\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf } \nobreak \mbox{}\hfill{\bf }\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf Glossaire} \nobreak \mbox{}\hfill{\bf iv}\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf } \nobreak \mbox{}\hfill{\bf }\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf R\'{e}sum\'{e}} \nobreak \mbox{}\hfill{\bf v}\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf } \nobreak \mbox{}\hfill{\bf }\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf Abstract} \nobreak \mbox{}\hfill{\bf vi}\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf } \nobreak \mbox{}\hfill{\bf }\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf Liste des Tableaux} \nobreak \mbox{}\hfill{\bf vii}\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf } \nobreak \mbox{}\hfill{\bf }\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf Liste des Figures} \nobreak \mbox{}\hfill{\bf viii}\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf } \nobreak \mbox{}\hfill{\bf }\par\nobreak}
+\addtocontents{toc}{\hspace{-0.60cm}{\bf Table des Mati\`eres} \nobreak \mbox{}\hfill{\bf ix}\par\nobreak}
+
+\frontmatter
+\pagenumbering{roman}
+
+\input{frontmatter/title}
+\cleardoublepage
+
+\input{frontmatter/title2}
+\cleardoublepage
+
+\input{frontmatter/dedicace}
+\clearemptydoublepage
+
+\input{frontmatter/remerciements}
+\clearemptydoublepage
+
+\input{frontmatter/abreviations}
+\clearemptydoublepage
+
+\input{frontmatter/resume}
+\clearemptydoublepage
+
+\input{frontmatter/abstract}
+\clearemptydoublepage
+
+\listoftables*
+\addtocontents{lot}{\par\nobreak\textbf{{\scshape Tableau} \hfill Page}\par\nobreak}
+\clearemptydoublepage
+
+\listoffigures*
+\addtocontents{lof}{\par\nobreak\textbf{{\scshape Figure} \hfill Page}\par\nobreak}
+\cleardoublepage
+
+\renewcommand{\contentsname}{Table des Mati\`eres}
+\maxtocdepth{subsection}
+
+\dominitoc
+\tableofcontents*
+\markboth{TABLE DES MATI\`ERES}{}
+
+\clearemptydoublepage
+
+%%%--------------------------------------------------------------- corps
+\mainmatter
+
+\clearemptydoublepage
+\import{chapitres/00-introduction/}{introduction.tex}
+\clearemptydoublepage
+\import{chapitres/01-structure/}{chap01.tex}
+\clearemptydoublepage
+\import{chapitres/02-etat-de-l-art/}{chap02.tex}
+\clearemptydoublepage
+\import{chapitres/03-analyse/}{chap03.tex}
+\clearemptydoublepage
+\import{chapitres/04-conception/}{chap04.tex}
+\clearemptydoublepage
+\import{chapitres/05-implementation/}{chap05.tex}
+\clearemptydoublepage
+\import{chapitres/06-conclusion/}{conclusion.tex}
+\clearemptydoublepage
+
+%%%------------------------------------------------------------ annexes
+\appendix
+\import{chapitres/annexes/}{annexes.tex}
+
+%%%------------------------------------------------------ bibliographie
+\backmatter
+\bibliographystyle{plain}
+\refstepcounter{chapter}
+\markboth{R\'EF\'ERENCES BIBLIOGRAPHIQUES}{}
+\input{bibliographie}
+
+\end{document}

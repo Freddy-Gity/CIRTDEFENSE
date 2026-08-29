@@ -1,0 +1,23 @@
+\chapter*{Abstract}
+\initial{N}ational incident response teams face a structural imbalance: alert
+volume grows faster than the workforce able to triage it, and response time
+remains bounded by analyst availability. Existing orchestration platforms only
+partly address this, because they stop at recommendation: the decision, and
+therefore the waiting, stays human. This work asks the opposite question ---
+under what conditions may a system act on its own? --- and answers it with a
+single constraint: \emph{reversibility is the condition of autonomy}. The
+resulting platform, CIRTDEFENSE, executes without prior validation only those
+actions it knows how to undo, refuses to act on an undocumented context, applies
+a natural-language policy compiled ahead of time, watches the effect of its own
+actions and rolls them back by itself when they degrade the target. Faced with a
+threat absent from its catalogue, it does not stay silent: it derives containment
+from observed indicators alone, engages what is reversible and refers to a human
+whatever leaves a durable trace. Every action is written to a hash-chained ledger,
+the only opposable record. Modelling follows the unified process and the UML~2.5
+notation; the implementation is validated by XXX automated tests, including XX
+acceptance criteria derived directly from the requirements.
+
+\paragraph{Keywords: autonomous incident response, reversibility, security
+orchestration, auditability, UML.}
+
+\clearpage

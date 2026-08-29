@@ -1,0 +1,160 @@
+\let\textcircled=\pgftextcircled
+\chapter{Impl\'ementation, tests et r\'esultats}
+\label{chap:implementation}
+
+\textit{\initial{C}e chapitre pr\'esente la r\'ealisation des mod\`eles du
+chapitre~\ref{chap:conception}, la strat\'egie de validation retenue et les
+r\'esultats obtenus.}
+
+\mtcselectlanguage{french}
+\minitoc
+\newpage
+
+\section{Environnement technique}
+\subsection{Choix technologiques et justification}
+\begin{table}[H]
+\centering
+\caption{Choix technologiques et motif de chacun}
+\label{tab:technologies}
+\small
+\begin{tabular}{@{}p{2.8cm}p{2.8cm}p{7.6cm}@{}}
+\toprule
+\textbf{Besoin} & \textbf{Choix} & \textbf{Motif} \\
+\midrule
+Langage & [\`a compl\'eter] & [\`a compl\'eter] \\
+Cadriciel web & [\`a compl\'eter] & [\`a compl\'eter] \\
+Persistance & [\`a compl\'eter] & Base locale, sans service externe (ENF-01, ENF-07). \\
+Interface & [\`a compl\'eter] & [\`a compl\'eter] \\
+Tests & [\`a compl\'eter] & [\`a compl\'eter] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Organisation du code}
+% A COMPLETER : arborescence reelle, en miroir du diagramme de paquetages
+% (figure \ref{fig:paquetages}). Verifier que les noms coincident : un ecart
+% entre le modele et le code est le premier defaut releve en soutenance.
+[Arborescence des sources, en correspondance avec la figure~\ref{fig:paquetages}.]
+
+\section{R\'ealisation des m\'ecanismes cl\'es}
+\subsection{Garde d'ancrage documentaire}
+[Extrait de code et commentaire.]
+
+\subsection{Invariant de r\'eversibilit\'e}
+[Montrer que le refus est port\'e par le constructeur du type, non par l'appelant.]
+
+\subsection{Compilation de la politique en langage naturel}
+[Grammaire reconnue, exemples de r\`egles, empreinte de la politique compil\'ee.]
+
+\subsection{Boucle de contr\^ole post-action}
+[Mesure de r\'ef\'erence, seuil, d\'eclenchement de l'annulation.]
+
+\subsection{Confinement hors catalogue}
+[Extraction des indicateurs, r\`egle d'autonomie, partage des deux ensembles.]
+
+\section{Interface d'exploitation}
+% Rappel ENF-09 : la couleur ne porte jamais seule une information.
+[Captures d'\'ecran comment\'ees : vue d'ensemble, portefeuille, surveillance,
+d\'emonstration, journal d'audit, assistant.]
+
+\begin{figure}[H]
+    \centering
+    % \includegraphics[width=0.95\linewidth]{fig05/vue-ensemble.png}
+    \caption{Vue d'ensemble de la plateforme}
+    \label{fig:capture-dashboard}
+\end{figure}
+
+\section{Strat\'egie de validation}
+\subsection{Niveaux de test}
+\begin{table}[H]
+\centering
+\caption{Niveaux de test et objet de chacun}
+\label{tab:niveaux-test}
+\small
+\begin{tabular}{@{}p{2.6cm}p{2.0cm}p{8.4cm}@{}}
+\toprule
+\textbf{Niveau} & \textbf{Nombre} & \textbf{Objet} \\
+\midrule
+Unitaire    & [XX] & Invariants du domaine, normalisation, compilation de politique. \\
+Int\'egration & [XX] & Cha\^ine compl\`ete d'un \'ev\'enement \`a l'action, boucle de contr\^ole. \\
+Recette     & [XX] & Un test par crit\`ere, d\'eriv\'e ligne \`a ligne des exigences. \\
+\midrule
+\textbf{Total} & \textbf{[XXX]} & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Crit\`eres de recette}
+Le principe retenu est qu'\textbf{une exigence non d\'emontr\'ee par un test est une
+exigence non tenue}. \`A chaque crit\`ere correspond un test port\'e par le d\'ep\^ot, dont
+le nom reprend la r\'ef\'erence du crit\`ere : la v\'erification est donc m\'ecanique.
+
+\begin{table}[H]
+\centering
+\caption{Crit\`eres de recette}
+\label{tab:criteres-recette}
+\scriptsize
+\begin{tabular}{@{}llp{7.6cm}c@{}}
+\toprule
+\textbf{CR} & \textbf{Exigences} & \textbf{Objet} & \textbf{R\'esultat} \\
+\midrule
+CR-01 & EF-18 & Normalisation multi-sources & \\
+CR-02 & EF-19 & D\'edoublonnage & \\
+CR-03 & EF-20 & Corr\'elation en incidents & \\
+CR-04 & EF-03, EF-04 & Enrichissement ancr\'e, refus sinon & \\
+CR-05 & EF-07 & Ex\'ecution autonome & \\
+CR-06 & EF-14 & P\'erim\`etre r\'eversible uniquement & \\
+CR-07 & EF-15 & Politique compil\'ee appliqu\'ee & \\
+CR-08 & EF-13 & Notification a posteriori & \\
+CR-09 & EF-16 & Portefeuille prioris\'e & \\
+CR-10 & ENF-05 & Mode d\'egrad\'e et rejeu & \\
+CR-11 & EF-25 & Annulation autonome & \\
+CR-12 & EF-26 & Coupe-circuit & \\
+CR-13 & ENF-02 & Journal immuable et v\'erifiable & \\
+CR-14 & ENF-06 & Non-r\'egression de s\^uret\'e & \\
+CR-15 & EF-07 & Absence de validation pr\'ealable & \\
+CR-16 & EF-05 & Classification au catalogue m\'etier & \\
+CR-17 & --- & Mode d\'emonstration \'eprouvable depuis l'interface & \\
+CR-18 & EF-17 & Assistant fond\'e sur les faits, rapports exportables & \\
+CR-19 & EF-27, EF-28 & Confinement hors catalogue et alerte persistante & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{R\'esultats}
+\subsection{R\'esultats de la recette}
+[Tableau des r\'esultats, taux de r\'eussite, couverture de code.]
+
+\subsection{Mesures de performance}
+[D\'elai entre r\'eception et ex\'ecution ; distribution ; comparaison au seuil ENF-04.]
+
+\subsection{\'Eprouvage du confinement hors catalogue}
+Cinq sc\'enarios absents du catalogue m\'etier ont \'et\'e construits pour \'eprouver le
+repli. Chacun expose un jeu d'indicateurs diff\'erent, de mani\`ere \`a v\'erifier que le
+partage entre gestes engag\'es et gestes en attente d\'epend bien des indicateurs et
+non du sc\'enario.
+
+\begin{table}[H]
+\centering
+\caption{Sc\'enarios hors catalogue et r\'eponse obtenue}
+\label{tab:hors-catalogue}
+\scriptsize
+\begin{tabular}{@{}llp{4.8cm}cc@{}}
+\toprule
+\textbf{Code} & \textbf{Menace} & \textbf{Indicateurs exploitables} & \textbf{Engag\'es} & \textbf{En attente} \\
+\midrule
+Z1 & Empoisonnement de cache ARP & adresse source externe & & \\
+Z2 & D\'ependance compromise & destination externe, compte, port, actif critique & & \\
+Z3 & Consentement OAuth abusif & compte impliqu\'e & & \\
+Z4 & \'Ecriture sur automate industriel & adresse source externe, port & & \\
+Z5 & R\'eattribution DNS & domaine, destination externe & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion}
+[Confronter les r\'esultats aux objectifs de l'introduction. Signaler ce qui n'a
+pas \'et\'e atteint et pourquoi --- c'est l\`a que se joue la cr\'edibilit\'e du travail.]
+
+\section{Conclusion du chapitre}
+[Synth\`ese des r\'esultats.]

@@ -1,0 +1,1516 @@
+\let\textcircled=\pgftextcircled
+\chapter{Conception et mod\'elisation}
+\label{chap:conception}
+
+\textit{\initial{C}e chapitre constitue le c\oe ur du travail. Il expose les
+principes qui gouvernent la conception, puis d\'eroule la mod\'elisation du syst\`eme
+selon les trois vues du formalisme UML~2.5.1 : la vue statique, qui dit de quoi le
+syst\`eme est fait ; la vue dynamique, qui dit comment il se comporte ; la vue
+architecturale, qui dit comment il est d\'ecoup\'e et d\'eploy\'e. Il se cl\^ot sur la
+conception de la persistance et sur la matrice reliant chaque exigence \`a
+l'\'el\'ement de conception qui la porte.}
+
+\mtcselectlanguage{french}
+\minitoc
+\newpage
+
+%%%==========================================================================
+\section{Principes directeurs}
+%%%==========================================================================
+
+\subsection{Une question de conception unique}
+La conception r\'epond \`a une question, et une seule : \textbf{par quoi remplace-t-on
+l'analyste qui relisait ?} Dans l'organisation ant\'erieure, une erreur du moteur
+produisait une recommandation douteuse qu'un humain \'ecartait ; le co\^ut d'une
+erreur \'etait le temps de lecture d'un analyste. D\`es lors que le syst\`eme ex\'ecute
+lui-m\^eme, la m\^eme erreur produit une r\`egle de pare-feu qui coupe un service de
+production. Ce n'est pas un changement de module : c'est un changement de nature.
+
+Quatre m\'ecanismes se substituent \`a la relecture humaine. Ils ne sont pas
+interchangeables : chacun couvre un mode de d\'efaillance distinct, et le retrait de
+l'un ouvre une br\`eche que les autres ne comblent pas.
+
+\begin{table}[H]
+\centering
+\caption{Modes de d\'efaillance et m\'ecanismes de conception associ\'es}
+\label{tab:modes-defaillance}
+\small
+\begin{tabular}{@{}p{5.6cm}p{4.4cm}p{3.6cm}@{}}
+\toprule
+\textbf{Mode de d\'efaillance} & \textbf{M\'ecanisme} & \textbf{Exigence} \\
+\midrule
+Le syst\`eme agit sur une menace qu'il ne comprend pas & Garde d'ancrage documentaire & EF-04 \\
+Le syst\`eme fait quelque chose d'irrattrapable & Catalogue de r\'eversibilit\'e & EF-14 \\
+Le syst\`eme fait quelque chose que le CIRT ne veut pas & Politique compil\'ee a priori & EF-15 \\
+Le syst\`eme a raison sur la menace mais nuit \`a la cible & Boucle de contr\^ole ferm\'ee & EF-25 \\
+Le syst\`eme se trompe en boucle & Coupe-circuit global & EF-26 \\
+Le syst\`eme se tait devant l'inconnu & Confinement par indicateurs & EF-27 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Aucun de ces m\'ecanismes ne r\'eintroduit d'attente humaine. Ce sont des
+\emph{refus} ou des \emph{corrections}, jamais des mises en attente : le mod\`ele
+d'\'etats de l'incident (figure~\ref{fig:etats-incident}) ne comporte d\'elib\'er\'ement
+aucun \'etat \og en attente de validation \fg{} sur le chemin nominal.
+
+\subsection{Les cinq axes de conception}
+\label{sec:axes}
+Les d\'ecisions structurantes se rattachent \`a cinq axes, qui servent de crit\`ere
+d'arbitrage chaque fois qu'un choix se pr\'esente.
+
+\begin{table}[H]
+\centering
+\caption{Axes de conception et cons\'equence structurelle de chacun}
+\label{tab:axes}
+\small
+\begin{tabular}{@{}p{0.8cm}p{4.4cm}p{8.4cm}@{}}
+\toprule
+& \textbf{Axe} & \textbf{Cons\'equence sur la structure} \\
+\midrule
+1 & Autonomie sous garanties & Aucun \'etat d'attente humaine sur le chemin nominal. \\
+2 & \textbf{La r\'eversibilit\'e conditionne l'action} & La r\'eversibilit\'e est un attribut de \texttt{ActionSpec}, contr\^ol\'e \`a la construction, non une m\'etadonn\'ee documentaire. \\
+3 & Explicabilit\'e opposable & Toute d\'ecision porte une \texttt{DecisionTrace} : sources, r\`egles appliqu\'ees, alternatives \'ecart\'ees. \\
+4 & Priorisation par l'enjeu & L'incident calcule lui-m\^eme un score de risque d\'eterministe et explicable. \\
+5 & Fonctionnement souverain & Aucune d\'ependance sortante obligatoire ; persistance locale ; mode d\'egrad\'e natif. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Style architectural}
+Le style retenu est une \textbf{architecture hexagonale} (ports et adaptateurs).
+Son int\'er\^et ici n'est pas th\'eorique : il tient \`a une propri\'et\'e unique --- le
+\emph{paquetage du domaine ne d\'epend de rien}. Ni de la base de donn\'ees, ni du
+cadriciel web, ni des connecteurs vers les \'equipements. Cette absence de
+d\'ependance rend ses invariants incontournables : quel que soit le chemin d'appel
+--- interface web, ligne de commande, test automatis\'e, rejeu de la file d\'egrad\'ee
+--- une \texttt{ActionSpec} qui se dit r\'eversible sans porter de verbe d'annulation
+ne peut pas exister.
+
+\subsection{Patrons de conception mis en \oe uvre}
+\begin{table}[H]
+\centering
+\caption{Patrons de conception et motif de leur emploi}
+\label{tab:patrons}
+\small
+\begin{tabular}{@{}p{2.7cm}p{4.3cm}p{6.6cm}@{}}
+\toprule
+\textbf{Patron} & \textbf{Emploi} & \textbf{Motif du choix} \\
+\midrule
+Adaptateur & Normalisation des sources & Ajouter une source de d\'etection sans toucher au moteur (ENF-08). \\
+Strat\'egie & Actionneurs & Chaque \'equipement expose le m\^eme contrat ; le moteur ignore la technologie sous-jacente. \\
+Commande + M\'emento & Action et jeton d'annulation & L'annulation exige de conserver l'information n\'ecessaire au retour arri\`ere, produite \`a l'ex\'ecution. \\
+D\'ep\^ot (\emph{Repository}) & Persistance & Isole le domaine du sch\'ema relationnel et rend le rejeu testable. \\
+Coupe-circuit & Suspension de l'autonomie & Emp\^eche l'entretien d'une boucle d'erreurs (EF-26). \\
+Cha\^ine de responsabilit\'e & Cha\^ine de d\'ecision & Chaque garde peut interrompre la cha\^ine en motivant son refus. \\
+Objet-valeur & \texttt{Asset}, \texttt{DetectionEvent}, \texttt{ActionSpec} & Immuables : une observation ne se modifie pas, elle se remplace. \\
+Fabrique & \texttt{Incident.from\_event()} & Garantit la coh\'erence de la cl\'e de corr\'elation d\`es la cr\'eation. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%%%==========================================================================
+\section{Vue statique}
+%%%==========================================================================
+
+\subsection{Diagramme de paquetages}
+Le d\'ecoupage en paquetages mat\'erialise le style hexagonal. La lecture du
+diagramme se fait par le sens des fl\`eches : \textbf{toutes convergent vers
+\texttt{domain}}, aucune n'en sort. C'est la v\'erification la plus rapide de la
+propri\'et\'e recherch\'ee, et elle est contr\^ol\'ee automatiquement au moment des tests.
+
+\begin{figure}[H]
+\centering
+\begin{diagramme}[node distance=6mm]
+  % --- couche interface
+  \node (api)  [paquetage=3.1cm] at (0,0)   {\textbf{api}\\[1pt]\tiny routes REST, flux SSE, contr\^ole de r\^ole};
+  \node (web)  [paquetage=3.1cm] at (4,0)   {\textbf{web}\\[1pt]\tiny interface d'exploitation};
+  \node (cli)  [paquetage=3.1cm] at (8,0)   {\textbf{cli}\\[1pt]\tiny exploitation en ligne de commande};
+
+  % --- couche application
+  \node (orch) [paquetage=3.1cm] at (0,-2.6) {\textbf{orchestration}\\[1pt]\tiny d\'ecision, politique, repli, coupe-circuit};
+  \node (asi)  [paquetage=3.1cm] at (4,-2.6) {\textbf{assistant}\\[1pt]\tiny faits, rapports, conversation};
+  \node (det)  [paquetage=3.1cm] at (8,-2.6) {\textbf{detection}\\[1pt]\tiny UEBA, sondes, boucle post-action};
+
+  % --- noyau
+  \node (dom)  [paquetage=5.2cm, umlaccentue] at (4,-5.4)
+        {\textbf{domain}\\[1pt]\tiny entit\'es, objets-valeurs, \'enum\'erations, invariants\\[1pt]\tiny\itshape ne d\'epend d'aucun autre paquetage};
+
+  % --- couche infrastructure
+  \node (ing)  [paquetage=3.1cm] at (-1.2,-8.2) {\textbf{ingestion}\\[1pt]\tiny adaptateurs de sources};
+  \node (enr)  [paquetage=3.1cm] at (2.6,-8.2)  {\textbf{enrichment}\\[1pt]\tiny fonds documentaire, ancrage};
+  \node (act)  [paquetage=3.1cm] at (6.4,-8.2)  {\textbf{actuators}\\[1pt]\tiny connecteurs d'\'equipements};
+  \node (per)  [paquetage=3.1cm] at (10.2,-8.2) {\textbf{persistence}\\[1pt]\tiny d\'ep\^ots, sch\'ema};
+  \node (aud)  [paquetage=3.1cm] at (10.2,-5.4) {\textbf{audit}\\[1pt]\tiny journal cha\^in\'e, notifications};
+
+  \foreach \n in {api,web,cli,orch,asi,det,ing,enr,act,per,aud}{}
+
+  \draw[dependance] (api) -- (orch);
+  \draw[dependance] (web) -- (api);
+  \draw[dependance] (cli) -- (orch);
+  \draw[dependance] (asi) -- (dom);
+  \draw[dependance] (det) -- (dom);
+  \draw[dependance] (orch) -- (dom);
+  \draw[dependance] (ing) -- (dom);
+  \draw[dependance] (enr) -- (dom);
+  \draw[dependance] (act) -- (dom);
+  \draw[dependance] (per) -- (dom);
+  \draw[dependance] (aud) -- (dom);
+  \draw[dependance] (orch) -- (act);
+  \draw[dependance] (orch) -- (aud);
+\end{diagramme}
+\caption{Diagramme de paquetages --- toutes les d\'ependances convergent vers le domaine}
+\label{fig:paquetages}
+\end{figure}
+
+\subsection{Diagramme de classes du domaine}
+\label{sec:classes-domaine}
+La figure~\ref{fig:classes-domaine} pr\'esente les classes du noyau m\'etier. Trois
+d\'ecisions de mod\'elisation y sont lisibles et m\'eritent d'\^etre justifi\'ees.
+
+\paragraph{Immuabilit\'e des observations.} \texttt{Asset}, \texttt{DetectionEvent}
+et \texttt{ActionSpec} sont des objets-valeurs immuables. Un \'ev\'enement de
+d\'etection d\'ecrit un \emph{constat} \`a un instant donn\'e : le modifier apr\`es coup
+reviendrait \`a r\'e\'ecrire l'histoire, ce qui ruinerait l'opposabilit\'e du journal
+(ENF-02). \`A l'inverse, \texttt{Incident} et \texttt{ActionResult} sont mutables :
+ce sont des \emph{\'etats} qui \'evoluent, et leurs transitions sont contraintes par
+les machines \`a \'etats de la section~\ref{sec:etats}.
+
+\paragraph{La r\'eversibilit\'e comme invariant de construction.} L'attribut
+\texttt{reversibility} de \texttt{ActionSpec} n'est pas une annotation : le
+constructeur refuse toute instance qui se d\'eclare r\'eversible sans porter de
+verbe d'annulation. La contrainte est donc port\'ee par le type, non par le code
+appelant --- aucun chemin d'ex\'ecution ne peut la contourner.
+
+\paragraph{La trace n'est pas un journal.} \texttt{DecisionTrace} est un attribut
+de la d\'ecision, pas une \'ecriture de journal. La distinction importe : le journal
+enregistre \emph{qu'une} d\'ecision a eu lieu ; la trace porte \emph{pourquoi} elle a
+\'et\'e prise --- sources documentaires, conditions satisfaites, actions envisag\'ees
+puis \'ecart\'ees, verdicts de politique. C'est cette derni\`ere qui rend la d\'ecision
+rejugeable.
+
+\begin{sidewaysfigure}
+\centering
+\ajusterpaysage{%
+\begin{diagramme}
+
+  %%% ---------------------------------------------------- objets-valeurs
+  \node (asset) [umlclasse=3.9cm] at (0,0) {
+    \umltitres{value object}{Asset}
+    \nodepart{two}
+    - asset\_id \,: String\\
+    - hostname \,: String [0..1]\\
+    - ip \,: String [0..1]\\
+    - user \,: String [0..1]\\
+    - criticality \,: Integer \{1..5\}\\
+    - zone \,: String
+    \nodepart{three}
+    + correlationKey() \,: String
+  };
+
+  \node (event) [umlclasse=4.6cm] at (5.6,0) {
+    \umltitres{value object}{DetectionEvent}
+    \nodepart{two}
+    - eventId \,: String \{id\}\\
+    - occurredAt \,: DateTime\\
+    - receivedAt \,: DateTime\\
+    - source \,: SourceKind\\
+    - category \,: String\\
+    - severity \,: Severity\\
+    - confidence \,: Real \{0..1\}\\
+    - indicators \,: Map\\
+    - mitreTechniques \,: String [*]
+    \nodepart{three}
+    + fingerprint() \,: String\\
+    + toDict() \,: Map
+  };
+
+  %%% ---------------------------------------------------------- agregat
+  \node (incident) [umlclasse=4.8cm] at (11.9,0) {
+    \umltitres{entity, aggregate root}{Incident}
+    \nodepart{two}
+    - incidentId \,: String \{id\}\\
+    - correlationKey \,: String\\
+    - status \,: IncidentStatus\\
+    - severity \,: Severity\\
+    - openedAt, updatedAt \,: DateTime\\
+    - attackCode, family \,: String\\
+    - dangerousness \,: Real\\
+    - priorityRank \,: Integer
+    \nodepart{three}
+    + fromEvent(e) \,: Incident \guillemotleft factory\guillemotright\\
+    + accepts(e) \,: Boolean\\
+    + absorb(e)\\
+    + riskScore() \,: Real
+  };
+
+  \node (attaque) [umlcompact=4.2cm] at (18.2,0) {
+    \umltitres{reference data}{AttackType}
+    \nodepart{two}
+    - code \,: String \{A1..D4\}\\
+    - family \,: AttackFamily\\
+    - baseDangerousness \,: Real\\
+    - reversibility \,: Reversibility\\
+    - autonomouslyActionable \,: Boolean
+  };
+
+  %%% -------------------------------------------------------- decision
+  \node (decision) [umlclasse=4.6cm] at (11.9,-8.4) {
+    \umltitres{entity}{Decision}
+    \nodepart{two}
+    - decisionId \,: String \{id\}\\
+    - incidentId \,: String\\
+    - outcome \,: DecisionOutcome\\
+    - rationale \,: String\\
+    - decidedAt \,: DateTime\\
+    - classification \,: Map\\
+    - fallback \,: Map [0..1]
+    \nodepart{three}
+    + isActionable() \,: Boolean\\
+    + toDict() \,: Map
+  };
+
+  \node (trace) [umlclasse=4.4cm] at (18.2,-8.4) {
+    \umltitres{value object}{DecisionTrace}
+    \nodepart{two}
+    - playbookId, version \,: String\\
+    - matchedConditions \,: String [*]\\
+    - groundingScore \,: Real\\
+    - contextSources \,: String [*]\\
+    - consideredActions \,: String [*]\\
+    - rejectedActions \,: Map [*]
+    \nodepart{three}
+    + toDict() \,: Map
+  };
+
+  \node (verdict) [umlcompact=3.6cm] at (18.2,-13.6) {
+    \umltitres{value object}{PolicyVerdict}
+    \nodepart{two}
+    - allowed \,: Boolean\\
+    - ruleId \,: String [0..1]\\
+    - ruleText \,: String [0..1]\\
+    - reason \,: String
+  };
+
+  %%% ---------------------------------------------------------- actions
+  \node (spec) [umlclasse=4.6cm] at (5.6,-8.4) {
+    \umltitres{value object}{ActionSpec}
+    \nodepart{two}
+    - verb \,: String\\
+    - actuator \,: String\\
+    - target \,: String\\
+    - parameters \,: Map\\
+    - reversibility \,: Reversibility\\
+    - rollbackVerb \,: String [0..1]\\
+    - blastRadius \,: Integer \{$\geq$1\}\\
+    - expectedEffect \,: String
+    \nodepart{three}
+    + key() \,: String
+  };
+
+  \node (result) [umlclasse=4.4cm] at (0,-8.4) {
+    \umltitres{entity}{ActionResult}
+    \nodepart{two}
+    - actionId \,: String \{id\}\\
+    - status \,: ActionStatus\\
+    - startedAt, finishedAt \,: DateTime\\
+    - rollbackToken \,: String [0..1]\\
+    - rolledBackAt \,: DateTime [0..1]\\
+    - rollbackActor \,: String\\
+    - error \,: String [0..1]
+    \nodepart{three}
+    + durationMs() \,: Integer\\
+    + isReversible() \,: Boolean\\
+    + markStarted() / markExecuted()
+  };
+
+  %%% ------------------------------------------------------- contraintes
+  \node (inv1) [note=5.2cm] at (5.6,-14.2) {
+    \textbf{\{invariant de construction\}}\\
+    \texttt{reversibility} $\neq$ \textsc{irreversible}\\
+    $\Rightarrow$ \texttt{rollbackVerb} $\neq$ \textit{null}\\[2pt]
+    Sans verbe d'annulation, une action d\'eclar\'ee
+    r\'eversible rendrait la boucle de contr\^ole (EF-25)
+    inop\'erante. L'instance est refus\'ee \`a la construction.
+  };
+  \node (inv2) [note=4.6cm] at (0,-14.2) {
+    \textbf{\{invariant\}}\\
+    \texttt{isReversible()} $\equiv$
+    \texttt{spec.reversibility} $\neq$ \textsc{irreversible}
+    $\wedge$ \texttt{rollbackToken} $\neq$ \textit{null}\\[2pt]
+    Le jeton n'existe qu'apr\`es ex\'ecution r\'eussie.
+  };
+
+  %%% ------------------------------------------------------- relations
+  \draw[composition] (event.west) -- node[mult, near start]{1} node[mult, near end]{1} (asset.east);
+  \draw[composition] (incident.west) -- node[mult, near start]{1} node[mult, near end]{1..*} (event.east);
+  \draw[dependance]  (incident.east) -- node[role]{classifie par} (attaque.west);
+  \draw[composition] (incident.south west) -- ++(0,-1.2) -| node[mult, near start]{1} node[mult, near end]{0..*} (result.north);
+  \draw[association] (decision.north) -- node[mult, near start]{0..*} node[mult, near end]{1} (incident.south);
+  \draw[composition] (decision.east) -- node[mult, near start]{1} node[mult, near end]{1} (trace.west);
+  \draw[composition] (trace.south) -- node[mult, near start]{1} node[mult, near end]{0..*} (verdict.north);
+  \draw[agregation]  (decision.west) -- node[mult, near start]{1} node[mult, near end]{0..*} (spec.east);
+  \draw[association] (result.east) -- node[mult, near start]{0..*} node[mult, near end]{1} (spec.west);
+  \draw[dependance]  (inv1.north) -- (spec.south);
+  \draw[dependance]  (inv2.north) -- (result.south);
+\end{diagramme}}
+\caption{Diagramme de classes du domaine}
+\label{fig:classes-domaine}
+\end{sidewaysfigure}
+
+\subsection{\'Enum\'erations du domaine}
+Les \'enum\'erations forment le vocabulaire ferm\'e du syst\`eme. Leurs valeurs sont
+s\'erialis\'ees telles quelles dans le journal d'audit : elles font partie du contrat
+de tra\c cabilit\'e et ne peuvent \^etre renomm\'ees sans une entr\'ee d'historique de
+version. La figure~\ref{fig:enumerations} les recense.
+
+\begin{figure}[H]
+\centering
+\begin{diagramme}
+  \node (sev) [umlcompact=3.2cm] at (0,0) {
+    \umltitres{enumeration}{Severity}
+    \nodepart{two}
+    INFO\\ LOW\\ MEDIUM\\ HIGH\\ CRITICAL
+  };
+  \node (rev) [umlcompact=3.9cm] at (4.2,0) {
+    \umltitres{enumeration}{Reversibility}
+    \nodepart{two}
+    REVERSIBLE\\ PARTIALLY\_REVERSIBLE\\ IRREVERSIBLE
+  };
+  \node (ist) [umlcompact=3.2cm] at (8.6,0) {
+    \umltitres{enumeration}{IncidentStatus}
+    \nodepart{two}
+    OPEN\\ CONTAINED\\ ROLLED\_BACK\\ CLOSED
+  };
+  \node (ast) [umlcompact=3.6cm] at (12.4,0) {
+    \umltitres{enumeration}{ActionStatus}
+    \nodepart{two}
+    PLANNED\\ BLOCKED\_BY\_POLICY\\ BLOCKED\_BY\_BREAKER\\ EXECUTING\\ EXECUTED\\ FAILED\\ ROLLED\_BACK\\ ROLLBACK\_FAILED
+  };
+  \node (dou) [umlcompact=4.4cm] at (2.1,-4.6) {
+    \umltitres{enumeration}{DecisionOutcome}
+    \nodepart{two}
+    AUTONOMOUS\_EXECUTION\\ NO\_ACTION\_NEEDED\\ NO\_GROUNDED\_CONTEXT\\ POLICY\_DENIED\\ BREAKER\_OPEN\\ OUT\_OF\_CATALOG
+  };
+  \node (src) [umlcompact=3.2cm] at (6.8,-4.6) {
+    \umltitres{enumeration}{SourceKind}
+    \nodepart{two}
+    UEBA\\ INFRASTRUCTURE\\ EDR\\ NIDS\\ SIEM\\ MANUAL\\ REPLAY
+  };
+  \node (fam) [umlcompact=3.6cm] at (11.2,-4.6) {
+    \umltitres{enumeration}{AttackFamily}
+    \nodepart{two}
+    NETWORK \tiny(A)\normalsize\\ APPLICATION \tiny(B)\normalsize\\ INSIDER \tiny(C)\normalsize\\ INFRASTRUCTURE \tiny(D)\normalsize
+  };
+\end{diagramme}
+\caption{\'Enum\'erations du domaine}
+\label{fig:enumerations}
+\end{figure}
+
+\subsection{Contrats et invariants}
+Le tableau~\ref{tab:invariants} \'enonce les contraintes que le mod\`ele garantit,
+dans une forme proche d'OCL. Chacune est v\'erifi\'ee \`a la construction ou \`a la
+transition, jamais laiss\'ee \`a la discipline de l'appelant.
+
+\begin{table}[H]
+\centering
+\caption{Invariants du mod\`ele et niveau auquel ils sont garantis}
+\label{tab:invariants}
+\scriptsize
+\begin{tabular}{@{}p{2.4cm}p{7.6cm}p{3.6cm}@{}}
+\toprule
+\textbf{Classe} & \textbf{Contrainte} & \textbf{Garanti \`a} \\
+\midrule
+\texttt{DetectionEvent} & \verb|confidence >= 0.0 and confidence <= 1.0| & la construction \\
+\texttt{DetectionEvent} & \verb|asset.criticality in 1..5| & la construction \\
+\texttt{ActionSpec} & \verb|reversibility <> IRREVERSIBLE implies| \newline \texttt{rollbackVerb <> null} & la construction \\
+\texttt{ActionSpec} & \verb|blastRadius >= 1| & la construction \\
+\texttt{ActionResult} & \verb|isReversible() implies rollbackToken <> null| & d\'eriv\'ee \\
+\texttt{Incident} & \verb|accepts(e) implies| \newline \verb|status not in {CLOSED, ROLLED_BACK}| & la transition \\
+\texttt{Incident} & \verb|riskScore() in 0..100| & le calcul \\
+\texttt{Decision} & \verb|isActionable() implies| \newline \verb|outcome = AUTONOMOUS_EXECUTION and actions->notEmpty()| & d\'eriv\'ee \\
+\textit{global} & \verb|Decision.actions->forAll(a |\verb#|# \verb|a.reversibility <> IRREVERSIBLE)| & la politique \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+L'invariant global de la derni\`ere ligne est le plus important du mod\`ele :
+\textbf{aucune action irr\'eversible ne peut figurer dans une d\'ecision ex\'ecutable}.
+Il est v\'erifi\'e non pas sur un cas mais sur l'int\'egralit\'e du catalogue m\'etier, de
+sorte qu'une entr\'ee ajout\'ee ult\'erieurement ne puisse franchir cette limite en
+silence.
+
+\subsection{Diagramme d'objets}
+Un diagramme de classes dit ce qui est possible ; il ne dit pas ce qui se produit.
+La figure~\ref{fig:objets} donne un instantan\'e du mod\`ele apr\`es traitement d'un
+cas concret --- une exfiltration de donn\'ees d\'etect\'ee par une sonde r\'eseau sur un
+serveur applicatif. On y lit l'effet des choix pr\'ec\'edents : deux actions ont \'et\'e
+envisag\'ees, une seule ex\'ecut\'ee, et la trace conserve le motif du rejet de l'autre.
+
+\begin{figure}[H]
+\centering
+\begin{diagramme}
+  \node (o1) [umlcompact=4.2cm] at (0,0) {
+    \umltitre{\underline{evt-7f3a \,: DetectionEvent}}
+    \nodepart{two}
+    category = "data\_exfiltration"\\
+    severity = HIGH\\
+    confidence = 0.88\\
+    indicators = \{destIp \,: 198.51.100.77,\\ \phantom{xx} destPort \,: 8443\}
+  };
+  \node (o2) [umlcompact=3.6cm] at (5,0) {
+    \umltitre{\underline{srv-app-01 \,: Asset}}
+    \nodepart{two}
+    criticality = 4\\
+    zone = "dmz"
+  };
+  \node (o3) [umlcompact=4.4cm] at (10.4,0) {
+    \umltitre{\underline{inc-2ed5 \,: Incident}}
+    \nodepart{two}
+    status = CONTAINED\\
+    attackCode = "B4"\\
+    dangerousness = 7.4\\
+    priorityRank = 2\\
+    riskScore() = 71.5
+  };
+  \node (o4) [umlcompact=4.4cm] at (10.4,-5) {
+    \umltitre{\underline{dec-91c0 \,: Decision}}
+    \nodepart{two}
+    outcome = AUTONOMOUS\_EXECUTION\\
+    rationale = "B4 --- exfiltration ;\\ \phantom{xx} 1 action autoris\'ee"
+  };
+  \node (o5) [umlcompact=4.6cm] at (4.6,-5) {
+    \umltitre{\underline{tr-91c0 \,: DecisionTrace}}
+    \nodepart{two}
+    playbookId = "pb-b4-exfiltration"\\
+    groundingScore = 0.81\\
+    consideredActions = \{cut\_egress,\\ \phantom{xx} disable\_account\}\\
+    rejectedActions = \{disable\_account \,:\\ \phantom{xx} "irr\'eversible --- EF-14"\}
+  };
+  \node (o6) [umlcompact=4.2cm] at (-0.6,-5) {
+    \umltitre{\underline{act-4b12 \,: ActionResult}}
+    \nodepart{two}
+    status = EXECUTED\\
+    rollbackToken = "eg-4b12-77"\\
+    durationMs() = 412
+  };
+  \node (o7) [umlcompact=4.2cm] at (-0.6,-9.6) {
+    \umltitre{\underline{sp-cut \,: ActionSpec}}
+    \nodepart{two}
+    verb = "cut\_egress\_connection"\\
+    actuator = "network"\\
+    reversibility = PARTIALLY\_REVERSIBLE\\
+    rollbackVerb = "restore\_egress"\\
+    blastRadius = 1
+  };
+
+  \draw[association] (o1) -- (o2);
+  \draw[association] (o1) -- (o3);
+  \draw[association] (o3) -- (o4);
+  \draw[association] (o4) -- (o5);
+  \draw[association] (o3.west) to[out=180,in=90] (o6.north);
+  \draw[association] (o6) -- (o7);
+\end{diagramme}
+\caption{Diagramme d'objets --- instantan\'e apr\`es traitement d'une exfiltration}
+\label{fig:objets}
+\end{figure}
+
+\subsection{Contrat des actionneurs}
+Le moteur ne conna\^it aucune technologie d'\'equipement : il ne conna\^it qu'un
+contrat. La figure~\ref{fig:actionneurs} le pr\'esente sous forme d'interface et de
+r\'ealisations. Deux clauses de ce contrat sont non n\'egociables et expliquent sa
+forme.
+
+\begin{description}
+  \item[Idempotence.] \texttt{execute()} appel\'ee deux fois avec les m\^emes
+    param\`etres produit le m\^eme \'etat final. Sans cette clause, un rejeu de la file
+    du mode d\'egrad\'e (ENF-05) doublerait les gestes.
+  \item[Remise d'un jeton.] \texttt{execute()} rend un \texttt{rollbackToken}
+    d\`es lors que l'action se d\'eclare annulable. C'est ce jeton, et lui seul, qui
+    rend la boucle de contr\^ole (EF-25) op\'erante : l'annulation ne se d\'eduit pas de
+    l'action, elle s'appuie sur une information produite \`a l'ex\'ecution.
+\end{description}
+
+\begin{figure}[H]
+\centering
+\begin{diagramme}
+  \node (iface) [umlclasse=5cm] at (5.5,0) {
+    \umltitres{interface}{Actuator}
+    \nodepart{two}
+    + name \,: String
+    \nodepart{three}
+    + supports(verb) \,: Boolean\\
+    + execute(spec) \,: ActuationOutcome\\
+    + rollback(verb, token) \,: ActuationOutcome
+  };
+  \node (out) [umlcompact=3.8cm] at (12.2,0) {
+    \umltitres{value object}{ActuationOutcome}
+    \nodepart{two}
+    - success \,: Boolean\\
+    - rollbackToken \,: String [0..1]\\
+    - detail \,: Map
+  };
+  \node (fw)  [umlsimple=2.4cm] at (-0.4,-4.4) {\umltitre{FirewallActuator}};
+  \node (edr) [umlsimple=2.4cm] at (2.4,-4.4) {\umltitre{EdrActuator}};
+  \node (iam) [umlsimple=2.4cm] at (5.2,-4.4) {\umltitre{IamActuator}};
+  \node (net) [umlsimple=2.4cm] at (8.0,-4.4) {\umltitre{NetworkActuator}};
+  \node (dns) [umlsimple=2.4cm] at (10.8,-4.4) {\umltitre{DnsActuator}};
+  \node (etc) [umlsimple=2.4cm] at (13.6,-4.4) {\umltitre{\ldots\ (12 au total)}};
+
+  \node (sim) [umlcompact=4.6cm] at (5.5,-8.4) {
+    \umltitres{decorator}{SimulationActuator}
+    \nodepart{two}
+    Enveloppe tout actionneur. En posture \emph{simulation},
+    aucun geste n'atteint l'\'equipement r\'eel ; le jeton et
+    la trace sont produits \`a l'identique.
+  };
+
+  \foreach \n in {fw,edr,iam,net,dns,etc}{ \draw[realisation] (\n.north) -- (iface.south); }
+  \draw[dependance] (iface.east) -- node[role]{rend} (out.west);
+  \draw[realisation] (sim.north) -- (iface.south);
+\end{diagramme}
+\caption{Contrat des actionneurs --- patron Strat\'egie et d\'ecorateur de simulation}
+\label{fig:actionneurs}
+\end{figure}
+
+\subsection{Classes du confinement hors catalogue}
+La figure~\ref{fig:classes-repli} pr\'esente les classes engag\'ees lorsque aucun
+playbook ne s'applique. Leur particularit\'e tient \`a la source du raisonnement : le
+planificateur de repli ne part pas d'un \emph{type d'attaque suppos\'e} --- ce serait
+une hypoth\`ese --- mais d'un \emph{indicateur constat\'e} --- ce qui est un fait.
+Cette distinction ne l\`eve pas l'exigence de non-invention (EF-04) : elle en change
+le fondement.
+
+\begin{figure}[H]
+\centering
+\begin{diagramme}
+  \node (plan) [umlclasse=5.2cm] at (0,0) {
+    \umltitre{FallbackPlanner}
+    \nodepart{two}
+    - catalogue \,: ReversibilityCatalog\\
+    - rayonMaximalAutonome \,: Integer = 2\\
+    - reseauxInternes \,: IpNetwork [*]
+    \nodepart{three}
+    + plan(event) \,: FallbackPlan\\
+    - candidats(event) \,: Suggestion [*]\\
+    - estExterne(adresse) \,: Boolean
+  };
+  \node (fplan) [umlclasse=4.8cm] at (7.6,0) {
+    \umltitre{FallbackPlan}
+    \nodepart{two}
+    - autonomous \,: Suggestion [*]\\
+    - requiresConfirmation \,: Suggestion [*]\\
+    - observations \,: String [*]
+    \nodepart{three}
+    + isEmpty() \,: Boolean\\
+    + toDict() \,: Map
+  };
+  \node (sug) [umlclasse=4.6cm] at (13.8,0) {
+    \umltitres{value object}{Suggestion}
+    \nodepart{two}
+    - spec \,: ActionSpec\\
+    - basis \,: String\\
+    - autonomous \,: Boolean\\
+    - residualEffect \,: String
+  };
+  \node (cat) [umlcompact=4.6cm] at (0,-6) {
+    \umltitre{ReversibilityCatalog}
+    \nodepart{two}
+    + reversibilityOf(key) \,: Reversibility\\
+    + rollbackVerbOf(key) \,: String [0..1]\\
+    + typicalBlastRadius(key) \,: Integer
+  };
+  \node (regle) [note=6.4cm] at (8.4,-6) {
+    \textbf{\{r\`egle d'autonomie du repli\}}\\[2pt]
+    Une suggestion n'est engag\'ee seule que si\\
+    \texttt{reversibility = REVERSIBLE} $\wedge$\\
+    \texttt{rollbackVerb <> null} $\wedge$\\
+    \texttt{typicalBlastRadius <= 2}.\\[3pt]
+    Toute autre suggestion rejoint
+    \texttt{requiresConfirmation} et d\'eclenche une alerte
+    persistante \`a destination de l'analyste (EF-28).
+  };
+
+  \draw[composition] (plan.east) -- node[mult, near start]{1} node[mult, near end]{1} (fplan.west);
+  \draw[composition] (fplan.east) -- node[mult, near start]{1} node[mult, near end]{0..*} (sug.west);
+  \draw[association] (plan.south) -- node[mult, near end]{1} (cat.north);
+  \draw[dependance]  (regle.north west) -- (fplan.south);
+\end{diagramme}
+\caption{Classes du confinement hors catalogue}
+\label{fig:classes-repli}
+\end{figure}
+
+%%%==========================================================================
+\section{Vue dynamique}
+%%%==========================================================================
+
+\subsection{Diagramme de s\'equence syst\`eme}
+Le diagramme de s\'equence syst\`eme traite la plateforme comme une bo\^ite noire et ne
+retient que les \'echanges avec l'ext\'erieur. Son int\'er\^et ici est de rendre visible,
+d'un seul coup d'\oe il, la propri\'et\'e qui distingue le syst\`eme des plateformes
+d'orchestration usuelles : \textbf{aucun message n'est adress\'e \`a l'analyste entre
+la r\'eception de l'\'ev\'enement et l'action sur l'\'equipement}. Le seul message qu'il
+re\c coit est post\'erieur \`a l'ex\'ecution.
+
+\begin{figure}[H]
+\centering
+\begin{diagramme}
+  \seqvie{src}{0}{-7.2}{Source de\\d\'etection}
+  \seqvie{sys}{4.4}{-7.2}{\underline{\,:CIRTDEFENSE\,}}
+  \seqvie{eqp}{9.0}{-7.2}{\'Equipement\\cible}
+  \seqvie{ana}{13.0}{-7.2}{Analyste}
+
+  \seqact{4.4}{-1.0}{-6.4}
+  \seqmsg{0}{4.4}{-1.0}{alerte brute}
+  \seqauto{4.4}{-1.6}{normaliser, d\'edoublonner, corr\'eler}
+  \seqauto{4.4}{-2.6}{ancrer, classer, planifier}
+  \seqauto{4.4}{-3.6}{filtrer par r\'eversibilit\'e puis par politique}
+  \seqact{9.0}{-4.5}{-5.0}
+  \seqmsg{4.4}{9.0}{-4.5}{ex\'ecuter le geste correctif}
+  \seqrep{9.0}{4.4}{-5.0}{jeton d'annulation}
+  \seqmsg{4.4}{13.0}{-5.7}{notification a posteriori}
+  \seqauto{4.4}{-6.3}{inscrire au journal}
+
+  \node[note=3.8cm, anchor=north west] at (0.1,-7.7)
+    {Le d\'elai entre le premier et le dernier message ne d\'epend
+     d'aucune disponibilit\'e humaine. C'est l\`a toute la diff\'erence
+     avec une plateforme qui recommande.};
+\end{diagramme}
+\caption{Diagramme de s\'equence syst\`eme --- r\'eponse autonome (UC-02)}
+\label{fig:sequence-systeme}
+\end{figure}
+
+\subsection{Diagramme de s\'equence d\'etaill\'e --- r\'eponse autonome}
+La figure~\ref{fig:sequence-detail} ouvre la bo\^ite noire. On y suit la
+\emph{cha\^ine de responsabilit\'e} : chaque garde peut interrompre le traitement, et
+l'interruption produit toujours une inscription motiv\'ee, jamais un silence.
+
+\begin{sidewaysfigure}
+\centering
+\ajusterpaysage{%
+\begin{diagramme}
+  \seqvie{src}{0}{-13.4}{Source}
+  \seqvie{ada}{2.5}{-13.4}{\underline{\,:Moteur\,}}
+  \seqvie{enr}{5.0}{-13.4}{\underline{\,:Enrichisseur\,}}
+  \seqvie{pla}{7.5}{-13.4}{\underline{\,:Planificateur\,}}
+  \seqvie{cat}{10.0}{-13.4}{\underline{\,:CatalogueR\'ev.\,}}
+  \seqvie{pol}{12.5}{-13.4}{\underline{\,:Politique\,}}
+  \seqvie{cbk}{15.0}{-13.4}{\underline{\,:CoupeCircuit\,}}
+  \seqvie{exe}{17.5}{-13.4}{\underline{\,:Ex\'ecuteur\,}}
+  \seqvie{act}{20.0}{-13.4}{\underline{\,:Actionneur\,}}
+  \seqvie{jou}{22.5}{-13.4}{\underline{\,:Journal\,}}
+
+  \seqact{2.5}{-1.0}{-12.9}
+  \seqmsg{0}{2.5}{-1.0}{charge utile brute}
+  \seqauto{2.5}{-1.5}{normaliser via l'adaptateur $\rightarrow$ DetectionEvent (EF-18)}
+  \seqauto{2.5}{-2.3}{empreinte, d\'edoublonnage (EF-19)}
+  \seqauto{2.5}{-3.1}{corr\'eler $\rightarrow$ Incident (EF-20)}
+  \seqmsg{2.5}{22.5}{-3.7}{inscrire \guillemotleft event.ingested\guillemotright}
+
+  \seqact{5.0}{-4.2}{-5.2}
+  \seqmsg{2.5}{5.0}{-4.2}{enrichir(incident)}
+  \seqauto{5.0}{-4.7}{rechercher au fonds documentaire (EF-03)}
+  \seqrep{5.0}{2.5}{-5.2}{Contexte \{ancr\'e, score\}}
+
+  \seqfrag{1.3}{-5.7}{23.4}{-7.2}{alt}{contexte non ancr\'e --- EF-04}
+  \node[font=\tiny, anchor=west] at (3.4,-6.7)
+    {refus d'agir motiv\'e $\rightarrow$ plan de repli (fig.~\ref{fig:sequence-repli}) $\rightarrow$ alerte d'abstention. \textbf{Aucune action ex\'ecut\'ee.}};
+
+  \seqact{7.5}{-7.5}{-9.2}
+  \seqmsg{2.5}{7.5}{-7.5}{planifier(incident, contexte)}
+  \seqauto{7.5}{-8.0}{classer au catalogue m\'etier}
+  \seqmsg{7.5}{10.0}{-8.7}{r\'eversibilit\'e ?}
+  \seqact{10.0}{-8.7}{-9.2}
+  \seqrep{10.0}{7.5}{-9.2}{\{r\'eversible, verbe, rayon\}}
+
+  \seqact{12.5}{-9.7}{-10.2}
+  \seqmsg{7.5}{12.5}{-9.7}{\'evaluer(actions) (EF-15)}
+  \seqrep{12.5}{7.5}{-10.2}{PolicyVerdict [*]}
+
+  \seqact{15.0}{-10.6}{-11.0}
+  \seqmsg{7.5}{15.0}{-10.6}{autonomie autoris\'ee ? (EF-26)}
+  \seqrep{15.0}{7.5}{-11.0}{ferm\'e}
+
+  \seqact{17.5}{-11.4}{-12.6}
+  \seqmsg{7.5}{17.5}{-11.4}{ex\'ecuter(actions autoris\'ees) (EF-07)}
+  \seqact{20.0}{-11.9}{-12.3}
+  \seqmsg{17.5}{20.0}{-11.9}{execute(spec)}
+  \seqrep{20.0}{17.5}{-12.3}{outcome \{jeton\}}
+  \seqmsg{17.5}{22.5}{-12.9}{inscrire \guillemotleft action.executed\guillemotright}
+\end{diagramme}}
+\caption{Diagramme de s\'equence d\'etaill\'e --- cha\^ine de d\'ecision et d'ex\'ecution autonome}
+\label{fig:sequence-detail}
+\end{sidewaysfigure}
+
+\subsection{Diagramme de s\'equence --- confinement hors catalogue}
+Ce sc\'enario est celui qui distingue le plus nettement le syst\`eme d'une plateforme
+\`a playbooks. Lorsque le contexte n'est pas document\'e, la r\'eponse usuelle est le
+silence. Ici, le moteur bascule vers le planificateur de repli, qui raisonne sur
+les indicateurs et non sur une hypoth\`ese de type d'attaque. Le fragment
+\texttt{loop} de la figure~\ref{fig:sequence-repli} porte le c\oe ur du m\'ecanisme :
+chaque indicateur exploitable produit au plus un geste, et ce geste est aussit\^ot
+class\'e selon qu'il est annulable ou non.
+
+\begin{sidewaysfigure}
+\centering
+\ajusterpaysage{%
+\begin{diagramme}
+  \seqvie{mot}{0}{-13.0}{\underline{\,:Moteur\,}}
+  \seqvie{rep}{3.6}{-13.0}{\underline{\,:PlanificateurRepli\,}}
+  \seqvie{cat}{7.6}{-13.0}{\underline{\,:CatalogueR\'ev.\,}}
+  \seqvie{pol}{11.2}{-13.0}{\underline{\,:Politique\,}}
+  \seqvie{exe}{14.6}{-13.0}{\underline{\,:Ex\'ecuteur\,}}
+  \seqvie{ale}{18.0}{-13.0}{\underline{\,:Alerte\,}}
+  \seqvie{jou}{21.4}{-13.0}{\underline{\,:Journal\,}}
+
+  \seqact{0}{-0.9}{-12.6}
+  \seqauto{0}{-1.1}{contexte non ancr\'e (EF-04)}
+
+  \seqact{3.6}{-2.0}{-8.4}
+  \seqmsg{0}{3.6}{-2.0}{plan(event)}
+  \seqauto{3.6}{-2.5}{extraire les indicateurs observ\'es}
+
+  \seqfrag{2.9}{-3.2}{9.4}{-7.3}{loop}{pour chaque indicateur exploitable}
+  \seqauto{3.6}{-4.0}{d\'eduire un geste de confinement}
+  \seqmsg{3.6}{7.6}{-4.9}{m\'etadonn\'ees(geste)}
+  \seqact{7.6}{-4.9}{-5.4}
+  \seqrep{7.6}{3.6}{-5.4}{\{r\'eversibilit\'e, verbe, rayon\}}
+  \seqauto{3.6}{-6.1}{r\'eversible $\wedge$ rayon $\leq$ 2 ?}
+  \node[font=\tiny, anchor=west, align=left] at (4.6,-6.9)
+    {oui $\rightarrow$ \texttt{autonomous} \quad non $\rightarrow$ \texttt{requiresConfirmation}};
+
+  \seqrep{3.6}{0}{-8.4}{FallbackPlan}
+
+  \seqact{11.2}{-9.0}{-9.5}
+  \seqmsg{0}{11.2}{-9.0}{\'evaluer(gestes autonomes)}
+  \seqrep{11.2}{0}{-9.5}{verdicts --- \textbf{la politique s'applique aussi au repli}}
+
+  \seqact{14.6}{-10.1}{-10.6}
+  \seqmsg{0}{14.6}{-10.1}{ex\'ecuter(gestes autoris\'es)}
+  \seqrep{14.6}{0}{-10.6}{jetons d'annulation}
+
+  \seqact{18.0}{-11.3}{-11.8}
+  \seqmsg{0}{18.0}{-11.3}{alerte persistante(gestes \`a effet durable) (EF-28)}
+  \seqmsg{0}{21.4}{-12.4}{inscrire \guillemotleft decision.made \{fallback\}\guillemotright}
+\end{diagramme}}
+\caption{Diagramme de s\'equence --- confinement d'une menace hors catalogue}
+\label{fig:sequence-repli}
+\end{sidewaysfigure}
+
+\subsection{Diagramme de s\'equence --- boucle de contr\^ole post-action}
+La boucle de contr\^ole traite le mode de d\'efaillance le plus subtil : le syst\`eme a
+raison sur la menace, mais son geste nuit \`a la cible. Un blocage l\'egitime peut
+couper un flux m\'etier ; une isolation justifi\'ee peut rendre un service
+indisponible. Le principe est celui d'une mesure diff\'erentielle : une r\'ef\'erence
+est prise \emph{avant} l'action, une mesure \emph{apr\`es}, et l'\'ecart d\'ecide.
+
+\begin{figure}[H]
+\centering
+\ajusterportrait{%
+\begin{diagramme}
+  \seqvie{ord}{0}{-10.6}{Ordonnanceur}
+  \seqvie{bcl}{3.4}{-10.6}{\underline{\,:BouclePostAction\,}}
+  \seqvie{son}{7.2}{-10.6}{\underline{\,:Sonde\,}}
+  \seqvie{rbk}{10.6}{-10.6}{\underline{\,:Rollback\,}}
+  \seqvie{act}{14.0}{-10.6}{\underline{\,:Actionneur\,}}
+  \seqvie{jou}{17.4}{-10.6}{\underline{\,:Journal\,}}
+
+  \seqact{3.4}{-1.0}{-10.2}
+  \seqmsg{0}{3.4}{-1.0}{d\'eclencher le cycle}
+
+  \seqfrag{2.7}{-1.7}{18.4}{-9.6}{loop}{pour chaque action ex\'ecut\'ee et annulable}
+
+  \seqact{7.2}{-2.6}{-3.1}
+  \seqmsg{3.4}{7.2}{-2.6}{mesurer(cible)}
+  \seqrep{7.2}{3.4}{-3.1}{indicateurs de service}
+
+  \seqfrag{3.0}{-3.6}{18.1}{-5.0}{alt}{aucune r\'ef\'erence ant\'erieure}
+  \node[font=\tiny, anchor=west] at (3.3,-4.5)
+    {abstention motiv\'ee et inscrite --- sans mesure ant\'erieure, la comparaison n'aurait aucun sens};
+
+  \seqauto{3.4}{-5.6}{comparer \`a la r\'ef\'erence prise avant l'action}
+
+  \seqfrag{3.0}{-6.4}{18.1}{-9.3}{opt}{d\'egradation $>$ seuil}
+  \seqact{10.6}{-7.2}{-8.8}
+  \seqmsg{3.4}{10.6}{-7.2}{annuler(action, jeton)}
+  \seqact{14.0}{-7.7}{-8.2}
+  \seqmsg{10.6}{14.0}{-7.7}{rollback(verbe, jeton)}
+  \seqrep{14.0}{10.6}{-8.2}{r\'esultat}
+  \seqmsg{10.6}{17.4}{-8.9}{inscrire \guillemotleft rollback.completed\guillemotright}
+
+  \node[note=6.2cm, anchor=north west] at (0,-11.1)
+    {\textbf{Limite connue et assum\'ee.} La r\'ef\'erence prise avant l'action est
+     conserv\'ee en m\'emoire vive. Apr\`es un red\'emarrage, la boucle s'abstient sur
+     les actions ant\'erieures : elle pr\'ef\`ere ne rien faire plut\^ot que comparer
+     \`a une r\'ef\'erence qu'elle n'a pas prise. Le report de cette r\'ef\'erence en base
+     figure aux perspectives de la conclusion g\'en\'erale.};
+\end{diagramme}}
+\caption{Diagramme de s\'equence --- boucle de contr\^ole post-action (EF-25)}
+\label{fig:sequence-boucle}
+\end{figure}
+
+\subsection{Diagramme d'activit\'e}
+Le diagramme d'activit\'e de la figure~\ref{fig:activite} donne la vue algorithmique
+du traitement complet, couloirs compris. Sa lecture appelle deux remarques.
+
+D'abord, \textbf{tout chemin de refus aboutit \`a une inscription et \`a une alerte},
+jamais \`a une sortie silencieuse. C'est une exigence de conception : un syst\`eme
+autonome qui renonce sans le dire est plus dangereux qu'un syst\`eme qui n'a rien
+tent\'e, car l'exploitant croit la menace trait\'ee.
+
+Ensuite, aucun flot de contr\^ole n'atteint un acteur humain avant l'ex\'ecution. Les
+seuls messages qui lui parviennent partent des activit\'es situ\'ees \emph{apr\`es}
+l'action sur l'\'equipement.
+
+\begin{figure}[p]
+\centering
+\ajusterportrait{%
+\begin{diagramme}
+  %%% ---------------------------------------------- couloir 1 : acquisition
+  \node (deb)  [etatinit] at (0,0) {};
+  \node (a1)   [action=2.7cm] at (0,-1.5) {Normaliser l'\'ev\'enement (EF-18)};
+  \node (d1)   [decision] at (0,-3.3) {d\'ej\`a vu ?};
+  \node (rien) [etatfin] at (-2.6,-3.3) {};
+  \node (a2)   [action=2.7cm] at (0,-5.1) {Corr\'eler en incident (EF-20)};
+
+  %%% -------------------------------------------------- couloir 2 : analyse
+  \node (a3)   [action=2.7cm] at (4.4,-5.1) {Enrichir au fonds documentaire (EF-03)};
+  \node (d2)   [decision] at (4.4,-6.9) {contexte ancr\'e ?};
+  \node (rep)  [action=2.9cm, draw=umlaccent] at (8.2,-6.9)
+        {Confinement de repli (EF-04)\\ \tiny fig.~\ref{fig:activite-repli}};
+  \node (a4)   [action=2.7cm] at (4.4,-8.7) {Classer au catalogue m\'etier};
+  \node (a5)   [action=2.7cm] at (4.4,-10.5) {Planifier les actions (EF-05, EF-06)};
+
+  %%% --------------------------------------------------- couloir 3 : gardes
+  \node (a6)   [action=2.9cm] at (11.6,-10.5) {Filtrer par r\'eversibilit\'e (EF-14)};
+  \node (d3)   [decision] at (11.6,-12.1) {une action au moins ?};
+  \node (a7)   [action=2.9cm] at (11.6,-13.7) {\'Evaluer la politique (EF-15)};
+  \node (d4)   [decision] at (11.6,-15.3) {autoris\'ee ?};
+  \node (d5)   [decision] at (11.6,-16.9) {coupe-circuit ferm\'e ?};
+  \node (x1)   [action=2.9cm, draw=umlalerte] at (11.6,-19.0)
+        {Inscrire un refus motiv\'e et alerter : menace non contenue};
+  \node (finx) [etatfin] at (11.6,-20.7) {};
+
+  %%% ------------------------------------ couloir 4 : execution et retour
+  \node (e1)   [action=2.9cm] at (16.0,-16.9) {Ex\'ecuter aupr\`es des actionneurs (EF-07)};
+  \node (e2)   [action=2.9cm] at (16.0,-18.5) {Recueillir les jetons d'annulation};
+  \node (e3)   [action=2.9cm] at (16.0,-20.1) {Armer la boucle de contr\^ole (EF-25)};
+  \node (e4)   [action=2.9cm] at (16.0,-21.7) {Inscrire au journal};
+  \node (e5)   [action=2.9cm] at (16.0,-23.3) {Notifier l'analyste (EF-13)};
+  \node (fin)  [etatfin] at (16.0,-24.8) {};
+
+  %%% ------------------------------------------------------------- flots
+  \draw[flot]   (deb) -- (a1);
+  \draw[flot]   (a1) -- (d1);
+  \draw[flotko] (d1) -- node[garde, above]{oui} node[garde, below]{\'ecart\'e (EF-19)} (rien);
+  \draw[flot]   (d1) -- node[garde, right]{non} (a2);
+  \draw[flot]   (a2) -- (a3);
+  \draw[flot]   (a3) -- (d2);
+  \draw[flotok] (d2) -- node[garde, right]{oui} (a4);
+  \draw[flotko] (d2) -- node[garde, above]{non} (rep);
+  \draw[flot]   (a4) -- (a5);
+  \draw[flot]   (a5) -- (a6);
+  \draw[flot]   (a6) -- (d3);
+  \draw[flotok] (d3) -- node[garde, right]{oui} (a7);
+  \draw[flot]   (a7) -- (d4);
+  \draw[flotok] (d4) -- node[garde, right]{oui} (d5);
+  \draw[flotok] (d5) -- node[garde, above]{ferm\'e} (e1);
+  \draw[flotko] (d3.west) -- ++(-1.0,0) |- node[garde, pos=0.15, left]{non} (x1.west);
+  \draw[flotko] (d4.west) -- ++(-0.5,0) |- node[garde, pos=0.15, left]{non} ([yshift=3mm]x1.west);
+  \draw[flotko] (d5) -- node[garde, right]{ouvert} (x1);
+  \draw[flot]   (x1) -- (finx);
+  \draw[flot]   (e1) -- (e2);
+  \draw[flot]   (e2) -- (e3);
+  \draw[flot]   (e3) -- (e4);
+  \draw[flot]   (e4) -- (e5);
+  \draw[flot]   (e5) -- (fin);
+  \draw[flot]   (rep.east) -- (13.6,-6.9) -- (13.6,-18.5) -- (e2.west);
+
+  %%% ---------------------------------------------------------- couloirs
+  \begin{scope}[on background layer]
+    \node (c1) [couloir, fit=(deb)(a1)(d1)(rien)(a2)] {};
+    \node (c2) [couloir, fit=(a3)(d2)(rep)(a4)(a5)] {};
+    \node (c3) [couloir, fit=(a6)(d3)(a7)(d4)(d5)(x1)(finx)] {};
+    \node (c4) [couloir, fit=(e1)(e2)(e3)(e4)(e5)(fin)] {};
+  \end{scope}
+  \node[etiquettecouloir, anchor=south] at (c1.west) {Acquisition};
+  \node[etiquettecouloir, anchor=south] at (c2.west) {Analyse};
+  \node[etiquettecouloir, anchor=south] at (c3.west) {Gardes};
+  \node[etiquettecouloir, anchor=south] at (c4.west) {Ex\'ecution et retour};
+\end{diagramme}}
+\caption{Diagramme d'activit\'e avec couloirs --- cha\^ine principale de traitement}
+\label{fig:activite}
+\end{figure}
+
+La branche de repli, r\'esum\'ee \`a une activit\'e unique sur la
+figure~\ref{fig:activite}, est d\'etaill\'ee \`a la figure~\ref{fig:activite-repli}. Le
+n\oe ud de d\'ecision qu'elle contient est le point exact o\`u se joue l'arbitrage
+demand\'e par le CIRT : ce qui est annulable part sans attendre, ce qui laisse une
+trace durable attend une d\'ecision humaine.
+
+\begin{figure}[H]
+\centering
+\ajusterportrait{%
+\begin{diagramme}
+  \node (i)   [etatinit] at (0,0) {};
+  \node (b1)  [action=3.2cm] at (0,-1.6) {Extraire les indicateurs observ\'es de l'\'ev\'enement};
+  \node (d0)  [decision] at (0,-3.6) {au moins un indicateur exploitable ?};
+  \node (z1)  [action=3.2cm, draw=umlalerte] at (5.4,-3.6) {Alerte d'abstention motiv\'ee};
+  \node (fz)  [etatfin] at (9.0,-3.6) {};
+  \node (b2)  [action=3.2cm] at (0,-5.8) {D\'eduire un geste de confinement par indicateur};
+  \node (b3)  [action=3.2cm] at (0,-7.8) {Consulter le catalogue de r\'eversibilit\'e};
+  \node (d6)  [decision] at (0,-10.0) {r\'eversible et rayon $\leq$ 2 ?};
+  \node (g1)  [action=3.2cm] at (-3.4,-12.2) {Soumettre \`a la politique (EF-15)};
+  \node (g2)  [action=3.2cm] at (4.0,-12.2) {Marquer \guillemotleft en attente de d\'ecision humaine\guillemotright};
+  \node (h1)  [action=3.2cm] at (-3.4,-14.2) {Ex\'ecuter sans attendre};
+  \node (h2)  [action=3.2cm] at (4.0,-14.2) {\'Emettre une alerte persistante (EF-28)};
+  \node (j)   [barre=8.4cm] at (0.3,-16.0) {};
+  \node (k1)  [action=3.4cm] at (0.3,-17.6) {Inscrire au journal le partage entre gestes engag\'es et gestes en attente};
+  \node (k2)  [action=3.4cm] at (0.3,-19.6) {Ouvrir une demande de qualification (EF-29)};
+  \node (fin) [etatfin] at (0.3,-21.2) {};
+
+  \draw[flot]   (i) -- (b1);
+  \draw[flot]   (b1) -- (d0);
+  \draw[flotko] (d0) -- node[garde, above]{non} (z1);
+  \draw[flot]   (z1) -- (fz);
+  \draw[flotok] (d0) -- node[garde, right]{oui} (b2);
+  \draw[flot]   (b2) -- (b3);
+  \draw[flot]   (b3) -- (d6);
+  \draw[flotok] (d6.west) to[out=180,in=90] node[garde, left]{oui} (g1.north);
+  \draw[flotko] (d6.east) to[out=0,in=90] node[garde, right]{non} (g2.north);
+  \draw[flot]   (g1) -- (h1);
+  \draw[flot]   (g2) -- (h2);
+  \draw[flot]   (h1.south) -- (j.north west);
+  \draw[flot]   (h2.south) -- (j.north east);
+  \draw[flot]   (j) -- (k1);
+  \draw[flot]   (k1) -- (k2);
+  \draw[flot]   (k2) -- (fin);
+
+  \node[note=4.6cm, anchor=north west] at (5.6,-6.0)
+    {Le geste n'est jamais d\'eduit d'un \emph{type d'attaque suppos\'e} mais
+     d'un \emph{indicateur constat\'e}. L'exigence de non-invention (EF-04) n'est
+     donc pas lev\'ee : son fondement change.};
+\end{diagramme}}
+\caption{Diagramme d'activit\'e --- branche de confinement hors catalogue}
+\label{fig:activite-repli}
+\end{figure}
+
+\subsection{Diagrammes d'\'etats-transitions}
+\label{sec:etats}
+
+\subsubsection{Cycle de vie d'un incident}
+La figure~\ref{fig:etats-incident} pr\'esente la machine \`a \'etats de l'incident. Ce
+qui la caract\'erise se lit \emph{en creux} : \textbf{il n'existe aucun \'etat
+\og en attente de validation \fg{}}. C'est la traduction structurelle du choix
+d'autonomie --- un tel \'etat aurait r\'eintroduit, dans le mod\`ele lui-m\^eme, la
+d\'ependance \`a la disponibilit\'e humaine que le projet entend lever.
+
+\begin{figure}[H]
+\centering
+\ajusterportrait{%
+\begin{diagramme}
+  \node (i)   [etatinit] at (0,0) {};
+  \node (op)  [etat] at (4.6,0) {ouvert};
+  \node (co)  [etat] at (9.6,0) {confin\'e};
+  \node (rb)  [etat] at (9.6,-3.4) {annul\'e};
+  \node (cl)  [etat] at (14.4,0) {clos};
+  \node (f)   [etatfin] at (16.8,0) {};
+
+  \draw[transition] (i) -- node[garde, above]{\'ev\'enement corr\'el\'e} (op);
+  \draw[transition] (op) -- node[garde, above, align=center]{actions ex\'ecut\'ees\\ \tiny[au moins une r\'eussie]} (co);
+  \draw[transition] (co) -- node[garde, right, align=left]{d\'egradation d\'etect\'ee\\ \tiny/ annuler les actions} (rb);
+  \draw[transition] (co) -- node[garde, above]{d\'elai de veille \'ecoul\'e} (cl);
+  \draw[transition] (rb.east) to[out=0,in=270] node[garde, below right]{constat de l'analyste} (cl.south);
+  \draw[transition] (cl) -- (f);
+
+  \path[transition] (op) edge[loop above] node[garde, align=center]
+        {\'ev\'enement corr\'el\'e suppl\'ementaire\\ \tiny/ absorber} ();
+  \path[transition] (op) edge[loop below] node[garde, align=center]
+        {aucune action possible\\ \tiny/ inscrire un refus motiv\'e} ();
+
+  \node[note=5.0cm, anchor=north west] at (11.8,-2.4)
+    {Aucun \'etat \og en attente de validation \fg{} ne figure sur ce diagramme.
+     Son absence est un r\'esultat de conception, non un oubli : c'est elle qui
+     garantit que le d\'elai de r\'eponse ne d\'epend d'aucune disponibilit\'e humaine.};
+\end{diagramme}}
+\caption{Diagramme d'\'etats-transitions --- cycle de vie d'un incident}
+\label{fig:etats-incident}
+\end{figure}
+
+\subsubsection{Cycle de vie d'une action}
+La machine \`a \'etats de l'action, figure~\ref{fig:etats-action}, porte les huit
+\'etats de l'\'enum\'eration \texttt{ActionStatus}. Trois d'entre eux sont des refus
+ant\'erieurs \`a toute ex\'ecution --- \emph{bloqu\'ee par la politique}, \emph{bloqu\'ee par
+le coupe-circuit} --- ou un \'echec de rattrapage --- \emph{\'echec d'annulation}. Ce
+dernier est le seul \'etat du syst\`eme qui exige une intervention humaine imm\'ediate :
+une action a \'et\'e men\'ee et ne peut plus \^etre d\'efaite.
+
+\begin{figure}[H]
+\centering
+\begin{diagramme}[node distance=8mm]
+  \node (i)   [etatinit] at (0,0) {};
+  \node (pl)  [etat] at (2.4,0) {planifi\'ee};
+  \node (bp)  [etat, draw=umlalerte] at (2.4,-2.4) {bloqu\'ee\\\tiny par la politique};
+  \node (bc)  [etat, draw=umlalerte] at (2.4,-4.4) {bloqu\'ee\\\tiny par le coupe-circuit};
+  \node (ex)  [etat] at (6.4,0) {en cours};
+  \node (ok)  [etat] at (10.4,0) {ex\'ecut\'ee};
+  \node (ko)  [etat, draw=umlalerte] at (6.4,-2.4) {en \'echec};
+  \node (an)  [etat] at (10.4,-2.4) {annul\'ee};
+  \node (ae)  [etat, draw=umlalerte, line width=1pt] at (10.4,-4.6) {\'echec\\d'annulation};
+  \node (f)   [etatfin] at (13.6,-1.2) {};
+
+  \draw[transition] (i) -- (pl);
+  \draw[transition] (pl) -- node[garde, above]{autoris\'ee} (ex);
+  \draw[transition] (pl) -- node[garde, right]{refus\'ee (EF-15)} (bp);
+  \draw[transition] (pl.west) to[out=180,in=180] node[garde, left]{autonomie suspendue (EF-26)} (bc.west);
+  \draw[transition] (ex) -- node[garde, above]{succ\`es} (ok);
+  \draw[transition] (ex) -- node[garde, right]{\'echec de l'actionneur} (ko);
+  \draw[transition] (ok) -- node[garde, left, align=right]{d\'egradation constat\'ee\\ \tiny[jeton disponible] / rollback} (an);
+  \draw[transition] (an) -- node[garde, right]{le rollback \'echoue} (ae);
+  \draw[transition] (ok.east) -- ++(1.4,0) |- (f.north);
+  \draw[transition] (an.east) -- ++(1.4,0) -- (f.west);
+  \draw[transition] (ko.south) |- ([yshift=-1.2cm]an.south) -| (f.south);
+\end{diagramme}
+\caption{Diagramme d'\'etats-transitions --- cycle de vie d'une action corrective}
+\label{fig:etats-action}
+\end{figure}
+
+\subsection{Diagramme de communication}
+Le diagramme de communication de la figure~\ref{fig:communication} pr\'esente les
+m\^emes \'echanges que la figure~\ref{fig:sequence-detail}, mais organis\'es par
+\emph{voisinage} plut\^ot que par chronologie. Il fait ressortir un point que la
+lecture s\'equentielle masque : le \emph{moteur} est le seul objet en relation avec
+tous les autres. Cette centralit\'e est voulue --- elle concentre en un point unique
+la responsabilit\'e d'appliquer les gardes dans le bon ordre --- mais elle d\'esigne
+aussi le module dont toute modification demande le plus de prudence.
+
+\begin{figure}[H]
+\centering
+\begin{diagramme}
+  \node (mot) [umlsimple=2.6cm, umlaccentue] at (0,0) {\umltitre{\underline{\,:Moteur\,}}};
+  \node (ada) [umlsimple=2.4cm] at (-4.6,2.6) {\umltitre{\underline{\,:Adaptateur\,}}};
+  \node (enr) [umlsimple=2.4cm] at (0,3.4) {\umltitre{\underline{\,:Enrichisseur\,}}};
+  \node (pla) [umlsimple=2.4cm] at (4.6,2.6) {\umltitre{\underline{\,:Planificateur\,}}};
+  \node (pol) [umlsimple=2.4cm] at (5.6,0) {\umltitre{\underline{\,:Politique\,}}};
+  \node (cbk) [umlsimple=2.4cm] at (4.6,-2.6) {\umltitre{\underline{\,:CoupeCircuit\,}}};
+  \node (exe) [umlsimple=2.4cm] at (0,-3.4) {\umltitre{\underline{\,:Ex\'ecuteur\,}}};
+  \node (jou) [umlsimple=2.4cm] at (-4.6,-2.6) {\umltitre{\underline{\,:Journal\,}}};
+  \node (rep) [umlsimple=2.4cm] at (-5.6,0) {\umltitre{\underline{\,:Repli\,}}};
+
+  \draw[association] (ada) -- node[role, pos=0.55]{1\,: incident} (mot);
+  \draw[association] (mot) -- node[role, pos=0.5]{2\,: enrichir} (enr);
+  \draw[association] (mot) -- node[role, pos=0.5]{3\,: planifier} (pla);
+  \draw[association] (mot) -- node[role, pos=0.5]{4\,: \'evaluer} (pol);
+  \draw[association] (mot) -- node[role, pos=0.5]{5\,: autoris\'e ?} (cbk);
+  \draw[association] (mot) -- node[role, pos=0.5]{6\,: ex\'ecuter} (exe);
+  \draw[association] (mot) -- node[role, pos=0.5]{7\,: inscrire} (jou);
+  \draw[association] (mot) -- node[role, pos=0.5]{2b\,: plan de repli} (rep);
+\end{diagramme}
+\caption{Diagramme de communication --- voisinage du moteur d'orchestration}
+\label{fig:communication}
+\end{figure}
+
+%%%==========================================================================
+\section{Vue architecturale}
+%%%==========================================================================
+
+\subsection{Diagramme de composants}
+La figure~\ref{fig:composants} pr\'esente le d\'ecoupage en composants et les
+interfaces qu'ils exposent ou requi\`erent. Le \emph{Moteur d'orchestration} y
+occupe une position particuli\`ere : il ne fournit qu'une interface --- traiter un
+\'ev\'enement --- mais en requiert six. C'est le sympt\^ome, assum\'e, d'un composant qui
+coordonne sans rien impl\'ementer lui-m\^eme.
+
+\begin{sidewaysfigure}
+\centering
+\ajusterpaysage{%
+\begin{diagramme}
+  %%% ------------------------------------------------------- entrees
+  \node (src)  [composant=3.0cm] at (0,2.4)   {\umlstereo{device}\\\textbf{Sources externes}\\\tiny SIEM, sonde r\'eseau, EDR, journaux};
+  \node (ueba) [composant=3.0cm] at (0,0)     {\umlstereo{component}\\\textbf{UEBA}\\\tiny profil et \'ecart comportemental};
+  \node (infra)[composant=3.0cm] at (0,-2.4)  {\umlstereo{component}\\\textbf{Sondes d'infrastructure}\\\tiny disponibilit\'e, seuils de service};
+
+  %%% ------------------------------------------------------- chaine
+  \node (ada)  [composant=3.0cm] at (4.6,0)   {\umlstereo{component}\\\textbf{Adaptateur d'ingestion}\\\tiny normalise, d\'edoublonne, corr\`ele};
+  \node (mot)  [composant=3.4cm, umlaccentue] at (9.4,0) {\umlstereo{component}\\\textbf{Moteur d'orchestration}\\\tiny applique les gardes dans l'ordre};
+  \node (enr)  [composant=2.9cm] at (9.4,3.4) {\umlstereo{component}\\\textbf{Enrichissement}\\\tiny fonds documentaire, ancrage};
+  \node (pol)  [composant=2.9cm] at (13.0,3.4){\umlstereo{component}\\\textbf{Politique compil\'ee}};
+  \node (cat)  [composant=2.9cm] at (5.8,3.4) {\umlstereo{component}\\\textbf{Catalogue de r\'eversibilit\'e}};
+  \node (cbk)  [composant=2.9cm] at (9.4,-3.4){\umlstereo{component}\\\textbf{Coupe-circuit}};
+  \node (rpl)  [composant=2.9cm] at (5.8,-3.4){\umlstereo{component}\\\textbf{Planificateur de repli}};
+
+  %%% ------------------------------------------------------- sorties
+  \node (exe)  [composant=2.9cm] at (14.0,0)  {\umlstereo{component}\\\textbf{Ex\'ecuteur}};
+  \node (act)  [composant=3.0cm] at (18.4,1.6){\umlstereo{device}\\\textbf{\'Equipements}\\\tiny pare-feu, EDR, annuaire, DNS};
+  \node (bcl)  [composant=2.9cm] at (14.0,-3.4){\umlstereo{component}\\\textbf{Boucle post-action}};
+  \node (jou)  [composant=2.9cm] at (18.4,-1.6){\umlstereo{component}\\\textbf{Journal cha\^in\'e}};
+  \node (not)  [composant=2.9cm] at (18.4,-4.4){\umlstereo{component}\\\textbf{Notification}};
+  \node (api)  [composant=2.9cm] at (14.0,-6.4){\umlstereo{component}\\\textbf{API et interface}};
+
+  %%% ------------------------------------------------------- liaisons
+  \foreach \n in {src,ueba,infra} { \draw[dependance] (\n.east) -- (ada.west); }
+  \draw[dependance] (ada) -- node[role]{\'ev\'enement normalis\'e} (mot);
+  \draw[dependance] (mot) -- node[role]{contexte} (enr);
+  \draw[dependance] (mot) -- node[role]{verdicts} (pol);
+  \draw[dependance] (mot) -- node[role]{r\'eversibilit\'e} (cat);
+  \draw[dependance] (mot) -- node[role]{autorisation} (cbk);
+  \draw[dependance] (mot) -- node[role]{plan de repli} (rpl);
+  \draw[dependance] (mot) -- node[role]{ordres} (exe);
+  \draw[dependance] (exe) -- node[role]{gestes} (act);
+  \draw[dependance] (exe) -- (jou);
+  \draw[dependance] (exe) -- (bcl);
+  \draw[dependance] (bcl.east) -- node[role]{annulation} (jou.south west);
+  \draw[dependance] (mot.south east) -- (not.north west);
+  \draw[dependance] (api.north) -- (exe.south);
+  \draw[dependance] (api.east) -- (jou.south);
+  \draw[dependance] (infra.south) to[out=270,in=180] node[role, below]{mesure de r\'ef\'erence} (bcl.west);
+\end{diagramme}}
+\caption{Diagramme de composants}
+\label{fig:composants}
+\end{sidewaysfigure}
+
+\subsection{Diagramme de d\'eploiement}
+La contrainte de souverainet\'e (ENF-01) et celle de sobri\'et\'e d'infrastructure
+(ENF-07) r\'eduisent consid\'erablement l'espace des topologies acceptables : ni
+service manag\'e, ni d\'ependance \`a un mod\`ele h\'eberg\'e \`a l'ext\'erieur, ni grappe de
+serveurs. La figure~\ref{fig:deploiement} pr\'esente la topologie retenue --- un
+n\oe ud unique dans le p\'erim\`etre du CIRT, dialoguant avec les \'equipements du parc
+supervis\'e sur des protocoles d'administration.
+
+\begin{figure}[H]
+\centering
+\ajusterportrait{%
+\begin{diagramme}
+  %%% ---- noeud serveur
+  \node (srv) [noeudmat, minimum width=8.6cm, minimum height=6.4cm] at (0,0) {};
+  \node[font=\scriptsize\bfseries, anchor=north] at (0,3.0)
+       {\umlstereo{device} Serveur CIRT --- p\'erim\`etre souverain};
+  \node (app) [artefact, text width=3.4cm] at (-2.1,1.5)
+       {\umlstereo{artifact}\\ \texttt{cirtdefense}\\ \tiny service applicatif (ASGI)};
+  \node (db)  [artefact, text width=3.4cm] at (-2.1,-0.6)
+       {\umlstereo{artifact}\\ \texttt{cirtdefense.db}\\ \tiny base locale, journal cha\^in\'e};
+  \node (pbk) [artefact, text width=3.4cm] at (-2.1,-2.4)
+       {\umlstereo{artifact}\\ \texttt{playbooks/*.yaml}\\ \tiny proc\'edures de r\'eponse};
+  \node (web) [artefact, text width=3.2cm] at (2.2,1.5)
+       {\umlstereo{artifact}\\ interface d'exploitation};
+  \node (fnd) [artefact, text width=3.2cm] at (2.2,-0.6)
+       {\umlstereo{artifact}\\ fonds documentaire local};
+  \node (mdl) [artefact, text width=3.2cm] at (2.2,-2.4)
+       {\umlstereo{artifact}\\ mod\`ele de langage local\\ \tiny \emph{optionnel --- reformulation seule}};
+
+  %%% ---- postes et equipements
+  \node (pos) [noeudmat, text width=2.8cm] at (-6.6,1.2)
+       {\umlstereo{device}\\ Poste analyste\\ \tiny navigateur};
+  \node (eq1) [noeudmat, text width=2.6cm] at (6.8,2.2) {\umlstereo{device}\\ Pare-feu};
+  \node (eq2) [noeudmat, text width=2.6cm] at (6.8,0.6) {\umlstereo{device}\\ Console EDR};
+  \node (eq3) [noeudmat, text width=2.6cm] at (6.8,-1.0) {\umlstereo{device}\\ Annuaire};
+  \node (eq4) [noeudmat, text width=2.6cm] at (6.8,-2.6) {\umlstereo{device}\\ R\'esolveur DNS};
+  \node (col) [noeudmat, text width=2.8cm] at (-6.6,-1.8)
+       {\umlstereo{device}\\ Collecteurs\\ \tiny SIEM, sondes};
+
+  \draw[association] (pos.east) -- node[role, above]{HTTPS} (srv.west |- pos);
+  \draw[association] (col.east) -- node[role, above]{HTTPS --- flux d'alertes} (srv.west |- col);
+  \draw[association] (srv.east |- eq1) -- (eq1.west);
+  \draw[association] (srv.east |- eq2) -- (eq2.west);
+  \draw[association] (srv.east |- eq3) -- node[role, above]{API d'administration} (eq3.west);
+  \draw[association] (srv.east |- eq4) -- (eq4.west);
+
+  \node[note=5.4cm, anchor=north west] at (-8.0,-3.6)
+    {\textbf{Aucun lien sortant obligatoire.} Priv\'e de connectivit\'e, le n\oe ud
+     conserve la totalit\'e de sa cha\^ine de d\'ecision. Seules les remont\'ees de
+     collecteurs distants sont mises en file et rejou\'ees au retour du lien
+     (ENF-05).};
+\end{diagramme}}
+\caption{Diagramme de d\'eploiement --- topologie \`a n\oe ud unique}
+\label{fig:deploiement}
+\end{figure}
+
+%%%==========================================================================
+\section{Conception de la persistance}
+%%%==========================================================================
+
+\subsection{Mod\`ele logique de donn\'ees}
+Le passage du mod\`ele objet au mod\`ele relationnel suit les r\`egles usuelles : une
+classe devient une table, une composition devient une cl\'e \'etrang\`ere avec
+suppression en cascade, un objet-valeur imbriqu\'e est aplati dans la table de son
+propri\'etaire. Deux \'ecarts \`a ces r\`egles ont \'et\'e faits d\'elib\'er\'ement et sont
+justifi\'es ci-apr\`es.
+
+\begin{figure}[H]
+\centering
+\ajusterportrait{%
+\begin{diagramme}
+  \node (te) [umlcompact=3.9cm] at (0,0) {
+    \umltitres{table}{events}
+    \nodepart{two}
+    \underline{event\_id} \,: TEXT \textsc{pk}\\
+    fingerprint \,: TEXT \textsc{idx}\\
+    incident\_id \,: TEXT \textsc{fk}\\
+    occurred\_at, received\_at \,: TEXT\\
+    source, category \,: TEXT\\
+    severity, confidence \\
+    payload \,: TEXT \tiny(JSON)
+  };
+  \node (ti) [umlcompact=4.1cm] at (5.4,0) {
+    \umltitres{table}{incidents}
+    \nodepart{two}
+    \underline{incident\_id} \,: TEXT \textsc{pk}\\
+    correlation\_key \,: TEXT \textsc{idx}\\
+    status, severity \,: TEXT\\
+    opened\_at, updated\_at \,: TEXT\\
+    attack\_code, family \,: TEXT\\
+    dangerousness \,: REAL\\
+    risk\_score \,: REAL \textsc{idx}
+  };
+  \node (td) [umlcompact=4.1cm] at (11.0,0) {
+    \umltitres{table}{decisions}
+    \nodepart{two}
+    \underline{decision\_id} \,: TEXT \textsc{pk}\\
+    incident\_id \,: TEXT \textsc{fk}\\
+    outcome \,: TEXT\\
+    rationale \,: TEXT\\
+    decided\_at \,: TEXT\\
+    trace \,: TEXT \tiny(JSON)\\
+    fallback \,: TEXT \tiny(JSON)
+  };
+  \node (ta) [umlcompact=4.1cm] at (11.0,-5.6) {
+    \umltitres{table}{actions}
+    \nodepart{two}
+    \underline{action\_id} \,: TEXT \textsc{pk}\\
+    incident\_id, decision\_id \,: \textsc{fk}\\
+    verb, actuator, target \,: TEXT\\
+    status \,: TEXT \textsc{idx}\\
+    reversibility \,: TEXT\\
+    rollback\_token \,: TEXT\\
+    started\_at, finished\_at \,: TEXT
+  };
+  \node (tj) [umlcompact=4.3cm, umlaccentue] at (5.4,-5.6) {
+    \umltitres{table, append-only}{audit\_log}
+    \nodepart{two}
+    \underline{seq} \,: INTEGER \textsc{pk}\\
+    event\_type \,: TEXT \textsc{idx}\\
+    incident\_id \,: TEXT \textsc{idx}\\
+    actor \,: TEXT\\
+    recorded\_at \,: TEXT\\
+    payload \,: TEXT \tiny(JSON)\\
+    prev\_hash, entry\_hash \,: TEXT
+  };
+  \node (tp) [umlcompact=3.7cm] at (0,-10.4) {
+    \umltitres{table}{policies}
+    \nodepart{two}
+    \underline{policy\_id} \,: TEXT \textsc{pk}\\
+    version \,: INTEGER\\
+    source\_text \,: TEXT\\
+    compiled \,: TEXT \tiny(JSON)\\
+    fingerprint \,: TEXT\\
+    compiled\_at \,: TEXT
+  };
+  \node (tn) [umlcompact=3.7cm] at (0,-5.6) {
+    \umltitres{table}{notifications}
+    \nodepart{two}
+    \underline{notification\_id} \,: TEXT \textsc{pk}\\
+    incident\_id \,: TEXT \textsc{fk}\\
+    level, subject, body \,: TEXT\\
+    created\_at \,: TEXT\\
+    acknowledged\_at \,: TEXT \textsc{idx}
+  };
+  \node (tu) [umlcompact=3.7cm] at (5.4,-10.4) {
+    \umltitres{table}{users}
+    \nodepart{two}
+    \underline{user\_id} \,: TEXT \textsc{pk}\\
+    username \,: TEXT \textsc{uq}\\
+    password\_hash \,: TEXT\\
+    role, status, kind \,: TEXT\\
+    poste, civility \,: TEXT
+  };
+  \node (ts) [umlcompact=3.7cm] at (11.0,-10.4) {
+    \umltitres{table}{user\_sessions}
+    \nodepart{two}
+    \underline{session\_id} \,: TEXT \textsc{pk}\\
+    user\_id \,: TEXT \textsc{fk}\\
+    token\_fingerprint \,: TEXT\\
+    expires\_at \,: TEXT \textsc{idx}
+  };
+
+  \draw[association] (te) -- node[mult, near start]{1..*} node[mult, near end]{1} (ti);
+  \draw[association] (ti) -- node[mult, near start]{1} node[mult, near end]{0..*} (td);
+  \draw[association] (ti.south) -- node[mult, near start]{1} node[mult, near end]{0..*} (tj.north);
+  \draw[association] (td.south) -- node[mult, near start]{1} node[mult, near end]{0..*} (ta.north);
+  \draw[association] (ti.south east) -- node[mult, near end]{0..*} (ta.north west);
+  \draw[association] (ti.west) -- node[mult, near end]{0..*} (tn.north east);
+  \draw[association] (tu) -- node[mult, near start]{1} node[mult, near end]{0..*} (ts);
+\end{diagramme}}
+\caption{Mod\`ele logique de donn\'ees}
+\label{fig:mld}
+\end{figure}
+
+\paragraph{Premier \'ecart --- la charge utile d'origine est conserv\'ee.} La colonne
+\texttt{events.payload} garde le message brut de la source, sans normalisation.
+C'est une redondance apparente avec les colonnes normalis\'ees. Elle est n\'ecessaire
+\`a deux usages : rejuger une d\'ecision \`a partir de ce que la source avait
+r\'eellement dit, et rejouer un \'ev\'enement apr\`es correction d'un adaptateur.
+
+\paragraph{Second \'ecart --- la trace de d\'ecision n'est pas \'eclat\'ee en tables.}
+\texttt{decisions.trace} est stock\'ee en document structur\'e plut\^ot qu'en tables
+normalis\'ees. La raison n'est pas la commodit\'e : une trace est un
+\emph{t\'emoignage fig\'e}. L'\'eclater en tables la rendrait modifiable par jointure et
+sensible \`a toute \'evolution ult\'erieure du sch\'ema, ce qui contredirait
+l'opposabilit\'e recherch\'ee (ENF-02).
+
+\subsection{Immutabilit\'e du journal d'audit}
+Le journal ne se contente pas d'\^etre en ajout seul par convention : la contrainte
+est port\'ee par le moteur de base de donn\'ees lui-m\^eme, au moyen de d\'eclencheurs qui
+font \'echouer toute mise \`a jour et toute suppression. S'y ajoute un cha\^inage par
+empreintes : chaque entr\'ee porte l'empreinte de la pr\'ec\'edente, de sorte que
+l'alt\'eration d'une entr\'ee ancienne invalide toutes les suivantes.
+
+\begin{figure}[H]
+\centering
+\begin{diagramme}
+  \foreach \i/\x in {1/0, 2/4.2, 3/8.4} {
+    \node (n\i) [umlcompact=3.4cm] at (\x,0) {
+      \umltitre{entr\'ee $n_{\i}$}
+      \nodepart{two}
+      \tiny type, acteur, horodatage\\
+      \tiny charge utile\\
+      \texttt{prev\_hash}\\
+      \texttt{entry\_hash}
+    };
+  }
+  \node (nn) [umlsimple=1.6cm] at (12.0,0) {\umltitre{\ldots}};
+  \draw[flot] (n1.east) -- node[role, above]{\texttt{entry\_hash}$_1$ $\rightarrow$ \texttt{prev\_hash}$_2$} (n2.west);
+  \draw[flot] (n2.east) -- node[role, above]{\texttt{entry\_hash}$_2$ $\rightarrow$ \texttt{prev\_hash}$_3$} (n3.west);
+  \draw[flot] (n3.east) -- (nn.west);
+  \node[note=6.4cm, anchor=north] at (5.0,-2.2)
+    {$\texttt{entry\_hash}_i = \mathrm{SHA\text{-}256}\big(\texttt{prev\_hash}_i \,\|\,
+      \text{type} \,\|\, \text{acteur} \,\|\, \text{horodatage} \,\|\, \text{charge utile}\big)$\\[3pt]
+     Modifier l'entr\'ee $i$ change $\texttt{entry\_hash}_i$, donc invalide
+     $\texttt{prev\_hash}_{i+1}$, et de proche en proche toute la suite. La v\'erification
+     de la cha\^ine est un parcours lin\'eaire, ex\'ecutable par un tiers.};
+\end{diagramme}
+\caption{Cha\^inage par empreintes du journal d'audit}
+\label{fig:chainage}
+\end{figure}
+
+\subsection{Place du mod\`ele de langage}
+\label{sec:assistant-conception}
+Le syst\`eme comporte un assistant conversationnel destin\'e \`a l'analyste. Sa
+conception ob\'eit \`a une r\`egle unique, pos\'ee avant toute autre consid\'eration
+d'ergonomie : \textbf{le mod\`ele de langage ne produit aucun fait et ne choisit
+aucune action}. Les faits sont \'etablis par le moteur d\'eterministe et lui sont
+fournis ; il n'en assure que la mise en forme.
+
+Cette s\'eparation est structurelle et non contractuelle : le composant qui \'etablit
+les faits et celui qui les formule sont distincts, et le second n'a acc\`es \`a aucun
+actionneur. Elle vaut \`a la fois pour la conformit\'e \`a l'exigence de non-invention
+(EF-04) et pour la contrainte de souverainet\'e --- le syst\`eme reste enti\`erement
+op\'erant si aucun mod\`ele n'est disponible, la formulation se repliant alors sur des
+gabarits.
+
+\begin{figure}[H]
+\centering
+\begin{diagramme}
+  \node (q)  [action=2.6cm] at (0,0) {Question de l'analyste};
+  \node (i)  [action=2.6cm] at (3.6,0) {Reconnaissance d'intention \tiny(d\'eterministe)};
+  \node (f)  [action=2.9cm] at (7.4,0) {Collecte des faits \tiny(d\'ep\^ots, journal)};
+  \node (m)  [action=2.9cm] at (11.4,0) {Mise en forme \tiny(gabarit ou mod\`ele local)};
+  \node (r)  [action=2.6cm] at (15.2,0) {R\'eponse};
+  \draw[flot] (q) -- (i); \draw[flot] (i) -- (f); \draw[flot] (f) -- (m); \draw[flot] (m) -- (r);
+  \node[note=6.0cm, anchor=north] at (7.4,-1.4)
+    {La fl\`eche entrante du composant de mise en forme ne transporte que des faits
+     d\'ej\`a \'etablis. Aucune fl\`eche ne va de ce composant vers un actionneur : il ne
+     peut, structurellement, d\'eclencher aucun geste.};
+\end{diagramme}
+\caption{Cha\^ine de traitement de l'assistant --- s\'eparation des faits et de leur formulation}
+\label{fig:assistant}
+\end{figure}
+
+%%%==========================================================================
+\section{Matrice de tra\c cabilit\'e}
+%%%==========================================================================
+La matrice du tableau~\ref{tab:tracabilite} relie chaque exigence \`a l'\'el\'ement de
+conception qui la porte et \`a la figure o\`u il se lit. Elle sert deux usages : la
+revue --- montrer qu'aucune exigence n'est rest\'ee sans r\'eponse --- et la
+maintenance --- savoir ce qu'une modification met en jeu. Le tiret indique une
+exigence port\'ee par la conception d'ensemble et non par un \'el\'ement unique.
+
+\begin{table}[H]
+\centering
+\caption{Matrice de tra\c cabilit\'e --- exigence vers \'el\'ement de conception}
+\label{tab:tracabilite}
+\scriptsize
+\begin{tabular}{@{}llp{5.4cm}l@{}}
+\toprule
+\textbf{Exigence} & \textbf{Vue} & \textbf{\'El\'ement de conception} & \textbf{Figure} \\
+\midrule
+EF-03 & Composants & Composant \emph{Enrichissement} & \ref{fig:composants} \\
+EF-04 & Dynamique  & N\oe ud de d\'ecision \emph{contexte ancr\'e ?} & \ref{fig:activite} \\
+EF-05 & Dynamique  & Activit\'e \emph{Planifier les actions} & \ref{fig:activite} \\
+EF-06 & Statique   & \texttt{ActionSpec.parameters} & \ref{fig:classes-domaine} \\
+EF-07 & Dynamique  & Message \emph{ex\'ecuter} sans message humain ant\'erieur & \ref{fig:sequence-systeme} \\
+EF-08 & Composants & Composant \emph{UEBA} & \ref{fig:composants} \\
+EF-09 & Composants & Composant \emph{UEBA} & \ref{fig:composants} \\
+EF-10 & Statique   & \texttt{DecisionTrace.matchedConditions} & \ref{fig:classes-domaine} \\
+EF-11 & Composants & Composant \emph{API et interface} & \ref{fig:composants} \\
+EF-12 & Persistance& Table \texttt{audit\_log} & \ref{fig:mld} \\
+EF-13 & Dynamique  & Message \emph{notification a posteriori} & \ref{fig:sequence-systeme} \\
+EF-14 & Statique   & Invariant de construction d'\texttt{ActionSpec} & \ref{fig:classes-domaine} \\
+EF-15 & Statique   & \texttt{PolicyVerdict}, table \texttt{policies} & \ref{fig:classes-domaine}, \ref{fig:mld} \\
+EF-16 & Statique   & \texttt{Incident.riskScore()} & \ref{fig:classes-domaine} \\
+EF-17 & Composants & Composant \emph{API et interface} & \ref{fig:composants} \\
+EF-18 & Composants & Composant \emph{Adaptateur d'ingestion} & \ref{fig:composants} \\
+EF-19 & Statique   & \texttt{DetectionEvent.fingerprint()} & \ref{fig:classes-domaine} \\
+EF-20 & Statique   & \texttt{Incident.keyFor()}, \texttt{accepts()} & \ref{fig:classes-domaine} \\
+EF-21 & Composants & Composant \emph{Sondes d'infrastructure} & \ref{fig:composants} \\
+EF-22 & Composants & Composant \emph{Sondes d'infrastructure} & \ref{fig:composants} \\
+EF-23 & Statique   & \texttt{AttackFamily.INFRASTRUCTURE} & \ref{fig:enumerations} \\
+EF-25 & Dynamique  & Boucle de contr\^ole post-action & \ref{fig:sequence-boucle} \\
+EF-26 & Dynamique  & N\oe ud \emph{coupe-circuit ferm\'e ?} & \ref{fig:activite} \\
+EF-27 & Statique   & \texttt{FallbackPlanner}, \texttt{FallbackPlan} & \ref{fig:classes-repli} \\
+EF-28 & Dynamique  & Activit\'e \emph{\'Emettre une alerte persistante} & \ref{fig:activite-repli} \\
+EF-29 & Dynamique  & Activit\'e \emph{Ouvrir une demande de qualification} & \ref{fig:activite-repli} \\
+\midrule
+ENF-01 & D\'eploiement & N\oe ud unique, aucun lien sortant obligatoire & \ref{fig:deploiement} \\
+ENF-02 & Persistance  & Cha\^inage par empreintes, d\'eclencheurs d'interdiction & \ref{fig:chainage} \\
+ENF-03 & Statique     & \texttt{DecisionTrace} & \ref{fig:classes-domaine} \\
+ENF-04 & Dynamique    & Absence de message humain bloquant & \ref{fig:sequence-systeme} \\
+ENF-05 & Statique     & \texttt{SourceKind.REPLAY}, contrat d'idempotence & \ref{fig:enumerations}, \ref{fig:actionneurs} \\
+ENF-06 & Statique     & Invariant global sur \texttt{Decision.actions} & tab.~\ref{tab:invariants} \\
+ENF-07 & D\'eploiement & Topologie \`a n\oe ud unique & \ref{fig:deploiement} \\
+ENF-08 & Paquetages   & Adaptateurs isol\'es dans \texttt{ingestion} & \ref{fig:paquetages} \\
+ENF-09 & --- & Conception de l'interface d'exploitation & chap.~\ref{chap:implementation} \\
+ENF-10 & Persistance  & Tables \texttt{users}, \texttt{user\_sessions} & \ref{fig:mld} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%%%==========================================================================
+\section{Conclusion du chapitre}
+%%%==========================================================================
+La mod\'elisation men\'ee dans ce chapitre fait appara\^itre une coh\'erence qui n'\'etait
+pas acquise au d\'epart : \textbf{la contrainte de r\'eversibilit\'e se propage \`a tous
+les niveaux du mod\`ele}. Elle est un attribut dans le diagramme de classes, un
+invariant de construction dans les contrats, un n\oe ud de d\'ecision dans le
+diagramme d'activit\'e, un \'etat dans la machine \`a \'etats de l'action, une colonne
+dans le mod\`ele de donn\'ees, et une clause du contrat des actionneurs. Cette
+propagation n'est pas une redondance : c'est ce qui rend la contrainte
+incontournable par n'importe quel chemin d'ex\'ecution.
+
+Deux limites de conception m\'eritent d'\^etre \'enonc\'ees ici plut\^ot que d\'ecouvertes \`a
+la lecture des r\'esultats.
+
+\begin{enumerate}
+  \item \textbf{La mesure de r\'ef\'erence de la boucle de contr\^ole n'est pas
+        persist\'ee.} Apr\`es un red\'emarrage, la boucle s'abstient sur les actions
+        ant\'erieures. Le comportement est s\^ur --- elle pr\'ef\`ere ne rien faire plut\^ot
+        que comparer \`a une r\'ef\'erence qu'elle n'a pas prise --- mais il r\'eduit la
+        port\'ee r\'eelle d'EF-25 apr\`es incident d'exploitation.
+  \item \textbf{La qualification d'une menace hors catalogue reste une
+        proposition.} Le syst\`eme d\'eduit un nom, une famille et une criticit\'e des
+        indicateurs, mais l'entr\'ee ne rejoint le catalogue qu'apr\`es validation
+        humaine. Ce choix est d\'elib\'er\'e --- un catalogue qui s'enrichirait seul
+        d\'eriverait sans contr\^ole --- mais il maintient une d\'ependance \`a la
+        disponibilit\'e d'un analyste sur ce point pr\'ecis, et sur celui-l\`a seulement.
+\end{enumerate}
+
+Le chapitre suivant confronte ces mod\`eles \`a leur r\'ealisation.
