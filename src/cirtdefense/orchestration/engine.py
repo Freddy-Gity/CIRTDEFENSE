@@ -41,6 +41,7 @@ from ..persistence.repositories import (
 from .circuit_breaker import CircuitBreaker
 from .classifier import Classification, Classifier
 from .executor import ExecutionReport, Executor
+from .fallback import FallbackPlanner
 from .planner import Planner
 from .rollback import ControlLoopReport, RollbackService
 
@@ -90,10 +91,12 @@ class OrchestrationEngine:
         ledger: AuditLedger,
         notifier: Any = None,
         classifier: Classifier | None = None,
+        fallback: FallbackPlanner | None = None,
         autonomy_enabled: bool = True,
     ) -> None:
         self._enrichment = enrichment
         self._planner = planner
+        self._fallback = fallback
         self._executor = executor
         self._rollback = rollback
         self._breaker = breaker
@@ -151,6 +154,10 @@ class OrchestrationEngine:
                 rationale=decision.rationale,
             )
             self._incidents.save(incident)
+            # S'abstenir n'est pas rassurant : la menace reste entiere. Le
+            # silence sur une abstention est pire que sur une action, puisque
+            # l'action, elle, a au moins contenu quelque chose.
+            result.notifications = self._notify_abstention(incident, decision)
             return result
 
         # EF-07 : exécution immédiate, sans validation préalable.
@@ -219,14 +226,68 @@ class OrchestrationEngine:
             )
             return decision
 
-        # EF-04 : sans contexte fonde, pas d'action. C'est le refus le plus
-        # important du système, et celui qui couvre les menaces inconnues.
+        # EF-04 : sans contexte fondé, aucun playbook n'est choisi. C'est le
+        # refus le plus important du système, et il tient : on ne devine pas
+        # un type d'attaque pour en déduire une réponse.
+        #
+        # Le repli qui suit ne lève pas cette garde, il change de fondement.
+        # Il ne déduit rien du type — il part des indicateurs *observés* et
+        # n'engage que des gestes réversibles, à rayon contenu, annulables.
+        # Bloquer une adresse hostile protège quelle que soit l'attaque
+        # qu'elle porte ; c'est un fait constaté, pas une hypothèse.
         if not context.is_usable:
-            decision.outcome = DecisionOutcome.NO_GROUNDED_CONTEXT
+            repli = self._fallback.plan(event) if self._fallback else None
+            if repli is None or repli.empty:
+                decision.outcome = DecisionOutcome.NO_GROUNDED_CONTEXT
+                decision.rationale = (
+                    "contexte non fondé documentairement : "
+                    f"{context.grounding.reason if context.grounding else 'aucune source'}. "
+                    "Agir reviendrait a agir sur une hypothèse."
+                )
+                return decision
+
+            decision.fallback = repli.to_dict()
+            trace.considered_actions = [
+                s.spec.key for s in (*repli.autonomous, *repli.requires_confirmation)
+            ]
+            trace.rejected_actions = [
+                {
+                    "action": s.spec.key,
+                    "reason": (
+                        f"effet durable ({s.spec.reversibility.value}) : "
+                        f"{s.residual_effect or 'annulation partielle'} — "
+                        "confirmation humaine requise"
+                    ),
+                }
+                for s in repli.requires_confirmation
+            ]
+
+            # La politique s'applique au repli comme au reste : une consigne
+            # « ne jamais bloquer une adresse » vaut aussi pour une menace
+            # inconnue. Contourner la politique au motif de l'urgence serait
+            # exactement ce que la compilation a priori (EF-15) interdit.
+            autorisees, verdicts = self._apply_policy(
+                [s.spec for s in repli.autonomous], event, incident
+            )
+            trace.policy_verdicts = verdicts
+
+            if not autorisees:
+                decision.outcome = DecisionOutcome.POLICY_DENIED
+                decision.rationale = (
+                    "menace non catalogüée : le confinement de repli a été refusé "
+                    "par la politique de réponse. Aucune action n'est engagée."
+                )
+                return decision
+
+            decision.outcome = DecisionOutcome.AUTONOMOUS_EXECUTION
+            decision.actions = autorisees
             decision.rationale = (
-                "contexte non fondé documentairement : "
-                f"{context.grounding.reason if context.grounding else 'aucune source'}. "
-                "Agir reviendrait a agir sur une hypothèse."
+                "contexte non fondé documentairement : aucun playbook n'est applicable. "
+                "Confinement de repli engagé sur les seuls indicateurs observés "
+                f"({'; '.join(repli.observations[:3])}) — "
+                f"{len(autorisees)} geste(s) réversible(s), annulables. "
+                f"{len(repli.requires_confirmation)} geste(s) à effet durable attendent "
+                "une confirmation humaine. Le type d'attaque reste à qualifier."
             )
             return decision
 
@@ -306,6 +367,25 @@ class OrchestrationEngine:
         return allowed, verdicts
 
     # -- EF-13 revisee ------------------------------------------------------
+
+    def _notify_abstention(self, incident: Incident, decision: Decision) -> list[str]:
+        if self._notifier is None:
+            return []
+        sent = self._notifier.notify_abstention(incident, decision)
+        for notification_id in sent:
+            self._ledger.record(
+                AuditEventType.ANALYST_NOTIFIED,
+                {
+                    "notification_id": notification_id,
+                    "incident_id": incident.incident_id,
+                    "abstention": True,
+                    "outcome": decision.outcome.value,
+                    "rationale": decision.rationale,
+                },
+                incident_id=incident.incident_id,
+                decision_id=decision.decision_id,
+            )
+        return sent
 
     def _notify_after_the_fact(
         self, incident: Incident, decision: Decision, report: ExecutionReport

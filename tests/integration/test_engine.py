@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from cirtdefense.domain.enums import ActionStatus, DecisionOutcome
+from cirtdefense.domain.enums import ActionStatus, DecisionOutcome, Reversibility
 
 
 class TestExecutionAutonome:
@@ -33,19 +33,58 @@ class TestExecutionAutonome:
 
 
 class TestRefusDAgir:
-    def test_menace_non_documentee_bloque_l_action(self, platform):
-        """EF-04 : la limite assumee du périmètre autonome."""
+    def test_menace_non_documentee_ne_declenche_aucun_playbook(self, platform):
+        """EF-04 tient : sans documentation, aucun playbook n'est choisi — on
+        ne devine pas un type d'attaque pour en deduire une reponse.
+
+        Ce qui part, le cas echeant, releve du confinement de repli : des
+        gestes deduits des indicateurs *observes*, tous reversibles. La garde
+        n'est pas levee, son fondement change."""
         result = platform.ingest_and_respond(
             "generic_json",
             {
-                "category": "menace_totalement_inconnue",
+                "category": "menace_inedite_non_repertoriee",
                 "severity": "critical",
                 "asset_id": "srv-01",
-                "title": "signal opaque",
+                "title": "signal inconnu",
             },
         )
-        assert result.decision.outcome is DecisionOutcome.NO_GROUNDED_CONTEXT
-        assert result.execution is None
+
+        assert result.decision.trace.playbook_id == ""
+        for action in result.decision.actions:
+            assert action.reversibility is Reversibility.REVERSIBLE, (
+                f"{action.key} n'est pas reversible et ne doit pas partir seule "
+                "sur une menace non catalogüée"
+            )
+
+    def test_aucun_geste_durable_sur_menace_non_documentee(self, platform):
+        """Le partage demandé : réversible → la plateforme agit seule ;
+        durable ou irréversible → elle attend qu'un humain tranche."""
+        result = platform.ingest_and_respond(
+            "generic_json",
+            {
+                "category": "menace_inedite_non_repertoriee",
+                "severity": "critical",
+                "asset_id": "srv-01",
+                "title": "signal inconnu",
+            },
+        )
+
+        a_confirmer = result.decision.fallback.get("requires_confirmation", [])
+        engages = {a.key for a in result.decision.actions}
+        for suggestion in a_confirmer:
+            cle = f"{suggestion['actuator']}:{suggestion['verb']}"
+            assert cle not in engages, f"{cle} a effet durable et n'aurait pas dû partir"
+
+    def test_l_analyste_est_prevenu_meme_sans_action(self, platform):
+        """Le silence sur une abstention est pire que sur une action : une
+        menace inconnue est précisément celle contre laquelle personne n'est
+        préparé."""
+        result = platform.ingest_and_respond(
+            "generic_json",
+            {"category": "signal_totalement_inconnu", "severity": "critical", "title": "?"},
+        )
+        assert result.notifications, "une menace vue sans réponse doit être signalée"
 
     def test_politique_refusant_toutes_les_actions(self, platform, bruteforce_payload):
         """Quand plus aucune action candidate ne passe, la décision est un

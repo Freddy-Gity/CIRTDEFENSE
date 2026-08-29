@@ -45,6 +45,7 @@ from .logging_setup import log_with
 from .orchestration.circuit_breaker import CircuitBreaker
 from .orchestration.engine import OrchestrationEngine, OrchestrationResult
 from .orchestration.executor import Executor
+from .orchestration.fallback import FallbackPlanner
 from .orchestration.planner import Planner
 from .orchestration.policy_compiler import PolicyCompiler
 from .orchestration.portfolio import PortfolioService
@@ -260,6 +261,9 @@ def build_platform(
         actions=actions,
         ledger=ledger,
         notifier=notifier,
+        # Repli sur menace non catalogüée : gestes deduits des seuls
+        # indicateurs observes, filtres par le catalogue de reversibilite.
+        fallback=FallbackPlanner(catalog),
         autonomy_enabled=settings.autonomy.enabled,
     )
 
