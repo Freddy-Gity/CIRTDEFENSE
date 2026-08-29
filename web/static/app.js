@@ -1329,8 +1329,23 @@ async function vueCatalogue() {
 }
 
 // ================================================================= /demo
+// Le lancement d'un scenario rafraichit l'etat global, ce qui re-rend la vue :
+// sans memoire, le compte rendu disparaissait aussitot affiche. On le garde
+// donc ici et on le repose apres chaque rendu.
+let resultatDemo = "";
+const poserResultat = (html) => {
+  resultatDemo = html;
+  const hote = $("resultat");
+  if (!hote) return;
+  hote.innerHTML = html;
+  hote.scrollIntoView({ behavior: "smooth", block: "start" });
+};
+
 async function vueDemo() {
-  const data = await api("/api/v1/demo/scenarios");
+  const [data, inconnus] = await Promise.all([
+    api("/api/v1/demo/scenarios"),
+    api("/api/v1/demo/unknown").catch(() => ({ scenarios: [] })),
+  ]);
 
   $("vue").innerHTML = `
     <div class="carte" style="margin-bottom:16px">
@@ -1359,7 +1374,34 @@ async function vueDemo() {
             <span class="muet">dangerosité ${s.dangerousness}/10</span>
             ${s.no_direct_action ? '<span class="muet">· sans action corrective</span>' : ""}
           </div>
-        </div>`).join("")}</div>`).join("")}`;
+        </div>`).join("")}</div>`).join("")}
+
+    ${inconnus.scenarios.length ? `
+      <h2 style="margin-top:26px">Hors catalogue (${inconnus.scenarios.length})</h2>
+      <div class="carte" style="margin-bottom:12px">
+        Ces menaces ne figurent dans aucune des 22 lignes du catalogue. La plateforme
+        ne devine pas leur type : elle part des <b>indicateurs observés</b> et n'engage
+        seule que des gestes réversibles. Ce qui a un effet durable lui est proposé,
+        et attend une décision humaine.
+      </div>
+      <div class="attaques">${inconnus.scenarios.map((s) => `
+        <div class="attaque">
+          <div class="tete">
+            <span class="code">${esc(s.code)}</span>
+            <span class="etat critique">non catalogué</span>
+          </div>
+          <div class="titre">${esc(s.title)}</div>
+          <div class="recit">${esc(s.narrative)}</div>
+          <div class="pied">
+            <button data-inconnu="${esc(s.code)}">Lancer</button>
+            <span class="muet">${esc(s.indicators.join(" · "))}</span>
+          </div>
+        </div>`).join("")}</div>` : ""}`;
+
+  $("vue").querySelectorAll("button[data-inconnu]").forEach((b) =>
+    b.addEventListener("click", () => lancerInconnu(b)));
+
+  if (resultatDemo) $("resultat").innerHTML = resultatDemo;
 
   $("vue").querySelectorAll("button[data-code]").forEach((b) =>
     b.addEventListener("click", () => lancerUne(b)));
@@ -1367,11 +1409,81 @@ async function vueDemo() {
     b.addEventListener("click", () => lancerLot(b)));
   $("reset").addEventListener("click", async () => {
     const r = await post("/api/v1/demo/reset");
-    $("resultat").innerHTML = `<div class="carte" style="border-color:var(--good);margin-bottom:16px">
+    resultatDemo = "";
+    poserResultat(`<div class="carte" style="border-color:var(--good);margin-bottom:16px">
       Remise à zéro effectuée. ${r.audit_entries_kept} entrées d'audit conservées —
-      le journal est immuable par construction.</div>`;
+      le journal est immuable par construction.</div>`);
     await rafraichir();
   });
+}
+
+// Menace hors catalogue : le resultat doit montrer les deux volets, sans quoi
+// on ne comprend pas ce qui a ete fait ni ce qui reste a decider.
+async function lancerInconnu(bouton) {
+  bouton.disabled = true;
+  const texte = bouton.textContent;
+  bouton.textContent = "Traitement…";
+  try {
+    const r = await post(`/api/v1/demo/run-unknown/${bouton.dataset.inconnu}`);
+    afficherInconnu(r);
+    await rafraichir();
+  } catch (e) {
+    erreur(e.message);
+  } finally {
+    bouton.disabled = false;
+    bouton.textContent = texte;
+  }
+}
+
+function afficherInconnu(r) {
+  if (!r.accepted) {
+    poserResultat(`<div class="carte" style="border-color:var(--serious);margin-bottom:16px">
+        ${esc(r.reason || "scénario non traité")}</div>`);
+    return;
+  }
+
+  const geste = (s, partie) => `<tr>
+    <td class="mono"><b>${esc(s.actuator)}:${esc(s.verb)}</b></td>
+    <td class="mono">${esc(s.target)}</td>
+    <td class="muet">${esc(s.basis)}</td>
+    <td><span class="etat ${partie ? "basse" : "moyenne"}">${
+      esc(s.reversibility)}</span></td>
+    ${partie ? "" : `<td class="muet">${esc(s.residual_effect || "annulation partielle")}</td>`}
+  </tr>`;
+
+  poserResultat(`
+    <div class="carte" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <b>${esc(r.code)} — ${esc(r.scenario.title)}</b>
+        <span class="etat critique">non catalogué</span>
+        <span class="spacer"></span>
+        <span class="muet">incident ${esc(r.incident_id || "—")}</span>
+      </div>
+
+      <div class="muet" style="margin-bottom:14px">${esc(r.rationale)}</div>
+
+      <h3 style="margin:0 0 6px;font-size:12px">Ce que la plateforme a observé</h3>
+      <ul class="muet" style="margin:0 0 16px;padding-left:18px">
+        ${(r.observations || []).map((o) => `<li>${esc(o)}</li>`).join("")}
+      </ul>
+
+      <h3 style="margin:0 0 6px;font-size:12px;color:var(--success-text)">
+        Engagé seule — réversible (${(r.autonomous || []).length})</h3>
+      ${(r.autonomous || []).length ? `<table style="margin-bottom:16px"><thead><tr>
+        <th>Geste</th><th>Cible</th><th>Fondement observé</th><th>Réversibilité</th>
+      </tr></thead><tbody>${r.autonomous.map((s) => geste(s, true)).join("")}</tbody></table>`
+        : '<div class="vide">Aucun geste réversible applicable.</div>'}
+
+      <h3 style="margin:0 0 6px;font-size:12px;color:var(--serious)">
+        En attente d'une décision humaine — effet durable (${
+          (r.requires_confirmation || []).length})</h3>
+      ${(r.requires_confirmation || []).length ? `<table><thead><tr>
+        <th>Geste</th><th>Cible</th><th>Fondement observé</th><th>Réversibilité</th>
+        <th>Effet résiduel</th>
+      </tr></thead><tbody>${
+        r.requires_confirmation.map((s) => geste(s, false)).join("")}</tbody></table>`
+        : '<div class="vide">Aucun geste durable proposé.</div>'}
+    </div>`);
 }
 
 async function lancerUne(bouton) {
@@ -1394,8 +1506,7 @@ async function lancerLot(bouton) {
 }
 
 const erreur = (m) => {
-  $("resultat").innerHTML =
-    `<div class="carte" style="border-color:var(--critical);margin-bottom:16px">${esc(m)}</div>`;
+  poserResultat(`<div class="carte" style="border-color:var(--critical);margin-bottom:16px">${esc(m)}</div>`);
 };
 
 // Notification ephemere : confirme un geste des qu'il aboutit. `genre` vaut
@@ -1427,15 +1538,15 @@ function toast(message, genre = "ok") {
 
 function afficherResultat(r) {
   if (!r.accepted) {
-    $("resultat").innerHTML = `<div class="carte" style="margin-bottom:16px">
-      <b>${esc(r.code)}</b> — non traité : ${esc(r.reason)}</div>`;
+    poserResultat(`<div class="carte" style="margin-bottom:16px">
+      <b>${esc(r.code)}</b> — non traité : ${esc(r.reason)}</div>`);
     return;
   }
   const c = r.decision.classification;
   const actions = r.execution?.results || [];
   const ecartees = r.decision.trace?.rejected_actions || [];
 
-  $("resultat").innerHTML = `<div class="carte" style="margin-bottom:16px">
+  poserResultat(`<div class="carte" style="margin-bottom:16px">
     <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <span style="font-size:15px;font-weight:700">${esc(c.code)}</span>
       <span style="font-weight:600">${esc(c.label)}</span>
@@ -1471,11 +1582,11 @@ function afficherResultat(r) {
       <div class="quoi2">4 · Prescription du catalogue CIRT</div>
       <div class="muet">${esc(r.scenario.prescribed_actions)}</div>
     </div>
-  </div>`;
+  </div>`);
 }
 
 function afficherLot(r) {
-  $("resultat").innerHTML = `<div class="carte" style="margin-bottom:16px">
+  poserResultat(`<div class="carte" style="margin-bottom:16px">
     <div style="margin-bottom:10px"><b>${r.scenarios_run}</b> scénario(s) rejoué(s),
       <b>${r.actions_executed}</b> action(s) exécutée(s)${r.family ? ` — famille ${esc(r.family)}` : ""}.</div>
     <table><thead><tr><th>Type</th><th>Criticité</th><th>Dang.</th><th>Priorité</th><th>Actions</th></tr></thead>
@@ -1487,7 +1598,7 @@ function afficherLot(r) {
       <td>${x.classification.priority
         ? `<span class="etat ${esc(x.classification.priority)}">${esc(x.classification.priority)}</span>` : "—"}</td>
       <td class="mono">${esc(x.actions.join(", ") || "—")}</td>
-    </tr>`).join("")}</tbody></table></div>`;
+    </tr>`).join("")}</tbody></table></div>`);
 }
 
 
