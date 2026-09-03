@@ -307,3 +307,79 @@ class TestSignatureDeReconnaissance:
         charge["agent"]["id"] = "099"
         second = platform.adapter.ingest("wazuh", charge).event
         assert signature(premier) == signature(second)
+
+
+class TestIsolationApresExecution:
+    """Le point de non-retour : une panne annexe ne doit jamais faire croire
+    que la réponse n'a pas eu lieu.
+
+    Sans cette isolation, un serveur de messagerie injoignable faisait remonter
+    une exception à l'appelant *alors que les gestes étaient déjà posés sur les
+    équipements*. Le journal disait vrai, l'appelant croyait le contraire.
+    """
+
+    def _casser(self, platform, methode: str):
+        def tombe(*a, **k):
+            raise RuntimeError(f"panne simulée de {methode}")
+
+        setattr(platform.engine._notifier, methode, tombe)
+
+    def test_une_notification_en_panne_n_annule_pas_la_reponse(self, platform):
+        from cirtdefense.demo import build_payload, get_scenario
+
+        self._casser(platform, "notify_actions")
+        scenario = get_scenario("A1")
+        resultat = platform.ingest_and_respond(scenario.source, build_payload("A1"))
+
+        assert resultat is not None, "l'appel a échoué alors que les gestes ont eu lieu"
+        assert resultat.execution.executed >= 1
+        assert resultat.acted is True
+        assert any("notification" in a for a in resultat.warnings)
+
+    def test_l_incident_reste_enregistre(self, platform):
+        from cirtdefense.demo import build_payload, get_scenario
+
+        self._casser(platform, "notify_actions")
+        scenario = get_scenario("A1")
+        resultat = platform.ingest_and_respond(scenario.source, build_payload("A1"))
+        assert platform.incidents.get(resultat.incident.incident_id) is not None
+
+    def test_l_echec_est_remonte_et_non_masque(self, platform):
+        """Isoler ne veut pas dire taire : l'échec doit être lisible dans le
+        résultat et dans le journal applicatif."""
+        from cirtdefense.demo import build_payload, get_scenario
+
+        self._casser(platform, "notify_actions")
+        scenario = get_scenario("A1")
+        resultat = platform.ingest_and_respond(scenario.source, build_payload("A1"))
+        assert resultat.warnings
+        assert "RuntimeError" in resultat.warnings[0]
+        assert resultat.to_dict()["warnings"] == resultat.warnings
+
+    def test_une_panne_avant_execution_remonte_bien(self, platform):
+        """La contrepartie : avant le point de non-retour, une exception
+        signifie que l'événement n'a pas été traité, et l'appelant a raison
+        de l'apprendre."""
+        import pytest
+
+        from cirtdefense.demo import build_payload, get_scenario
+
+        def tombe(*a, **k):
+            raise RuntimeError("fonds documentaire illisible")
+
+        platform.engine._enrichment.enrich = tombe
+        scenario = get_scenario("A1")
+        with pytest.raises(RuntimeError):
+            platform.ingest_and_respond(scenario.source, build_payload("A1"))
+
+    def test_une_panne_du_registre_n_empeche_pas_le_confinement(self, platform):
+        """L'inscription des gestes en attente est de la tenue de registre :
+        son échec ne doit pas priver la cible de son confinement."""
+        def tombe(*a, **k):
+            raise RuntimeError("écriture impossible")
+
+        platform.engine._pending.open = tombe
+        resultat = platform.ingest_and_respond("wazuh", build_payload_inconnu("Z2"))
+        assert resultat.execution.executed >= 1
+        assert resultat.pending == []
+        assert any("attente" in a for a in resultat.warnings)

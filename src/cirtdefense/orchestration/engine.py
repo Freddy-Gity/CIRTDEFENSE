@@ -63,6 +63,13 @@ class OrchestrationResult:
     """Gestes a effet durable inscrits en attente d'une decision humaine."""
     qualification: dict[str, Any] | None = None
     """Fiche de qualification ouverte si la menace est hors catalogue."""
+    warnings: list[str] = field(default_factory=list)
+    """Traitements annexes ayant échoué APRÈS l'exécution.
+
+    Ils n'invalident pas la réponse : les gestes ont bien eu lieu. Les
+    remonter ici plutôt que de les laisser interrompre la chaîne évite qu'un
+    canal de notification en panne fasse croire à l'appelant que rien n'a
+    été fait."""
 
     @property
     def acted(self) -> bool:
@@ -78,6 +85,7 @@ class OrchestrationResult:
             "notifications": self.notifications,
             "pending": self.pending,
             "qualification": self.qualification,
+            "warnings": self.warnings,
             "acted": self.acted,
         }
 
@@ -122,6 +130,35 @@ class OrchestrationEngine:
         self._qualifier = qualifier or Qualifier()
         self._autonomy_enabled = autonomy_enabled
 
+    @staticmethod
+    def _sans_rompre(result: OrchestrationResult, quoi: str, action: Any) -> Any:
+        """Exécute un traitement annexe sans laisser son échec rompre la chaîne.
+
+        La règle est celle du point de non-retour : **tout ce qui suit la
+        première action exécutée doit être isolé**. Un geste posé sur un
+        équipement ne se dépose pas ; laisser une exception remonter ferait
+        croire à l'appelant que rien n'a eu lieu, et un collecteur qui
+        réessaierait produirait un second incident pour la même observation.
+
+        Ce qui précède l'exécution n'est pas isolé, et ne doit pas l'être :
+        là, une exception signifie que l'événement n'a pas été traité, et
+        l'appelant a raison de l'apprendre.
+        """
+        try:
+            return action()
+        except Exception as exc:  # noqa: BLE001
+            message = f"{quoi} : {type(exc).__name__} — {exc}"
+            result.warnings.append(message)
+            log_with(
+                logger,
+                logging.CRITICAL,
+                "traitement annexe en échec après exécution ; la réponse reste valide",
+                etape=quoi,
+                error=str(exc),
+                incident_id=result.incident.incident_id,
+            )
+            return None
+
     def set_policy(self, policy: ResponsePolicy) -> None:
         """Rechargement à chaud d'une politique recompilee."""
         self._policy = policy
@@ -162,11 +199,24 @@ class OrchestrationEngine:
         # doivent pas non plus se perdre dans une notification qu'on lit une
         # fois. Ils sont inscrits en attente et y restent tant que personne
         # n'a tranche.
-        result.pending = self._open_pending(incident, decision)
+        # Ces deux inscriptions sont de la tenue de registre : leur échec ne
+        # doit jamais empêcher le confinement qui suit.
+        result.pending = (
+            self._sans_rompre(
+                result,
+                "inscription des gestes en attente",
+                lambda: self._open_pending(incident, decision),
+            )
+            or []
+        )
 
         # EF-29 : une menace hors catalogue est contenue mais pas nommee. On
         # ouvre une fiche de qualification, qui reste une *proposition*.
-        result.qualification = self._propose_qualification(event, incident, classification)
+        result.qualification = self._sans_rompre(
+            result,
+            "ouverture de la fiche de qualification",
+            lambda: self._propose_qualification(event, incident, classification),
+        )
 
         if not decision.is_actionable:
             log_with(
@@ -177,11 +227,20 @@ class OrchestrationEngine:
                 outcome=decision.outcome.value,
                 rationale=decision.rationale,
             )
-            self._incidents.save(incident)
+            self._sans_rompre(
+                result, "enregistrement de l'incident", lambda: self._incidents.save(incident)
+            )
             # S'abstenir n'est pas rassurant : la menace reste entiere. Le
             # silence sur une abstention est pire que sur une action, puisque
             # l'action, elle, a au moins contenu quelque chose.
-            result.notifications = self._notify_abstention(incident, decision)
+            result.notifications = (
+                self._sans_rompre(
+                    result,
+                    "notification d'abstention",
+                    lambda: self._notify_abstention(incident, decision),
+                )
+                or []
+            )
             return result
 
         # EF-07 : exécution immédiate, sans validation préalable.
@@ -192,17 +251,34 @@ class OrchestrationEngine:
             watch_target=event.asset.correlation_key(),
         )
         result.execution = report
-        for action_result in report.results:
-            incident.register_action(action_result)
-        self._incidents.save(incident)
+
+        # --- POINT DE NON-RETOUR ------------------------------------------
+        # Les gestes sont posés. À partir d'ici, plus aucune exception ne doit
+        # remonter : elle ferait croire à l'appelant que la réponse n'a pas eu
+        # lieu, alors qu'elle est déjà appliquée sur les équipements.
+        def enregistrer() -> None:
+            for action_result in report.results:
+                incident.register_action(action_result)
+            self._incidents.save(incident)
+
+        self._sans_rompre(result, "enregistrement de l'incident", enregistrer)
 
         # EF-13 revisee : l'analyste est informé après coup, sans rien bloquer.
-        result.notifications = self._notify_after_the_fact(incident, decision, report)
+        result.notifications = (
+            self._sans_rompre(
+                result,
+                "notification a posteriori",
+                lambda: self._notify_after_the_fact(incident, decision, report),
+            )
+            or []
+        )
 
         # Un échec d'actuateur peut annoncer une panne en série : on laisse le
         # coupe-circuit en juger immédiatement plutôt qu'au prochain incident.
         if report.failed:
-            self._breaker.evaluate_auto_trip()
+            self._sans_rompre(
+                result, "évaluation du coupe-circuit", self._breaker.evaluate_auto_trip
+            )
 
         return result
 
