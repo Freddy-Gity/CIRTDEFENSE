@@ -433,6 +433,261 @@ class NotificationRepository:
         return True
 
 
+class PendingActionRepository:
+    """Gestes a effet durable en attente d'une decision humaine (EF-28).
+
+    Le depot ne juge rien : il conserve. La regle qui a envoye un geste ici
+    plutot que de l'executer est celle du planificateur de repli — reversible,
+    annulable, rayon contenu — et elle a deja tranche au moment ou la ligne
+    est ecrite.
+    """
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def open(
+        self,
+        *,
+        incident_id: str,
+        decision_id: str,
+        suggestion: dict[str, Any],
+    ) -> dict[str, Any]:
+        pending_id = f"pnd_{uuid.uuid4().hex[:16]}"
+        entree = {
+            "pending_id": pending_id,
+            "incident_id": incident_id,
+            "decision_id": decision_id,
+            "actuator": suggestion.get("actuator", ""),
+            "verb": suggestion.get("verb", ""),
+            "target": suggestion.get("target", ""),
+            "reversibility": suggestion.get("reversibility", ""),
+            "basis": suggestion.get("basis", ""),
+            "residual_effect": suggestion.get("residual_effect", ""),
+            "expected_effect": suggestion.get("expected_effect", ""),
+            "blast_radius": int(suggestion.get("blast_radius", 1)),
+            "parameters": suggestion.get("parameters", {}),
+            "status": "pending",
+            "created_at": datetime.now(UTC).isoformat(),
+            "resolved_at": None,
+            "resolved_by": "",
+            "resolution_note": "",
+            "action_id": None,
+        }
+        self._conn.execute(
+            """INSERT INTO pending_actions
+               (pending_id, incident_id, decision_id, actuator, verb, target,
+                reversibility, basis, residual_effect, blast_radius, status,
+                created_at, payload)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                pending_id,
+                incident_id,
+                decision_id,
+                entree["actuator"],
+                entree["verb"],
+                entree["target"],
+                entree["reversibility"],
+                entree["basis"],
+                entree["residual_effect"],
+                entree["blast_radius"],
+                "pending",
+                entree["created_at"],
+                json.dumps(entree, default=str),
+            ),
+        )
+        return entree
+
+    def get(self, pending_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT payload FROM pending_actions WHERE pending_id = ?", (pending_id,)
+        ).fetchone()
+        return json.loads(row["payload"]) if row else None
+
+    def pending(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Les gestes qui attendent encore. C'est ce que l'alerte represente."""
+        rows = self._conn.execute(
+            """SELECT payload FROM pending_actions WHERE status = 'pending'
+               ORDER BY created_at ASC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+        return [json.loads(r["payload"]) for r in rows]
+
+    def count_pending(self) -> int:
+        row = self._conn.execute(
+            "SELECT COUNT(*) AS n FROM pending_actions WHERE status = 'pending'"
+        ).fetchone()
+        return int(row["n"]) if row else 0
+
+    def for_incident(self, incident_id: str) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            "SELECT payload FROM pending_actions WHERE incident_id = ? ORDER BY created_at ASC",
+            (incident_id,),
+        ).fetchall()
+        return [json.loads(r["payload"]) for r in rows]
+
+    def resolve(
+        self,
+        pending_id: str,
+        *,
+        status: str,
+        actor: str,
+        note: str = "",
+        action_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Referme une attente. Idempotent : une ligne deja resolue est rendue
+        telle quelle plutot que reecrite, pour que deux analystes qui cliquent
+        en meme temps n'effacent pas la decision du premier."""
+        entree = self.get(pending_id)
+        if entree is None or entree["status"] != "pending":
+            return entree
+        entree["status"] = status
+        entree["resolved_at"] = datetime.now(UTC).isoformat()
+        entree["resolved_by"] = actor
+        entree["resolution_note"] = note
+        entree["action_id"] = action_id
+        self._conn.execute(
+            """UPDATE pending_actions
+               SET status = ?, resolved_at = ?, resolved_by = ?, resolution_note = ?,
+                   action_id = ?, payload = ?
+               WHERE pending_id = ? AND status = 'pending'""",
+            (
+                status,
+                entree["resolved_at"],
+                actor,
+                note,
+                action_id,
+                json.dumps(entree, default=str),
+                pending_id,
+            ),
+        )
+        return entree
+
+
+class LearnedTypeRepository:
+    """Catalogue appris : qualifications proposees, validees ou rejetees.
+
+    Seules les entrees `validated` sont consultees par le classificateur. Une
+    proposition n'a aucun effet sur le comportement du moteur tant qu'un humain
+    ne l'a pas confirmee (EF-29).
+    """
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def propose(self, fiche: dict[str, Any]) -> dict[str, Any]:
+        entree = {
+            "qualification_id": f"qal_{uuid.uuid4().hex[:16]}",
+            "status": "proposed",
+            "code": "",
+            "proposed_at": datetime.now(UTC).isoformat(),
+            "resolved_at": None,
+            "resolved_by": "",
+            **fiche,
+        }
+        self._conn.execute(
+            """INSERT INTO learned_types
+               (qualification_id, incident_id, status, code, label, family, category,
+                severity, dangerousness, signal, proposed_at, payload)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                entree["qualification_id"],
+                entree.get("incident_id", ""),
+                "proposed",
+                "",
+                entree.get("label", ""),
+                entree.get("family", ""),
+                entree.get("category", ""),
+                entree.get("severity", "medium"),
+                float(entree.get("dangerousness", 5.0)),
+                entree.get("signal", ""),
+                entree["proposed_at"],
+                json.dumps(entree, default=str),
+            ),
+        )
+        return entree
+
+    def get(self, qualification_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT payload FROM learned_types WHERE qualification_id = ?", (qualification_id,)
+        ).fetchone()
+        return json.loads(row["payload"]) if row else None
+
+    def by_status(self, status: str = "proposed", limit: int = 100) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            "SELECT payload FROM learned_types WHERE status = ? ORDER BY proposed_at DESC LIMIT ?",
+            (status, limit),
+        ).fetchall()
+        return [json.loads(r["payload"]) for r in rows]
+
+    def validated(self) -> list[dict[str, Any]]:
+        return self.by_status("validated", limit=1000)
+
+    def already_proposed_for(self, incident_id: str) -> bool:
+        row = self._conn.execute(
+            "SELECT 1 FROM learned_types WHERE incident_id = ? LIMIT 1", (incident_id,)
+        ).fetchone()
+        return row is not None
+
+    def category_is_taken(self, category: str) -> bool:
+        row = self._conn.execute(
+            "SELECT 1 FROM learned_types WHERE category = ? AND status = 'validated' LIMIT 1",
+            (category,),
+        ).fetchone()
+        return row is not None
+
+    def next_code(self) -> str:
+        """Codes du catalogue appris : L01, L02... distincts des A/B/C/D du
+        document CIRT, pour qu'on voie d'un coup d'oeil ce qui vient du
+        document metier et ce que la plateforme a appris."""
+        row = self._conn.execute(
+            "SELECT COUNT(*) AS n FROM learned_types WHERE status = 'validated'"
+        ).fetchone()
+        return f"L{int(row['n']) + 1:02d}"
+
+    def resolve(
+        self,
+        qualification_id: str,
+        *,
+        status: str,
+        actor: str,
+        corrections: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        entree = self.get(qualification_id)
+        if entree is None or entree["status"] != "proposed":
+            return entree
+        # L'humain corrige la proposition avant de la valider : c'est le point
+        # de la fiche. Seuls les champs qualifiants sont modifiables.
+        for champ in ("label", "family", "category", "severity", "dangerousness", "signal"):
+            if corrections and champ in corrections and corrections[champ] not in (None, ""):
+                entree[champ] = corrections[champ]
+        entree["status"] = status
+        entree["resolved_at"] = datetime.now(UTC).isoformat()
+        entree["resolved_by"] = actor
+        if status == "validated" and not entree.get("code"):
+            entree["code"] = self.next_code()
+        self._conn.execute(
+            """UPDATE learned_types
+               SET status = ?, code = ?, label = ?, family = ?, category = ?, severity = ?,
+                   dangerousness = ?, signal = ?, resolved_at = ?, resolved_by = ?, payload = ?
+               WHERE qualification_id = ? AND status = 'proposed'""",
+            (
+                status,
+                entree.get("code", ""),
+                entree.get("label", ""),
+                entree.get("family", ""),
+                entree.get("category", ""),
+                entree.get("severity", "medium"),
+                float(entree.get("dangerousness", 5.0)),
+                entree.get("signal", ""),
+                entree["resolved_at"],
+                actor,
+                json.dumps(entree, default=str),
+                qualification_id,
+            ),
+        )
+        return entree
+
+
 class MonitoredTargetRepository:
     """Plateformes déclarées à la main par l'administrateur.
 

@@ -43,12 +43,14 @@ from .ingestion.adapter import IngestionAdapter
 from .llm import build_provider
 from .logging_setup import log_with
 from .orchestration.circuit_breaker import CircuitBreaker
+from .orchestration.classifier import Classifier
 from .orchestration.engine import OrchestrationEngine, OrchestrationResult
 from .orchestration.executor import Executor
 from .orchestration.fallback import FallbackPlanner
 from .orchestration.planner import Planner
 from .orchestration.policy_compiler import PolicyCompiler
 from .orchestration.portfolio import PortfolioService
+from .orchestration.qualifier import Qualifier
 from .orchestration.reversibility import ReversibilityCatalog
 from .orchestration.rollback import RollbackService
 from .persistence.db import connect, init_schema
@@ -59,8 +61,10 @@ from .persistence.repositories import (
     DecisionRepository,
     EventRepository,
     IncidentRepository,
+    LearnedTypeRepository,
     MonitoredTargetRepository,
     NotificationRepository,
+    PendingActionRepository,
     PolicyRepository,
     PosteRepository,
     SessionRepository,
@@ -84,6 +88,8 @@ class Platform:
     actions: ActionRepository
     policies: PolicyRepository
     notifications: NotificationRepository
+    pending: PendingActionRepository
+    qualifications: LearnedTypeRepository
     targets: MonitoredTargetRepository
     conversations: ConversationRepository
     users: UserRepository
@@ -153,6 +159,12 @@ class Platform:
                 "effective": self.settings.autonomy.enabled and breaker.autonomy_active,
             },
             "circuit_breaker": breaker.to_dict(),
+            # L'alerte persistante se lit dans l'etat global : elle doit etre
+            # visible depuis n'importe quel ecran, pas seulement sur celui ou
+            # l'incident a ete traite.
+            "awaiting_human_decision": self.pending.count_pending(),
+            "qualifications_proposed": len(self.qualifications.by_status("proposed", 500)),
+            "learned_catalog": len(self.qualifications.validated()),
             "degraded_mode": self.degraded,
             "spool_size": self.spool.size(),
             "policy": {
@@ -194,6 +206,8 @@ def build_platform(
     actions = ActionRepository(connection)
     policies = PolicyRepository(connection)
     notifications = NotificationRepository(connection)
+    pending = PendingActionRepository(connection)
+    qualifications = LearnedTypeRepository(connection)
     targets = MonitoredTargetRepository(connection)
     conversations = ConversationRepository(connection)
     users = UserRepository(connection)
@@ -264,6 +278,15 @@ def build_platform(
         # Repli sur menace non catalogüée : gestes deduits des seuls
         # indicateurs observes, filtres par le catalogue de reversibilite.
         fallback=FallbackPlanner(catalog),
+        # EF-28 / EF-29 : ce que la plateforme refuse d'engager seule reste
+        # inscrit jusqu'a decision humaine, et ce qu'elle ne sait pas nommer
+        # ouvre une fiche de qualification.
+        pending=pending,
+        qualifications=qualifications,
+        qualifier=Qualifier(),
+        # Le classificateur consulte le catalogue appris a cote du document
+        # metier : une qualification validee sert des l'incident suivant.
+        classifier=Classifier(learned=qualifications),
         autonomy_enabled=settings.autonomy.enabled,
     )
 
@@ -296,6 +319,8 @@ def build_platform(
         actions=actions,
         policies=policies,
         notifications=notifications,
+        pending=pending,
+        qualifications=qualifications,
         targets=targets,
         conversations=conversations,
         users=users,

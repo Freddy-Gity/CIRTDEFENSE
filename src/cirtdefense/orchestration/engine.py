@@ -43,6 +43,7 @@ from .classifier import Classification, Classifier
 from .executor import ExecutionReport, Executor
 from .fallback import FallbackPlanner
 from .planner import Planner
+from .qualifier import Qualifier
 from .rollback import ControlLoopReport, RollbackService
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,10 @@ class OrchestrationResult:
     execution: ExecutionReport | None = None
     control_loop: ControlLoopReport | None = None
     notifications: list[str] = field(default_factory=list)
+    pending: list[dict[str, Any]] = field(default_factory=list)
+    """Gestes a effet durable inscrits en attente d'une decision humaine."""
+    qualification: dict[str, Any] | None = None
+    """Fiche de qualification ouverte si la menace est hors catalogue."""
 
     @property
     def acted(self) -> bool:
@@ -71,6 +76,8 @@ class OrchestrationResult:
             "execution": self.execution.to_dict() if self.execution else None,
             "control_loop": self.control_loop.to_dict() if self.control_loop else None,
             "notifications": self.notifications,
+            "pending": self.pending,
+            "qualification": self.qualification,
             "acted": self.acted,
         }
 
@@ -92,6 +99,9 @@ class OrchestrationEngine:
         notifier: Any = None,
         classifier: Classifier | None = None,
         fallback: FallbackPlanner | None = None,
+        pending: Any = None,
+        qualifications: Any = None,
+        qualifier: Qualifier | None = None,
         autonomy_enabled: bool = True,
     ) -> None:
         self._enrichment = enrichment
@@ -107,6 +117,9 @@ class OrchestrationEngine:
         self._ledger = ledger
         self._notifier = notifier
         self._classifier = classifier or Classifier()
+        self._pending = pending
+        self._qualifications = qualifications
+        self._qualifier = qualifier or Qualifier()
         self._autonomy_enabled = autonomy_enabled
 
     def set_policy(self, policy: ResponsePolicy) -> None:
@@ -144,6 +157,17 @@ class OrchestrationEngine:
         )
 
         result = OrchestrationResult(event=event, incident=incident, decision=decision)
+
+        # EF-28 : les gestes a effet durable ne sont pas executes, mais ils ne
+        # doivent pas non plus se perdre dans une notification qu'on lit une
+        # fois. Ils sont inscrits en attente et y restent tant que personne
+        # n'a tranche.
+        result.pending = self._open_pending(incident, decision)
+
+        # EF-29 : une menace hors catalogue est contenue mais pas nommee. On
+        # ouvre une fiche de qualification, qui reste une *proposition*.
+        result.qualification = self._propose_qualification(event, incident, classification)
+
         if not decision.is_actionable:
             log_with(
                 logger,
@@ -365,6 +389,77 @@ class OrchestrationEngine:
             if verdict.allowed:
                 allowed.append(spec)
         return allowed, verdicts
+
+    # -- EF-28 : ce qui attend une decision humaine -------------------------
+
+    def _open_pending(self, incident: Incident, decision: Decision) -> list[dict[str, Any]]:
+        """Inscrit les gestes a effet durable, et les y laisse.
+
+        La difference avec une notification est le point du mecanisme : une
+        notification informe une fois, une ligne en attente se represente a
+        chaque consultation. C'est ce qui la rend persistante au sens ou le
+        CIRT l'a demandee.
+        """
+        if self._pending is None or not decision.fallback:
+            return []
+        ouverts: list[dict[str, Any]] = []
+        for suggestion in decision.fallback.get("requires_confirmation", []):
+            entree = self._pending.open(
+                incident_id=incident.incident_id,
+                decision_id=decision.decision_id,
+                suggestion=suggestion,
+            )
+            ouverts.append(entree)
+            self._ledger.record(
+                AuditEventType.CONFIRMATION_REQUESTED,
+                {
+                    "pending_id": entree["pending_id"],
+                    "action": f"{entree['actuator']}:{entree['verb']}",
+                    "target": entree["target"],
+                    "reversibility": entree["reversibility"],
+                    "residual_effect": entree["residual_effect"],
+                    "basis": entree["basis"],
+                },
+                incident_id=incident.incident_id,
+                decision_id=decision.decision_id,
+            )
+        if ouverts and self._notifier is not None:
+            self._notifier.notify_pending(incident, ouverts)
+        return ouverts
+
+    # -- EF-29 : nommer ce qui ne l'etait pas -------------------------------
+
+    def _propose_qualification(
+        self, event: DetectionEvent, incident: Incident, classification: Classification
+    ) -> dict[str, Any] | None:
+        """Ouvre une fiche pour un incident que le catalogue ne couvre pas.
+
+        Une seule fiche par incident : rouvrir une proposition a chaque
+        evenement correle noierait l'analyste sous des doublons.
+        """
+        if self._qualifications is None or classification.is_catalogued:
+            return None
+        if self._qualifications.already_proposed_for(incident.incident_id):
+            return None
+        fiche = self._qualifier.propose(
+            event,
+            incident.incident_id,
+            dangerousness=classification.dangerousness,
+            severity=classification.severity,
+        )
+        entree = self._qualifications.propose(fiche.to_dict())
+        self._ledger.record(
+            AuditEventType.QUALIFICATION_PROPOSED,
+            {
+                "qualification_id": entree["qualification_id"],
+                "label": entree["label"],
+                "family": entree["family"],
+                "signature": entree["category"],
+                "rationale": entree.get("rationale", ""),
+            },
+            incident_id=incident.incident_id,
+        )
+        return entree
 
     # -- EF-13 revisee ------------------------------------------------------
 

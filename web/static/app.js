@@ -367,10 +367,12 @@ function badge(route, valeur) {
 
 // =========================================================== /dashboard
 async function vueDashboard() {
-  const [portefeuille, stats, audit] = await Promise.all([
+  const [portefeuille, stats, audit, attentes, fiches] = await Promise.all([
     api("/api/v1/incidents?limit=200"),
     api("/api/v1/incidents/statistics"),
     api("/api/v1/audit?limit=40"),
+    api("/api/v1/pending").catch(() => ({ count: 0, pending: [] })),
+    api("/api/v1/qualifications").catch(() => ({ count: 0, qualifications: [] })),
   ]);
   const etat = etatGlobal;
   const cb = etat.circuit_breaker;
@@ -387,8 +389,11 @@ async function vueDashboard() {
   });
 
   badge("/incidents/portfolio", portefeuille.count || 0);
+  badge("/dashboard", (attentes.count || 0) + (fiches.count || 0));
 
   $("vue").innerHTML = `
+    ${blocAttentes(attentes)}
+    ${blocQualifications(fiches)}
     <h2>Statistiques sur 24 heures</h2>
     <div class="grille six">
       ${tuile(stats.incidents_total, "Incidents traités", "toutes familles confondues")}
@@ -441,6 +446,127 @@ async function vueDashboard() {
              <a href="/demo" data-lien>lancez une attaque depuis la Démonstration</a>.</div>`}
     </div>`;
   brancherLiens();
+  brancherDecisions();
+}
+
+// ------------------------------------------- EF-28 : decisions requises
+// Une notification se lit une fois et se perd. Ces blocs restent affiches
+// tant qu'aucune decision n'a ete prise : c'est ce qui en fait une alerte
+// persistante au sens ou le CIRT l'a demandee.
+function blocAttentes(attentes) {
+  if (!attentes.count) return "";
+  return `
+    <div class="carte alerte-durable">
+      <div class="tete-alerte">
+        <span class="etat critique">décision requise</span>
+        <b>${attentes.count} geste(s) à effet durable attendent votre décision</b>
+      </div>
+      <div class="muet" style="margin:6px 0 12px">
+        Ils n'ont pas été exécutés : la plateforme n'engage seule que ce qu'elle sait
+        annuler entièrement. Ils resteront ici tant que personne n'aura tranché.
+      </div>
+      <table><thead><tr>
+        <th>Geste</th><th>Cible</th><th>Fondement observé</th>
+        <th>Ce qui subsisterait</th><th>Décision</th>
+      </tr></thead><tbody>
+      ${attentes.pending.map((a) => `<tr>
+        <td class="mono"><b>${esc(a.actuator)}:${esc(a.verb)}</b></td>
+        <td class="mono">${esc(a.target)}</td>
+        <td class="muet">${esc(a.basis)}</td>
+        <td class="muet">${esc(a.residual_effect || "annulation partielle")}</td>
+        <td class="choix">
+          <button data-att="${esc(a.pending_id)}" data-issue="confirm">Confirmer</button>
+          <button data-att="${esc(a.pending_id)}" data-issue="handled">J'ai agi</button>
+          <button data-att="${esc(a.pending_id)}" data-issue="decline">Écarter</button>
+        </td>
+      </tr>`).join("")}
+      </tbody></table>
+    </div>`;
+}
+
+// ------------------------------------------- EF-29 : fiches a qualifier
+function blocQualifications(fiches) {
+  if (!fiches.count) return "";
+  return `
+    <div class="carte alerte-qualif">
+      <div class="tete-alerte">
+        <span class="etat moyenne">à qualifier</span>
+        <b>${fiches.count} menace(s) hors catalogue attendent d'être nommée(s)</b>
+      </div>
+      <div class="muet" style="margin:6px 0 12px">
+        La plateforme propose un nom à partir de ce qu'elle a observé. Elle ne pose
+        pas de diagnostic : c'est vous qui décidez si le nom porte un sens métier.
+        Une fiche validée rejoint le catalogue appris et la menace sera reconnue
+        à sa prochaine occurrence.
+      </div>
+      ${fiches.qualifications.map((f) => `
+        <div class="fiche">
+          <div class="champ-fiche">
+            <label>Nom proposé</label>
+            <input data-fiche="${esc(f.qualification_id)}" data-champ="label"
+                   value="${esc(f.label)}">
+          </div>
+          <div class="ligne-fiche">
+            <span class="muet">famille <b>${esc(f.family)}</b></span>
+            <span class="muet">gravité <b>${esc(f.severity)}</b></span>
+            <span class="muet">dangerosité <b>${esc(String(f.dangerousness))}/10</b></span>
+            <span class="muet mono">clé ${esc(f.category)}</span>
+          </div>
+          <div class="muet" style="margin:6px 0">
+            <b>Observé :</b> ${esc(f.signal)}
+          </div>
+          <div class="muet" style="font-size:11px">${esc(f.rationale || "")}</div>
+          <div class="choix" style="margin-top:10px">
+            <button data-fiche-act="${esc(f.qualification_id)}" data-issue="adopt">
+              Valider et cataloguer</button>
+            <button data-fiche-act="${esc(f.qualification_id)}" data-issue="dismiss">
+              Rejeter</button>
+          </div>
+        </div>`).join("")}
+    </div>`;
+}
+
+function brancherDecisions() {
+  $("vue").querySelectorAll("button[data-att]").forEach((b) =>
+    b.addEventListener("click", () => trancher(b)));
+  $("vue").querySelectorAll("button[data-fiche-act]").forEach((b) =>
+    b.addEventListener("click", () => qualifier(b)));
+}
+
+const LIBELLE_ISSUE = {
+  confirm: "geste confirmé et exécuté",
+  handled: "intervention manuelle enregistrée",
+  decline: "geste écarté",
+};
+
+async function trancher(bouton) {
+  const issue = bouton.dataset.issue;
+  const motif = prompt(
+    issue === "confirm" ? "Motif de la confirmation (consigné au journal) :"
+    : issue === "handled" ? "Ce que vous avez fait sur l'équipement :"
+    : "Pourquoi écarter ce geste ?");
+  if (!motif || motif.trim().length < 3) return;
+  bouton.disabled = true;
+  try {
+    await post(`/api/v1/pending/${bouton.dataset.att}/${issue}`, { reason: motif.trim() });
+    toast(LIBELLE_ISSUE[issue]);
+    await rafraichir();
+  } catch (e) { toast(e.message, "erreur"); bouton.disabled = false; }
+}
+
+async function qualifier(bouton) {
+  const id = bouton.dataset.fiche_act || bouton.dataset["ficheAct"];
+  const issue = bouton.dataset.issue;
+  const champ = $("vue").querySelector(`input[data-fiche="${id}"][data-champ="label"]`);
+  const corps = issue === "adopt" && champ ? { label: champ.value.trim() } : {};
+  bouton.disabled = true;
+  try {
+    const r = await post(`/api/v1/qualifications/${id}/${issue}`, corps);
+    toast(issue === "adopt"
+      ? `type ${r.qualification.code} inscrit au catalogue appris`
+      : "proposition rejetée");
+    await rafraichir();
+  } catch (e) { toast(e.message, "erreur"); bouton.disabled = false; }
 }
 
 function etiquetteEvenement(e) {

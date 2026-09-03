@@ -118,6 +118,25 @@ h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
 h2:first-child { margin-top: 0; }
 .carte { background: var(--surface-1); border: 1px solid var(--ring); border-radius: 9px; padding: 14px 16px; }
 .grille { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); }
+
+/* --- EF-28 / EF-29 : ce qui attend une decision humaine ------------------
+   Ces deux blocs coiffent la vue d'ensemble tant qu'ils ont du contenu.
+   Leur persistance est le mecanisme : une notification se lit une fois, une
+   ligne en attente se represente a chaque consultation. */
+.alerte-durable { border-left: 3px solid var(--critical); margin-bottom: 16px; }
+.alerte-qualif  { border-left: 3px solid var(--warning);  margin-bottom: 16px; }
+.tete-alerte { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.choix { display: flex; gap: 6px; flex-wrap: wrap; }
+.choix button { white-space: nowrap; font-size: 12px; padding: 5px 11px; }
+.alerte-durable td { vertical-align: top; }
+.fiche { border: 1px solid var(--ring); border-radius: 7px; padding: 12px 14px; margin-top: 10px; }
+.champ-fiche label { display: block; font-size: 11px; color: var(--ink-muted);
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.champ-fiche input { width: 100%; padding: 7px 10px; border-radius: 6px;
+  border: 1px solid var(--ring); background: var(--surface-0); color: var(--ink-1);
+  font-size: 13px; font-family: inherit; }
+.ligne-fiche { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 9px; font-size: 12px; }
+
 /* Six tuiles se repartissent en 5+1 avec auto-fit, ce qui laisse la derniere
    isolee. Sur large ecran on impose trois colonnes : deux rangees egales. */
 @media (min-width: 1180px) { .grille.six { grid-template-columns: repeat(3, 1fr); } }

@@ -82,6 +82,64 @@ class AnalystNotifier:
             return []
         return [outcome.rollback_token or outcome.message]
 
+    def notify_pending(self, incident: Incident, attentes: list[dict[str, Any]]) -> list[str]:
+        """Signale les gestes à effet durable qui attendent une décision (EF-28).
+
+        Cette notification double une inscription en base : c'est voulu. La
+        notification prévient tout de suite ; l'inscription, elle, subsiste et
+        se represente tant que personne n'a tranché. Une alerte qui disparaît
+        dès qu'on l'a lue n'est pas une alerte persistante.
+        """
+        if not attentes:
+            return []
+        lignes = [
+            "Une menace hors catalogue a été partiellement contenue.",
+            "",
+            f"Incident : {incident.incident_id} — cible {incident.correlation_key}",
+            "",
+            f"{len(attentes)} GESTE(S) À EFFET DURABLE ATTENDENT VOTRE DÉCISION",
+            "  Ils n'ont PAS été exécutés : la plateforme n'engage seule que ce",
+            "  qu'elle sait annuler entièrement.",
+            "",
+        ]
+        for attente in attentes:
+            lignes += [
+                f"  · {attente['actuator']}:{attente['verb']} -> {attente['target']}",
+                f"      fondement : {attente['basis']}",
+                "      ce qui subsisterait : "
+                + (attente["residual_effect"] or "annulation partielle"),
+                f"      confirmer  : POST /api/v1/pending/{attente['pending_id']}/confirm",
+                f"      j'ai agi   : POST /api/v1/pending/{attente['pending_id']}/handled",
+                f"      écarter    : POST /api/v1/pending/{attente['pending_id']}/decline",
+                "",
+            ]
+        lignes.append("Tant qu'aucune décision n'est prise, ces gestes restent en attente.")
+
+        outcome = self._actuator.execute(
+            "notify",
+            self._recipient,
+            {
+                "channel": "analyst",
+                "severity": "high",
+                "subject": (
+                    f"DÉCISION REQUISE — {len(attentes)} geste(s) durable(s) "
+                    f"sur {incident.correlation_key}"
+                ),
+                "body": "\n".join(lignes),
+                "incident_id": incident.incident_id,
+            },
+        )
+        if not outcome.success:
+            log_with(
+                logger,
+                logging.ERROR,
+                "la notification de décision requise a échoué ; "
+                "les gestes restent inscrits en attente",
+                incident_id=incident.incident_id,
+            )
+            return []
+        return [outcome.rollback_token or outcome.message]
+
     def notify_actions(self, incident: Incident, decision: Decision, report: Any) -> list[str]:
         if not report.results:
             return []

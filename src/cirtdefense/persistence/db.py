@@ -160,6 +160,59 @@ CREATE TABLE IF NOT EXISTS monitored_targets (
     declared_by   TEXT NOT NULL DEFAULT ''
 );
 
+-- Gestes a effet durable deduits d'une menace hors catalogue : la plateforme
+-- ne les engage pas seule (EF-14). Ils restent ici jusqu'a ce qu'un humain
+-- tranche, et c'est cette persistance qui fait l'alerte : une notification se
+-- lit une fois et se perd, une ligne au statut `pending` se represente a
+-- chaque consultation tant que personne n'a decide.
+CREATE TABLE IF NOT EXISTS pending_actions (
+    pending_id      TEXT PRIMARY KEY,
+    incident_id     TEXT NOT NULL,
+    decision_id     TEXT NOT NULL,
+    actuator        TEXT NOT NULL,
+    verb            TEXT NOT NULL,
+    target          TEXT NOT NULL,
+    reversibility   TEXT NOT NULL,
+    basis           TEXT NOT NULL DEFAULT '',
+    residual_effect TEXT NOT NULL DEFAULT '',
+    blast_radius    INTEGER NOT NULL DEFAULT 1,
+    -- pending | confirmed | declined | handled_by_human
+    status          TEXT NOT NULL DEFAULT 'pending',
+    created_at      TEXT NOT NULL,
+    resolved_at     TEXT,
+    resolved_by     TEXT NOT NULL DEFAULT '',
+    resolution_note TEXT NOT NULL DEFAULT '',
+    action_id       TEXT,
+    payload         TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pending_status ON pending_actions(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_pending_incident ON pending_actions(incident_id);
+
+-- Catalogue appris : types d'attaque qualifies a partir d'incidents hors
+-- catalogue. Une entree ne rejoint le catalogue effectif qu'une fois
+-- `validated` par un humain. Un catalogue qui s'enrichirait seul deriverait
+-- sans controle, et l'on ne saurait plus, au bout de quelques mois, sur quoi
+-- la plateforme fonde ses reponses.
+CREATE TABLE IF NOT EXISTS learned_types (
+    qualification_id TEXT PRIMARY KEY,
+    incident_id      TEXT NOT NULL,
+    -- proposed | validated | rejected
+    status           TEXT NOT NULL DEFAULT 'proposed',
+    code             TEXT NOT NULL DEFAULT '',
+    label            TEXT NOT NULL,
+    family           TEXT NOT NULL,
+    category         TEXT NOT NULL,
+    severity         TEXT NOT NULL,
+    dangerousness    REAL NOT NULL DEFAULT 5.0,
+    signal           TEXT NOT NULL DEFAULT '',
+    proposed_at      TEXT NOT NULL,
+    resolved_at      TEXT,
+    resolved_by      TEXT NOT NULL DEFAULT '',
+    payload          TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_learned_status ON learned_types(status, proposed_at);
+CREATE INDEX IF NOT EXISTS idx_learned_category ON learned_types(category, status);
+
 CREATE TABLE IF NOT EXISTS breaker_state (
     id          INTEGER PRIMARY KEY CHECK (id = 1),
     state       TEXT NOT NULL,
