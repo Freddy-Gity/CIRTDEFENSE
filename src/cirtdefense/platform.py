@@ -70,6 +70,7 @@ from .persistence.repositories import (
     SessionRepository,
     UserRepository,
 )
+from .reporting.composer import Compositeur
 from .security.access import POSTES_PAR_DEFAUT
 
 logger = logging.getLogger(__name__)
@@ -113,6 +114,7 @@ class Platform:
     probe: HealthProbe
     assistant: AssistantService
     reports: ReportBuilder
+    compositeur: Compositeur
     degraded: bool = False
 
     # -- chaîne nominale ----------------------------------------------------
@@ -309,6 +311,21 @@ def build_platform(
     )
     reports = ReportBuilder(collector, site_id=settings.site_id)
 
+    # Édition des rapports officiels : le compositeur lit les mêmes dépôts que
+    # l'assistant, mais rend un document mis en page plutôt qu'un texte. Il est
+    # construit ici pour que les routes n'aient pas à recâbler six dépendances.
+    compositeur = Compositeur(
+        collector=collector,
+        portfolio=PortfolioService(incidents, actions),
+        incidents=incidents,
+        actions=actions,
+        ledger=ledger,
+        decisions=decisions,
+        settings=settings,
+        site_id=settings.site_id,
+        logo=settings.report_logo,
+    )
+
     platform = Platform(
         settings=settings,
         connection=connection,
@@ -344,6 +361,7 @@ def build_platform(
         probe=health_probe,
         assistant=assistant,
         reports=reports,
+        compositeur=compositeur,
     )
 
     log_with(

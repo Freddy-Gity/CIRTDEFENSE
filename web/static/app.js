@@ -1729,45 +1729,197 @@ function afficherLot(r) {
 
 
 // ============================================================== /reports
+// Rien n'est produit a l'ouverture de l'ecran. Un rapport que personne n'a
+// demande n'a pas d'objet, et en generer un d'office laisse croire que la
+// plateforme ne sait en faire qu'un seul.
+
+let optionsRapport = null;
+
 async function vueRapports() {
-  const PERIODES = [
-    { h: 24, label: "24 heures" }, { h: 168, label: "7 jours" },
-    { h: 720, label: "30 jours" }, { h: 2160, label: "90 jours" },
-  ];
+  if (!optionsRapport) optionsRapport = await api("/api/v1/rapports/options");
+  const o = optionsRapport;
+
+  // Les interventions proposees viennent du portefeuille : on ne demande pas
+  // a l'exploitant de retenir un numero de dossier.
+  let interventions = [];
+  try {
+    const pf = await api("/api/v1/incidents?limit=200");
+    interventions = pf.incidents || [];
+  } catch { interventions = []; }
+
+  const menu = (id, choix) => `<select id="${id}">${choix.map((c) =>
+    `<option value="${esc(c.cle)}">${esc(c.libelle)}</option>`).join("")}</select>`;
 
   $("vue").innerHTML = `
     <div class="carte" style="margin-bottom:16px">
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <span class="muet">Période :</span>
-        <select id="periode">
-          ${PERIODES.map((p, i) =>
-            `<option value="${p.h}" ${i === 0 ? "selected" : ""}>${p.label}</option>`).join("")}
-        </select>
-        <button class="primaire" id="generer">Générer</button>
-        <a class="btn" id="exporter" href="/api/v1/assistant/report.md?hours=24"
-           download>Exporter en Markdown</a>
+      <h3 style="margin:0 0 4px">Éditer un rapport</h3>
+      <p class="muet" style="margin:0 0 14px">
+        Choisissez ce que le rapport doit couvrir, puis le format sous lequel
+        vous souhaitez l'obtenir. Le document reprend la présentation des
+        actes officiels et peut être signé en l'état.
+      </p>
+
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+        <div class="champ">
+          <label for="perimetre">Ce que doit couvrir le rapport</label>
+          ${menu("perimetre", o.perimetres)}
+        </div>
+        <div class="champ" id="bloc-valeur" hidden>
+          <label for="valeur" id="etiquette-valeur">Précision</label>
+          <select id="valeur"></select>
+        </div>
+        <div class="champ" id="bloc-fenetre">
+          <label for="fenetre">Sur quelle durée</label>
+          ${menu("fenetre", o.fenetres)}
+        </div>
+        <div class="champ">
+          <label for="format">Format du fichier</label>
+          ${menu("format", o.formats)}
+        </div>
+        <button class="primaire" id="previsualiser">Prévisualiser</button>
+        <button id="telecharger">Télécharger</button>
       </div>
     </div>
-    <div id="apercu"></div>`;
+    <div id="apercu">
+      <div class="vide">
+        Aucun rapport n'est généré tant que vous n'en avez pas demandé un.
+        Précisez le périmètre ci-dessus, puis lancez la prévisualisation.
+      </div>
+    </div>`;
 
-  const majLien = () => {
-    $("exporter").href = `/api/v1/assistant/report.md?hours=${$("periode").value}`;
+  const valeursPour = (perimetre) => {
+    switch (perimetre) {
+      case "incident": return { etiquette: "Quelle intervention",
+        choix: interventions.map((i) => ({ cle: i.incident_id,
+          libelle: `${numeroCourt(i.incident_id)} — ${i.attack_label || "menace non qualifiée"}` })) };
+      case "famille": return { etiquette: "Quelle famille d'attaque", choix: o.familles };
+      case "criticite": return { etiquette: "À partir de quelle gravité", choix: o.criticites };
+      case "type": return { etiquette: "Quel type du catalogue", choix: o.types };
+      default: return null;
+    }
   };
-  $("periode").addEventListener("change", majLien);
 
-  const generer = async () => {
-    const heures = $("periode").value;
-    $("apercu").innerHTML = '<div class="vide">Génération…</div>';
+  const majFormulaire = () => {
+    const perimetre = $("perimetre").value;
+    const detail = valeursPour(perimetre);
+    $("bloc-valeur").hidden = !detail;
+    // Une intervention porte sa propre date : lui appliquer une fenêtre de
+    // temps n'aurait aucun sens et laisserait croire qu'on peut la manquer.
+    $("bloc-fenetre").hidden = perimetre === "incident";
+    if (detail) {
+      $("etiquette-valeur").textContent = detail.etiquette;
+      $("valeur").innerHTML = detail.choix.length
+        ? detail.choix.map((c) => `<option value="${esc(c.cle)}">${esc(c.libelle)}</option>`).join("")
+        : `<option value="">Aucun élément disponible</option>`;
+    }
+  };
+
+  const parametres = () => {
+    const p = new URLSearchParams({ perimetre: $("perimetre").value,
+      fenetre: $("fenetre").value });
+    if (!$("bloc-valeur").hidden) p.set("valeur", $("valeur").value || "");
+    return p;
+  };
+
+  const previsualiser = async () => {
+    $("apercu").innerHTML = '<div class="vide">Composition du rapport…</div>';
     try {
-      const r = await api(`/api/v1/assistant/report?hours=${heures}`);
-      $("apercu").innerHTML = `<div class="carte md">${markdown(r.markdown)}</div>`;
+      const r = await api(`/api/v1/rapports/apercu?${parametres()}`);
+      $("apercu").innerHTML = rendreFeuille(r.document);
     } catch (e) {
       $("apercu").innerHTML = `<div class="carte" style="border-color:var(--critical)">${esc(e.message)}</div>`;
     }
   };
-  $("generer").addEventListener("click", generer);
-  majLien();
-  await generer();
+
+  const telecharger = () => {
+    const p = parametres();
+    p.set("format", $("format").value);
+    // Une redirection plutôt qu'un fetch : le navigateur enregistre alors le
+    // fichier sous le nom que le serveur lui donne.
+    window.location.href = `/api/v1/rapports/editer?${p}`;
+  };
+
+  $("perimetre").addEventListener("change", majFormulaire);
+  $("previsualiser").addEventListener("click", previsualiser);
+  $("telecharger").addEventListener("click", telecharger);
+  majFormulaire();
+}
+
+const numeroCourt = (id) => {
+  const empreinte = String(id || "").split("_")[1] || "";
+  return empreinte ? `INT-${empreinte.slice(0, 8).toUpperCase()}` : String(id || "");
+};
+
+// Rendu a l'ecran du document compose. Il suit bloc pour bloc la structure
+// que le serveur renvoie : l'ecran et l'imprime disent la même chose, dans la
+// même mise en page.
+function rendreFeuille(doc) {
+  const e = doc.entete || {};
+  const colonne = (langue) => [
+    e.republique?.[langue], e.devise?.[langue], "", e.ministere?.[langue], "",
+    e.agence?.[langue], "", e.service?.[langue],
+  ].filter(Boolean).map((t) => `<div>${esc(t)}</div>`).join("");
+
+  return `<div class="feuille">
+    <div class="titulature">
+      <div>${colonne("fr")}</div>
+      <div><img src="/static/logo-antic.png" alt="Emblème de l'Agence"
+        onerror="this.outerHTML='&lt;div class=\\'reserve\\'&gt;EMBLÈME&lt;/div&gt;'"></div>
+      <div>${colonne("en")}</div>
+    </div>
+    <hr class="filet">
+    <div class="titre-doc">${esc(doc.titre)}</div>
+    <div class="cartouche">
+      <div><b>Référence :</b> ${esc(doc.reference)}</div>
+      <div><b>Objet :</b> ${esc(doc.objet)}</div>
+      <div><b>Établi le :</b> ${heure(doc.etabli_le)} — <b>par :</b> ${esc(doc.etabli_par)}</div>
+    </div>
+    ${(doc.contenu || []).map(blocFeuille).join("")}
+    ${doc.mention_finale ? `<p class="mention">${esc(doc.mention_finale)}</p>` : ""}
+    <div class="signature">
+      <div>${esc(doc.lieu)}, le ${heure(doc.etabli_le)}</div>
+      <div class="qui">${esc(doc.signataire)}</div>
+    </div>
+  </div>`;
+}
+
+function blocFeuille(b) {
+  switch (b.type) {
+    case "titre": {
+      const intitule = esc(b.numero ? `${b.numero}. ${b.texte}` : b.texte);
+      return b.niveau <= 1 ? `<h3>${intitule}</h3>` : `<h4>${intitule}</h4>`;
+    }
+    case "paragraphe":
+      return `<p${b.accent ? ' class="accent"' : ""}>${esc(b.texte)}</p>`;
+    case "liste": {
+      const items = (b.elements || []).map((x) => `<li>${esc(x)}</li>`).join("");
+      return b.numerotee ? `<ol>${items}</ol>` : `<ul>${items}</ul>`;
+    }
+    case "tableau":
+      return `<table><thead><tr>${(b.entetes || []).map((h) =>
+        `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${
+        (b.lignes || []).map((l) => `<tr>${l.map((c) =>
+          `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>${
+        b.legende ? `<p class="legende">${esc(b.legende)}</p>` : ""}`;
+    case "graphique": {
+      const valeurs = b.valeurs || [];
+      const max = Math.max(...valeurs.map((v) => v.valeur), 1);
+      return `<h4>${esc(b.titre)}</h4><div class="graphe">${valeurs.map((v) => `
+        <div class="ligne">
+          <div>${esc(v.libelle)}</div>
+          <div class="piste"><div class="remplissage"
+            style="width:${(v.valeur / max) * 100}%"></div></div>
+          <div class="val">${esc(v.valeur)}</div>
+        </div>`).join("")}</div>`;
+    }
+    case "encadre":
+      return `<div class="encadre ${esc(b.ton)}">
+        <div class="intitule">${esc(b.titre)}</div>${esc(b.texte)}</div>`;
+    case "saut_de_page":
+      return `<hr class="coupure">`;
+    default:
+      return "";
+  }
 }
 
 // ============================================================ /audit-log
@@ -2547,9 +2699,17 @@ function resultatEffet(r) {
       ${esc(r && r.reason ? r.reason : "aucun effet")}</div>`;
   }
   if (r.kind === "report") {
-    return `<div class="effet"><div class="titre-effet">Rapport généré</div>
-      Période de ${r.hours} heures — <a href="/api/v1/assistant/report.md?hours=${r.hours}"
-      download>télécharger en Markdown</a></div>`;
+    // La fenêtre demandée est reportée sur le lien : télécharger un rapport
+    // sur une autre période que celle qu'on vient de lire serait déroutant.
+    const fenetre = r.hours <= 24 ? "24h" : r.hours <= 168 ? "7j"
+      : r.hours <= 720 ? "30j" : r.hours <= 2160 ? "90j" : "1an";
+    const lien = (format, libelle) =>
+      `<a href="/api/v1/rapports/editer?perimetre=periode&fenetre=${fenetre}&format=${format}"
+         download>${libelle}</a>`;
+    return `<div class="effet"><div class="titre-effet">Rapport établi</div>
+      Période de ${r.hours} heures — télécharger en
+      ${lien("pdf", "PDF")}, ${lien("docx", "Word")},
+      ${lien("md", "Markdown")} ou ${lien("json", "JSON")}.</div>`;
   }
   const lignes = (r.results || []).map((x) => `<tr>
     <td class="mono"><b>${esc(x.code)}</b></td>

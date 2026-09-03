@@ -82,7 +82,7 @@ le rollback autonome ne serait pas reellement autonome.
 | **Reversibilite** | Le catalogue des metadonnees de reversibilite (Axe 2), et les trois actions qui en sont exclues |
 | **Demonstration** | Les 22 types d'attaques du catalogue CIRT, declenchables d'un clic, seuls ou par famille |
 | **Assistant** | Bilan des operations du jour, questions sur les donnees reelles |
-| **Rapports** | Generation et export Markdown d'un rapport d'operations |
+| **Rapports** | Edition d'un rapport a la demande — periode, intervention, famille, gravite ou type — au format administratif, en PDF, Word, Markdown ou JSON |
 | **Journal d'audit** | La seule trace de ce que le systeme a fait seul, verifiable de bout en bout |
 | **Reglages** | Preferences de session : theme, posture affichee, notifications en attente |
 
@@ -217,7 +217,8 @@ src/cirtdefense/
 ├── persistence/     schema et depots
 ├── api/             interface applicative             EF-11 · EF-12
 ├── demo/            scenarios des 22 types d'attaques
-├── assistant/       bilan, questions, rapports
+├── assistant/       bilan, questions, faits
+├── reporting/       edition des rapports officiels (4 formats)
 └── llm/             redaction optionnelle (repli deterministe)
 ```
 

@@ -89,6 +89,14 @@ class Settings:
     analyst_token: str = "change-me-analyst"
     session_ttl_hours: int = 12
     """Durée de vie d'une session ouverte à la connexion (onglet Comptes)."""
+    report_logo: Path = field(
+        default_factory=lambda: PROJECT_ROOT / "web" / "static" / "logo-antic.png"
+    )
+    """Emblème imprimé au centre de la titulature des rapports officiels.
+
+    Configurable : un autre site du CIRT, ou une autre administration
+    utilisant la plateforme, imprime son propre emblème sans toucher au code.
+    """
     autonomy: AutonomySettings = field(default_factory=AutonomySettings)
 
     @classmethod
@@ -118,6 +126,11 @@ class Settings:
             admin_token=os.getenv("CIRT_ADMIN_TOKEN", "change-me-admin"),
             analyst_token=os.getenv("CIRT_ANALYST_TOKEN", "change-me-analyst"),
             session_ttl_hours=_int("CIRT_SESSION_TTL_HOURS", 12),
+            report_logo=Path(
+                os.getenv(
+                    "CIRT_REPORT_LOGO", str(PROJECT_ROOT / "web" / "static" / "logo-antic.png")
+                )
+            ),
             autonomy=AutonomySettings(
                 enabled=_flag("CIRT_AUTONOMY_ENABLED", True),
                 actuation_mode=os.getenv("CIRT_ACTUATION_MODE", "simulation"),

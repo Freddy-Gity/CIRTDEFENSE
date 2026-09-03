@@ -25,6 +25,7 @@ from .api.routes import (
     pending,
     policy,
     qualifications,
+    rapports,
     users,
 )
 from .config import get_settings
@@ -99,6 +100,7 @@ def create_app() -> FastAPI:
     app.include_router(monitoring.router)
     app.include_router(pending.router)
     app.include_router(qualifications.router)
+    app.include_router(rapports.router)
 
     # L'interface est cherchee **a cote du paquet installe**, pas a cote du
     # repertoire courant. La distinction compte : un `pip install` non editable,
