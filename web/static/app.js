@@ -455,32 +455,105 @@ async function vueDashboard() {
 // persistante au sens ou le CIRT l'a demandee.
 function blocAttentes(attentes) {
   if (!attentes.count) return "";
+  const enCours = attentes.pending.filter((a) => a.status === "taken_over").length;
   return `
     <div class="carte alerte-durable">
       <div class="tete-alerte">
         <span class="etat critique">décision requise</span>
-        <b>${attentes.count} geste(s) à effet durable attendent votre décision</b>
+        <b>${attentes.count} geste${attentes.count > 1 ? "s" : ""} à effet durable
+           ${attentes.count > 1 ? "attendent" : "attend"} votre décision</b>
+        ${enCours ? `<span class="etat moyenne">${enCours} pris en charge</span>` : ""}
       </div>
-      <div class="muet" style="margin:6px 0 12px">
+      <div class="muet" style="margin:6px 0 14px">
         Ils n'ont pas été exécutés : la plateforme n'engage seule que ce qu'elle sait
         annuler entièrement. Ils resteront ici tant que personne n'aura tranché.
       </div>
-      <table><thead><tr>
-        <th>Geste</th><th>Cible</th><th>Fondement observé</th>
-        <th>Ce qui subsisterait</th><th>Décision</th>
-      </tr></thead><tbody>
-      ${attentes.pending.map((a) => `<tr>
-        <td class="mono"><b>${esc(a.actuator)}:${esc(a.verb)}</b></td>
-        <td class="mono">${esc(a.target)}</td>
-        <td class="muet">${esc(a.basis)}</td>
-        <td class="muet">${esc(a.residual_effect || "annulation partielle")}</td>
-        <td class="choix">
-          <button data-att="${esc(a.pending_id)}" data-issue="confirm">Confirmer</button>
-          <button data-att="${esc(a.pending_id)}" data-issue="handled">J'ai agi</button>
-          <button data-att="${esc(a.pending_id)}" data-issue="decline">Écarter</button>
-        </td>
-      </tr>`).join("")}
-      </tbody></table>
+      ${attentes.pending.map(ficheAttente).join("")}
+    </div>`;
+}
+
+// Une fiche par geste. Le motif se saisit dans la page : passer par prompt()
+// rendait la decision impossible des que le navigateur supprimait les
+// dialogues — il rendait null, le code sortait en silence, et l'exploitant
+// voyait un bouton qui ne faisait rien.
+function ficheAttente(a) {
+  const prise = a.status === "taken_over";
+  const esc_id = esc(a.pending_id);
+  return `
+    <div class="fiche-decision${prise ? " prise" : ""}" data-fiche-att="${esc_id}">
+      <div class="entete-decision">
+        <b>${esc(a.expected_effect || `${a.actuator} : ${a.verb}`)}</b>
+        <span class="muet mono">sur ${esc(a.target)}</span>
+        ${prise ? `<span class="etat moyenne">prise en charge par
+           ${esc((a.taken_over_by || "").replace("human:", ""))}</span>` : ""}
+      </div>
+      <div class="motifs-decision">
+        <div><span class="muet">Pourquoi la plateforme le propose :</span> ${esc(a.basis)}</div>
+        <div><span class="muet">Ce qui subsisterait après annulation :</span>
+             ${esc(a.residual_effect || "annulation partielle")}</div>
+      </div>
+      ${prise ? `
+        <div class="muet" style="margin:8px 0">
+          Vous vous êtes chargé de ce geste. Indiquez ce qui a été fait sur
+          l'équipement pour refermer le dossier.
+        </div>
+        <textarea data-motif="${esc_id}" rows="2"
+          placeholder="Ce que vous avez fait sur l'équipement…"></textarea>
+        <div class="choix">
+          <button class="primaire" data-att="${esc_id}" data-issue="resolved">
+            Rendre compte et clore</button>
+        </div>`
+      : `
+        <textarea data-motif="${esc_id}" rows="2"
+          placeholder="Motif de votre décision — consigné au journal…"></textarea>
+        <div class="choix">
+          <button class="primaire" data-att="${esc_id}" data-issue="confirm">
+            Confirmer — la plateforme exécute</button>
+          <button data-att="${esc_id}" data-issue="handled">Je m'en charge</button>
+          <button data-att="${esc_id}" data-issue="decline">Écarter</button>
+        </div>`}
+      <div class="suite-decision" data-suite="${esc_id}"></div>
+    </div>`;
+}
+
+// Ce que la plateforme a fait de son cote apres un refus. C'est la reponse a
+// « et maintenant ? » : sans elle, ecarter un geste ressemblerait a un abandon.
+function blocEscalade(id, escalade) {
+  if (!escalade) return "";
+  const alt = escalade.alternative;
+  const conseil = escalade.conseil || {};
+  const applique = !!escalade.action;
+  return `
+    <div class="escalade ${esc(escalade.mesure)}">
+      <div class="titre-escalade">
+        ${escalade.mesure === "quarantaine" ? "Confinement de substitution appliqué"
+                                            : "Surveillance rapprochée"}
+      </div>
+      <p>${esc(escalade.motif)}</p>
+      ${alt ? `
+        <div class="proposition">
+          <div class="tete-proposition">
+            <b>${esc(alt.description)}</b>
+            <span class="muet">sur ${esc(alt.target)}</span>
+            ${applique ? `<span class="etat bonne">appliqué</span>` : ""}
+          </div>
+          <div class="muet">Objectif servi : ${esc(alt.but)} —
+            annulable entièrement, ${esc(String(alt.blast_radius))} équipement(s) touché(s).</div>
+          <div class="muet reserve">${esc(alt.reserve)}</div>
+          ${conseil.explication_niveau
+            ? `<div class="muet provenance">${esc(conseil.explication_niveau)}</div>` : ""}
+          ${!applique ? `
+            <div class="choix">
+              <button class="primaire" data-att="${esc(id)}" data-issue="substitute">
+                Appliquer ce geste à la place</button>
+            </div>` : ""}
+        </div>` : ""}
+      ${(escalade.propositions || []).length ? `
+        <details class="autres-propositions">
+          <summary>${escalade.propositions.length} autre(s) geste(s) possible(s)</summary>
+          <ul>${escalade.propositions.map((x) =>
+            `<li>${esc(x.description)} <span class="muet">— ${esc(x.but)}</span></li>`).join("")}</ul>
+        </details>` : ""}
     </div>`;
 }
 
@@ -535,23 +608,55 @@ function brancherDecisions() {
 
 const LIBELLE_ISSUE = {
   confirm: "geste confirmé et exécuté",
-  handled: "intervention manuelle enregistrée",
+  handled: "intervention notée à votre nom",
+  resolved: "dossier clos",
   decline: "geste écarté",
+  substitute: "geste de remplacement appliqué",
 };
 
+// Le motif se lit dans la page. Aucun dialogue natif n'est employe : un
+// navigateur qui les supprime rendait toute decision impossible, sans le
+// moindre message.
 async function trancher(bouton) {
+  const id = bouton.dataset.att;
   const issue = bouton.dataset.issue;
-  const motif = prompt(
-    issue === "confirm" ? "Motif de la confirmation (consigné au journal) :"
-    : issue === "handled" ? "Ce que vous avez fait sur l'équipement :"
-    : "Pourquoi écarter ce geste ?");
-  if (!motif || motif.trim().length < 3) return;
-  bouton.disabled = true;
+  const champ = $("vue").querySelector(`textarea[data-motif="${id}"]`);
+  const motif = (champ?.value || "").trim();
+
+  if (motif.length < 3) {
+    if (champ) {
+      champ.classList.add("manquant");
+      champ.placeholder = "Un motif est nécessaire : il est consigné au journal.";
+      champ.focus();
+      champ.addEventListener("input", () => champ.classList.remove("manquant"), { once: true });
+    }
+    toast("indiquez un motif avant de décider", "erreur");
+    return;
+  }
+
+  const fiche = $("vue").querySelector(`[data-fiche-att="${id}"]`);
+  fiche?.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  const suite = $("vue").querySelector(`[data-suite="${id}"]`);
+  if (suite) suite.innerHTML = `<div class="muet">La plateforme traite votre décision…</div>`;
+
   try {
-    await post(`/api/v1/pending/${bouton.dataset.att}/${issue}`, { reason: motif.trim() });
-    toast(LIBELLE_ISSUE[issue]);
+    const r = await post(`/api/v1/pending/${id}/${issue}`, { reason: motif });
+    toast(LIBELLE_ISSUE[issue] || "décision enregistrée");
+
+    // Un refus produit une suite : la plateforme dit ce qu'elle a fait a la
+    // place. On l'affiche avant de rafraichir, sinon le rafraichissement
+    // l'effacerait et l'exploitant ne saurait jamais ce qui a ete decide.
+    if (r.escalade && suite) {
+      suite.innerHTML = blocEscalade(id, r.escalade);
+      brancherDecisions();
+      return;
+    }
     await rafraichir();
-  } catch (e) { toast(e.message, "erreur"); bouton.disabled = false; }
+  } catch (e) {
+    toast(e.message, "erreur");
+    fiche?.querySelectorAll("button").forEach((b) => (b.disabled = false));
+    if (suite) suite.innerHTML = "";
+  }
 }
 
 async function qualifier(bouton) {

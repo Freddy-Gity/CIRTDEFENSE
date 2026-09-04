@@ -503,18 +503,30 @@ class PendingActionRepository:
         ).fetchone()
         return json.loads(row["payload"]) if row else None
 
+    OUVERTS = ("pending", "taken_over")
+    """Statuts qui reclament encore une attention.
+
+    « taken_over » signale qu'un agent a annonce prendre le geste en charge
+    lui-meme : le dossier n'est pas clos pour autant, il attend que cet agent
+    dise ce qu'il a fait. Le faire disparaitre de la liste des le premier clic
+    reproduirait le defaut que l'alerte persistante corrige — un engagement
+    qu'on prend et que plus personne ne voit."""
+
     def pending(self, limit: int = 100) -> list[dict[str, Any]]:
         """Les gestes qui attendent encore. C'est ce que l'alerte represente."""
+        marques = ",".join("?" for _ in self.OUVERTS)
         rows = self._conn.execute(
-            """SELECT payload FROM pending_actions WHERE status = 'pending'
+            f"""SELECT payload FROM pending_actions WHERE status IN ({marques})
                ORDER BY created_at ASC LIMIT ?""",
-            (limit,),
+            (*self.OUVERTS, limit),
         ).fetchall()
         return [json.loads(r["payload"]) for r in rows]
 
     def count_pending(self) -> int:
+        marques = ",".join("?" for _ in self.OUVERTS)
         row = self._conn.execute(
-            "SELECT COUNT(*) AS n FROM pending_actions WHERE status = 'pending'"
+            f"SELECT COUNT(*) AS n FROM pending_actions WHERE status IN ({marques})",
+            self.OUVERTS,
         ).fetchone()
         return int(row["n"]) if row else 0
 
@@ -525,6 +537,24 @@ class PendingActionRepository:
         ).fetchall()
         return [json.loads(r["payload"]) for r in rows]
 
+    def annoter(self, pending_id: str, champs: dict[str, Any]) -> dict[str, Any] | None:
+        """Complete une ligne deja close sans toucher a son statut.
+
+        Sert a enregistrer ce qui arrive *apres* la decision — un geste de
+        remplacement accepte plus tard, par exemple. Refaire passer la ligne
+        par `resolve` reecrirait l'auteur et la date de la decision d'origine,
+        et le journal mentirait sur qui a tranche.
+        """
+        entree = self.get(pending_id)
+        if entree is None:
+            return None
+        entree.update(champs)
+        self._conn.execute(
+            "UPDATE pending_actions SET payload = ? WHERE pending_id = ?",
+            (json.dumps(entree, default=str), pending_id),
+        )
+        return entree
+
     def resolve(
         self,
         pending_id: str,
@@ -533,31 +563,40 @@ class PendingActionRepository:
         actor: str,
         note: str = "",
         action_id: str | None = None,
+        extra: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
-        """Referme une attente. Idempotent : une ligne deja resolue est rendue
+        """Fait avancer une attente. Idempotent : une ligne deja close est rendue
         telle quelle plutot que reecrite, pour que deux analystes qui cliquent
-        en meme temps n'effacent pas la decision du premier."""
+        en meme temps n'effacent pas la decision du premier.
+
+        `extra` porte la suite donnee par la plateforme — substitution proposee,
+        mesure d'escalade appliquee — pour que la ligne raconte l'affaire
+        entiere et pas seulement le clic."""
         entree = self.get(pending_id)
-        if entree is None or entree["status"] != "pending":
+        if entree is None or entree["status"] not in self.OUVERTS:
             return entree
+        precedent = entree["status"]
         entree["status"] = status
         entree["resolved_at"] = datetime.now(UTC).isoformat()
         entree["resolved_by"] = actor
         entree["resolution_note"] = note
-        entree["action_id"] = action_id
+        entree["action_id"] = action_id or entree.get("action_id")
+        if extra:
+            entree.update(extra)
         self._conn.execute(
             """UPDATE pending_actions
                SET status = ?, resolved_at = ?, resolved_by = ?, resolution_note = ?,
                    action_id = ?, payload = ?
-               WHERE pending_id = ? AND status = 'pending'""",
+               WHERE pending_id = ? AND status = ?""",
             (
                 status,
                 entree["resolved_at"],
                 actor,
                 note,
-                action_id,
+                entree["action_id"],
                 json.dumps(entree, default=str),
                 pending_id,
+                precedent,
             ),
         )
         return entree

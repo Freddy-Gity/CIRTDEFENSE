@@ -53,6 +53,11 @@ class AutonomySettings:
     breaker_rollback_threshold: int = 3
     breaker_error_threshold: int = 5
     breaker_window_seconds: int = 600
+    decline_quarantine_threshold: float = 7.0
+    """Dangerosité à partir de laquelle un geste écarté par un agent déclenche
+    tout de même un confinement — posé par substitution réversible, jamais avec
+    le geste refusé. En deçà, l'actif passe seulement sous surveillance
+    rapprochée et le refus s'applique tel quel."""
 
     @property
     def is_live(self) -> bool:
@@ -140,6 +145,9 @@ class Settings:
                 breaker_rollback_threshold=_int("CIRT_BREAKER_ROLLBACK_THRESHOLD", 3),
                 breaker_error_threshold=_int("CIRT_BREAKER_ERROR_THRESHOLD", 5),
                 breaker_window_seconds=_int("CIRT_BREAKER_WINDOW_SECONDS", 600),
+                decline_quarantine_threshold=_float(
+                    "CIRT_DECLINE_QUARANTINE_THRESHOLD", 7.0
+                ),
             ),
         )
 

@@ -90,17 +90,35 @@ class TestAlertePersistante:
         assert resultat is not None
         assert resultat.rollback_token
 
-    def test_j_ai_agi_moi_meme_n_execute_rien_mais_prend_acte(
+    def test_se_charger_soi_meme_n_execute_rien_et_engage(
         self, client, entetes, incident_hors_catalogue
     ):
+        """« Je m'en charge » ouvre une prise en charge, ne clôt pas le dossier.
+
+        La plateforme n'exécute toujours rien — c'est l'invariant d'origine.
+        Mais le dossier reste ouvert jusqu'à ce que l'agent dise ce qu'il a
+        fait : un engagement que plus personne ne voit est exactement le défaut
+        que l'alerte persistante corrige.
+        """
         attente = client.get("/api/v1/pending").json()["pending"][0]
         corps = client.post(
             f"/api/v1/pending/{attente['pending_id']}/handled",
             json={"reason": "intervention manuelle sur l'annuaire"},
             headers=entetes,
         ).json()
-        assert corps["pending"]["status"] == "handled_by_human"
+        assert corps["pending"]["status"] == "taken_over"
         assert corps["action"] is None
+
+        encore = client.get("/api/v1/pending").json()["pending"]
+        assert attente["pending_id"] in {a["pending_id"] for a in encore}
+
+        clos = client.post(
+            f"/api/v1/pending/{attente['pending_id']}/resolved",
+            json={"reason": "compte desactive a la main dans l annuaire"},
+            headers=entetes,
+        ).json()
+        assert clos["pending"]["status"] == "handled_by_human"
+        assert clos["action"] is None
 
     def test_ecarter_conserve_le_motif(self, client, entetes, incident_hors_catalogue):
         attente = client.get("/api/v1/pending").json()["pending"][0]
@@ -142,7 +160,17 @@ class TestAlertePersistante:
                 headers=entetes,
             )
         inscrites = platform.ledger.query(event_type="confirmation.resolved")
-        assert len(inscrites) == 3
+        # Trois décisions, mais quatre inscriptions : écarter en produit deux,
+        # la décision de l'agent puis la suite que la plateforme y donne. C'est
+        # voulu — la mesure prise après un refus est un fait à part entière, et
+        # la confondre avec le refus rendrait le journal muet sur ce que la
+        # plateforme a décidé toute seule.
+        resolutions = {e.payload.get("resolution") for e in inscrites}
+        assert resolutions == {"confirmed", "taken_over", "declined"}
+        assert len(inscrites) >= 3
+        assert any(e.payload.get("suite") for e in inscrites), (
+            "la suite donnée au refus doit figurer au journal"
+        )
         assert all(e.actor.startswith("human:") for e in inscrites)
         assert platform.ledger.verify_chain().valid
 

@@ -12,16 +12,22 @@ Trois issues, et le CIRT les a toutes voulues :
 
 - **confirmer** — l'humain assume l'effet durable, la plateforme exécute et
   journalise l'action comme toute autre ;
-- **j'ai agi moi-même** — l'humain est intervenu directement sur l'équipement ;
-  la plateforme en prend acte et l'inscrit, pour que le journal reste le
-  reflet fidèle de ce qui a été fait, y compris hors d'elle ;
-- **écarter** — l'humain juge le geste inutile ou disproportionné.
+- **je m'en charge** — l'agent annonce qu'il intervient lui-même. Le dossier
+  ne se referme pas : il passe en « prise en charge » et reste visible jusqu'à
+  ce que l'agent dise ce qu'il a fait. Un engagement que plus personne ne voit
+  est exactement le défaut que l'alerte persistante corrige ;
+- **écarter** — l'agent juge le geste inutile ou disproportionné. La plateforme
+  n'exécute pas le geste refusé, et ne reste pas inerte pour autant : elle
+  cherche un geste plus léger servant le même but, et applique une mesure
+  proportionnée à la dangerosité (voir :mod:`orchestration.escalade`).
 
-Aucune de ces trois issues n'est un silence : les trois sont inscrites au
-journal avec leur auteur et leur motif.
+Aucune de ces issues n'est un silence : toutes sont inscrites au journal avec
+leur auteur et leur motif.
 """
 
 from __future__ import annotations
+
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -102,25 +108,60 @@ def confirmer(
 
 
 @router.post("/{pending_id}/handled")
-def deja_traite(
+def prendre_en_charge(
     pending_id: str,
     request: PendingResolutionRequest,
     platform: PlatformDep,
     role: AnalystDep,
 ) -> dict:
-    """« J'ai agi moi-même sur l'équipement. »
+    """« Je m'en charge moi-même. »
 
-    La plateforme n'exécute rien et prend acte. Sans cette issue, un geste
-    réalisé à la main resterait éternellement « en attente » et le journal
-    donnerait à croire que rien n'a été fait — ce serait une trace fausse.
+    La plateforme n'exécute rien et pose un statut de **prise en charge**. Le
+    dossier reste ouvert et visible : ce n'est pas une clôture, c'est un
+    engagement. Il se referme par ``/resolved`` quand l'agent dit ce qu'il a
+    fait — sans quoi la plateforme afficherait un geste comme traité alors que
+    personne n'a encore touché à l'équipement.
     """
-    _attente_ouverte(platform, pending_id)
+    _attente_ouverte(platform, pending_id, attendu="pending")
+    acteur = f"human:{role.value}"
+    resolue = platform.pending.resolve(
+        pending_id,
+        status="taken_over",
+        actor=acteur,
+        note=request.reason,
+        extra={"taken_over_at": _maintenant(), "taken_over_by": acteur},
+    )
+    _inscrire(platform, resolue, acteur, request.reason)
+    return {
+        "pending": resolue,
+        "action": None,
+        "suite": (
+            "Intervention notée à votre nom. Le dossier reste ouvert jusqu'à ce que "
+            "vous indiquiez ce qui a été fait sur l'équipement."
+        ),
+    }
+
+
+@router.post("/{pending_id}/resolved")
+def clore_prise_en_charge(
+    pending_id: str,
+    request: PendingResolutionRequest,
+    platform: PlatformDep,
+    role: AnalystDep,
+) -> dict:
+    """L'agent qui s'était chargé du geste rend compte : le dossier se ferme.
+
+    Le motif devient la trace de ce qui a été fait hors de la plateforme. Sans
+    lui, le journal serait muet précisément là où la plateforme n'a pas agi
+    elle-même — et c'est là qu'il doit être le plus explicite.
+    """
+    _attente_ouverte(platform, pending_id, attendu="taken_over")
     acteur = f"human:{role.value}"
     resolue = platform.pending.resolve(
         pending_id, status="handled_by_human", actor=acteur, note=request.reason
     )
     _inscrire(platform, resolue, acteur, request.reason)
-    return {"pending": resolue, "action": None}
+    return {"pending": resolue, "action": None, "suite": "Dossier clos."}
 
 
 @router.post("/{pending_id}/decline")
@@ -130,30 +171,149 @@ def ecarter(
     platform: PlatformDep,
     role: AnalystDep,
 ) -> dict:
-    """L'humain juge le geste inutile ou disproportionné. Le motif est inscrit."""
-    _attente_ouverte(platform, pending_id)
+    """L'agent juge le geste inutile ou disproportionné.
+
+    Le refus est appliqué : le geste écarté n'est jamais exécuté, ni sous ce
+    nom ni sous un autre. Mais la menace, elle, reste entière — la plateforme
+    cherche donc ce qu'elle sait encore faire, et prend une mesure
+    proportionnée à la dangerosité de l'intervention.
+    """
+    attente = _attente_ouverte(platform, pending_id)
     acteur = f"human:{role.value}"
+    escalade = platform.escalade.apres_refus(attente, acteur, request.reason)
     resolue = platform.pending.resolve(
-        pending_id, status="declined", actor=acteur, note=request.reason
+        pending_id,
+        status="declined",
+        actor=acteur,
+        note=request.reason,
+        extra={"escalade": escalade.to_dict()},
     )
     _inscrire(platform, resolue, acteur, request.reason)
-    return {"pending": resolue, "action": None}
+    return {
+        "pending": resolue,
+        "action": escalade.action.to_dict() if escalade.action else None,
+        "escalade": escalade.to_dict(),
+        "suite": escalade.intitule,
+    }
+
+
+@router.post("/{pending_id}/substitute")
+def appliquer_substitution(
+    pending_id: str,
+    request: PendingResolutionRequest,
+    platform: PlatformDep,
+    role: AnalystDep,
+) -> dict:
+    """L'agent accepte le geste de remplacement proposé après son refus.
+
+    Une proposition qu'on ne peut pas accepter n'est pas une proposition, c'est
+    un commentaire. Cette route ferme la boucle : le geste retenu par le
+    conseil est exécuté, avec les mêmes garanties que tout autre — contrôle de
+    pré-vol, journal, jeton d'annulation, boucle de contrôle.
+
+    Le geste appliqué vient du conseil enregistré, jamais de la requête :
+    laisser l'appelant nommer l'action permettrait d'exécuter n'importe quoi
+    sous couvert d'accepter une proposition.
+    """
+    entree = platform.pending.get(pending_id)
+    if entree is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"attente '{pending_id}' inconnue")
+    if entree["status"] != "declined":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "un geste de remplacement ne se propose qu'après un refus ; "
+            f"cette attente est {_LIBELLE_STATUT.get(entree['status'], entree['status'])}",
+        )
+
+    escalade = entree.get("escalade") or {}
+    if escalade.get("action"):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "la plateforme avait déjà appliqué ce geste de remplacement au moment "
+            "du refus ; il n'y a rien à ajouter",
+        )
+    propose = escalade.get("alternative")
+    if not propose:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "aucun geste de remplacement n'avait été proposé pour cette attente",
+        )
+
+    acteur = f"human:{role.value}"
+    spec = ActionSpec(
+        verb=propose["verb"],
+        actuator=propose["actuator"],
+        target=propose["target"],
+        parameters=dict(entree.get("parameters") or {}),
+        reversibility=Reversibility(propose["reversibility"]),
+        rollback_verb=_verbe_annulation(
+            platform, {"actuator": propose["actuator"], "verb": propose["verb"]}
+        ),
+        blast_radius=int(propose.get("blast_radius", 1)),
+        expected_effect=propose.get("description", ""),
+    )
+    resultat = platform.executor.execute(
+        spec,
+        incident_id=entree["incident_id"],
+        decision_id=entree["decision_id"],
+        watch_target=propose["target"],
+    )
+    incident = platform.incidents.get(entree["incident_id"])
+    if incident is not None:
+        incident.register_action(resultat)
+        platform.incidents.save(incident)
+
+    escalade["action"] = resultat.to_dict()
+    escalade["mesure"] = "quarantaine"
+    entree = platform.pending.annoter(pending_id, {"escalade": escalade}) or entree
+    _inscrire(platform, entree, acteur, request.reason, action_id=resultat.action_id)
+    return {
+        "pending": entree,
+        "action": resultat.to_dict(),
+        "suite": "Geste de remplacement appliqué.",
+    }
 
 
 # ------------------------------------------------------------------ helpers
 
 
-def _attente_ouverte(platform, pending_id: str) -> dict:
+_LIBELLE_STATUT = {
+    "pending": "en attente d'une décision",
+    "taken_over": "prise en charge par un agent",
+    "confirmed": "confirmée et exécutée",
+    "handled_by_human": "traitée à la main",
+    "declined": "écartée",
+}
+
+
+def _attente_ouverte(platform, pending_id: str, attendu: str | None = None) -> dict:
+    """Vérifie qu'on peut encore agir sur cette attente, et depuis quel état.
+
+    `attendu` sert aux transitions qui n'ont de sens qu'à partir d'un état
+    précis : on ne clôt une prise en charge que si elle a commencé, et on ne
+    prend en charge que ce qui attend encore.
+    """
     entree = platform.pending.get(pending_id)
     if entree is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"attente '{pending_id}' inconnue")
-    if entree["status"] != "pending":
+    if entree["status"] not in platform.pending.OUVERTS:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            f"cette attente a déjà été résolue ({entree['status']}) "
-            f"par {entree['resolved_by']} le {entree['resolved_at']}",
+            f"cette attente est déjà {_LIBELLE_STATUT.get(entree['status'], entree['status'])} "
+            f"— par {entree['resolved_by']} le {entree['resolved_at']}",
+        )
+    if attendu and entree["status"] != attendu:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"cette attente est {_LIBELLE_STATUT.get(entree['status'], entree['status'])} : "
+            f"l'opération demandée suppose qu'elle soit "
+            f"{_LIBELLE_STATUT.get(attendu, attendu)}",
         )
     return entree
+
+
+def _maintenant() -> str:
+    return datetime.now(UTC).isoformat()
 
 
 def _reversibilite(entree: dict) -> Reversibility:

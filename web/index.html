@@ -1177,6 +1177,54 @@ body[data-role="super_admin"] .admin-only { display: block; }
 .feuille .mention { font-style: italic; font-size: 12px; margin-top: 22px; }
 .feuille .signature { text-align: center; margin: 26px 0 0 auto; width: 52%; }
 .feuille .signature .qui { font-weight: 700; margin-top: 6px; }
+
+/* ------------------------------------------- fiches de décision (EF-28)
+   Le motif se saisit ici, dans la page. Aucun dialogue natif : un navigateur
+   qui les supprime rendrait toute décision impossible, sans message. */
+.fiche-decision {
+  border: 1px solid var(--ring); border-radius: 8px;
+  padding: 12px 14px; margin-bottom: 12px; background: var(--surface-1);
+}
+.fiche-decision.prise { border-left: 3px solid var(--warning); }
+.entete-decision {
+  display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.motifs-decision { display: grid; gap: 3px; font-size: 12px; margin-bottom: 9px; }
+.fiche-decision textarea {
+  width: 100%; padding: 7px 10px; border-radius: 6px; resize: vertical;
+  border: 1px solid var(--grid); background: var(--plane); color: var(--ink-1);
+  font: inherit; font-size: 12.5px; margin-bottom: 8px;
+}
+.fiche-decision textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.fiche-decision textarea.manquant { border-color: var(--critical); }
+.suite-decision:empty { display: none; }
+
+/* Ce que la plateforme a fait d'elle-même après un refus. */
+.escalade {
+  margin-top: 12px; padding: 11px 13px; border-radius: 7px;
+  border-left: 3px solid var(--warning); background: var(--plane);
+}
+.escalade.quarantaine { border-left-color: var(--critical); }
+.escalade.surveillance { border-left-color: var(--fam-D); }
+.titre-escalade { font-weight: 600; margin-bottom: 5px; }
+.escalade p { margin: 0 0 9px; font-size: 12.5px; line-height: 1.55; }
+.proposition {
+  border: 1px solid var(--ring); border-radius: 6px;
+  padding: 10px 12px; background: var(--surface-1);
+}
+.tete-proposition {
+  display: flex; gap: 9px; align-items: baseline; flex-wrap: wrap; margin-bottom: 4px;
+}
+.proposition .reserve { margin-top: 5px; font-style: italic; }
+.proposition .provenance {
+  margin-top: 7px; padding-top: 6px; border-top: 1px dashed var(--grid); font-size: 11px;
+}
+.proposition .choix { margin-top: 9px; }
+.autres-propositions { margin-top: 9px; font-size: 12px; }
+.autres-propositions summary { cursor: pointer; color: var(--ink-2); }
+.autres-propositions ul { margin: 6px 0 0; padding-left: 20px; }
+.etat.bonne { color: var(--success-text); border-color: var(--success-text); }
 </style>
 </head>
 <body>

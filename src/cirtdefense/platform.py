@@ -44,7 +44,9 @@ from .llm import build_provider
 from .logging_setup import log_with
 from .orchestration.circuit_breaker import CircuitBreaker
 from .orchestration.classifier import Classifier
+from .orchestration.conseil import Conseiller
 from .orchestration.engine import OrchestrationEngine, OrchestrationResult
+from .orchestration.escalade import ServiceEscalade
 from .orchestration.executor import Executor
 from .orchestration.fallback import FallbackPlanner
 from .orchestration.planner import Planner
@@ -53,6 +55,7 @@ from .orchestration.portfolio import PortfolioService
 from .orchestration.qualifier import Qualifier
 from .orchestration.reversibility import ReversibilityCatalog
 from .orchestration.rollback import RollbackService
+from .orchestration.substitution import Substitution
 from .persistence.db import connect, init_schema
 from .persistence.repositories import (
     ActionRepository,
@@ -115,6 +118,7 @@ class Platform:
     assistant: AssistantService
     reports: ReportBuilder
     compositeur: Compositeur
+    escalade: ServiceEscalade
     degraded: bool = False
 
     # -- chaîne nominale ----------------------------------------------------
@@ -311,6 +315,23 @@ def build_platform(
     )
     reports = ReportBuilder(collector, site_id=settings.site_id)
 
+    # Suite donnée à un refus humain. Le conseiller cherche un geste plus léger
+    # servant le même but ; le service d'escalade décide s'il faut se contenter
+    # de surveiller ou appliquer ce geste, selon la dangerosité. Le geste
+    # écarté, lui, n'est jamais rejoué.
+    escalade = ServiceEscalade(
+        conseiller=Conseiller(
+            substitution=Substitution(catalog),
+            provider=build_provider(
+                settings.llm_provider, settings.llm_api_key, settings.llm_model
+            ),
+        ),
+        executor=executor,
+        incidents=incidents,
+        ledger=ledger,
+        seuil=settings.autonomy.decline_quarantine_threshold,
+    )
+
     # Édition des rapports officiels : le compositeur lit les mêmes dépôts que
     # l'assistant, mais rend un document mis en page plutôt qu'un texte. Il est
     # construit ici pour que les routes n'aient pas à recâbler six dépendances.
@@ -362,6 +383,7 @@ def build_platform(
         assistant=assistant,
         reports=reports,
         compositeur=compositeur,
+        escalade=escalade,
     )
 
     log_with(
