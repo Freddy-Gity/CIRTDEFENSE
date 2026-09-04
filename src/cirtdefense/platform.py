@@ -43,13 +43,19 @@ from .ingestion.adapter import IngestionAdapter
 from .llm import build_provider
 from .logging_setup import log_with
 from .orchestration.circuit_breaker import CircuitBreaker
+from .orchestration.classifier import Classifier
+from .orchestration.conseil import Conseiller
 from .orchestration.engine import OrchestrationEngine, OrchestrationResult
+from .orchestration.escalade import ServiceEscalade
 from .orchestration.executor import Executor
+from .orchestration.fallback import FallbackPlanner
 from .orchestration.planner import Planner
 from .orchestration.policy_compiler import PolicyCompiler
 from .orchestration.portfolio import PortfolioService
+from .orchestration.qualifier import Qualifier
 from .orchestration.reversibility import ReversibilityCatalog
 from .orchestration.rollback import RollbackService
+from .orchestration.substitution import Substitution
 from .persistence.db import connect, init_schema
 from .persistence.repositories import (
     ActionRepository,
@@ -58,13 +64,16 @@ from .persistence.repositories import (
     DecisionRepository,
     EventRepository,
     IncidentRepository,
+    LearnedTypeRepository,
     MonitoredTargetRepository,
     NotificationRepository,
+    PendingActionRepository,
     PolicyRepository,
     PosteRepository,
     SessionRepository,
     UserRepository,
 )
+from .reporting.composer import Compositeur
 from .security.access import POSTES_PAR_DEFAUT
 
 logger = logging.getLogger(__name__)
@@ -83,6 +92,8 @@ class Platform:
     actions: ActionRepository
     policies: PolicyRepository
     notifications: NotificationRepository
+    pending: PendingActionRepository
+    qualifications: LearnedTypeRepository
     targets: MonitoredTargetRepository
     conversations: ConversationRepository
     users: UserRepository
@@ -106,6 +117,8 @@ class Platform:
     probe: HealthProbe
     assistant: AssistantService
     reports: ReportBuilder
+    compositeur: Compositeur
+    escalade: ServiceEscalade
     degraded: bool = False
 
     # -- chaîne nominale ----------------------------------------------------
@@ -152,6 +165,12 @@ class Platform:
                 "effective": self.settings.autonomy.enabled and breaker.autonomy_active,
             },
             "circuit_breaker": breaker.to_dict(),
+            # L'alerte persistante se lit dans l'etat global : elle doit etre
+            # visible depuis n'importe quel ecran, pas seulement sur celui ou
+            # l'incident a ete traite.
+            "awaiting_human_decision": self.pending.count_pending(),
+            "qualifications_proposed": len(self.qualifications.by_status("proposed", 500)),
+            "learned_catalog": len(self.qualifications.validated()),
             "degraded_mode": self.degraded,
             "spool_size": self.spool.size(),
             "policy": {
@@ -193,6 +212,8 @@ def build_platform(
     actions = ActionRepository(connection)
     policies = PolicyRepository(connection)
     notifications = NotificationRepository(connection)
+    pending = PendingActionRepository(connection)
+    qualifications = LearnedTypeRepository(connection)
     targets = MonitoredTargetRepository(connection)
     conversations = ConversationRepository(connection)
     users = UserRepository(connection)
@@ -260,6 +281,18 @@ def build_platform(
         actions=actions,
         ledger=ledger,
         notifier=notifier,
+        # Repli sur menace non catalogüée : gestes deduits des seuls
+        # indicateurs observes, filtres par le catalogue de reversibilite.
+        fallback=FallbackPlanner(catalog),
+        # EF-28 / EF-29 : ce que la plateforme refuse d'engager seule reste
+        # inscrit jusqu'a decision humaine, et ce qu'elle ne sait pas nommer
+        # ouvre une fiche de qualification.
+        pending=pending,
+        qualifications=qualifications,
+        qualifier=Qualifier(),
+        # Le classificateur consulte le catalogue appris a cote du document
+        # metier : une qualification validee sert des l'incident suivant.
+        classifier=Classifier(learned=qualifications),
         autonomy_enabled=settings.autonomy.enabled,
     )
 
@@ -282,6 +315,38 @@ def build_platform(
     )
     reports = ReportBuilder(collector, site_id=settings.site_id)
 
+    # Suite donnée à un refus humain. Le conseiller cherche un geste plus léger
+    # servant le même but ; le service d'escalade décide s'il faut se contenter
+    # de surveiller ou appliquer ce geste, selon la dangerosité. Le geste
+    # écarté, lui, n'est jamais rejoué.
+    escalade = ServiceEscalade(
+        conseiller=Conseiller(
+            substitution=Substitution(catalog),
+            provider=build_provider(
+                settings.llm_provider, settings.llm_api_key, settings.llm_model
+            ),
+        ),
+        executor=executor,
+        incidents=incidents,
+        ledger=ledger,
+        seuil=settings.autonomy.decline_quarantine_threshold,
+    )
+
+    # Édition des rapports officiels : le compositeur lit les mêmes dépôts que
+    # l'assistant, mais rend un document mis en page plutôt qu'un texte. Il est
+    # construit ici pour que les routes n'aient pas à recâbler six dépendances.
+    compositeur = Compositeur(
+        collector=collector,
+        portfolio=PortfolioService(incidents, actions),
+        incidents=incidents,
+        actions=actions,
+        ledger=ledger,
+        decisions=decisions,
+        settings=settings,
+        site_id=settings.site_id,
+        logo=settings.report_logo,
+    )
+
     platform = Platform(
         settings=settings,
         connection=connection,
@@ -292,6 +357,8 @@ def build_platform(
         actions=actions,
         policies=policies,
         notifications=notifications,
+        pending=pending,
+        qualifications=qualifications,
         targets=targets,
         conversations=conversations,
         users=users,
@@ -315,6 +382,8 @@ def build_platform(
         probe=health_probe,
         assistant=assistant,
         reports=reports,
+        compositeur=compositeur,
+        escalade=escalade,
     )
 
     log_with(

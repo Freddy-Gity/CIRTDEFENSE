@@ -41,7 +41,9 @@ from ..persistence.repositories import (
 from .circuit_breaker import CircuitBreaker
 from .classifier import Classification, Classifier
 from .executor import ExecutionReport, Executor
+from .fallback import FallbackPlanner
 from .planner import Planner
+from .qualifier import Qualifier
 from .rollback import ControlLoopReport, RollbackService
 
 logger = logging.getLogger(__name__)
@@ -57,6 +59,17 @@ class OrchestrationResult:
     execution: ExecutionReport | None = None
     control_loop: ControlLoopReport | None = None
     notifications: list[str] = field(default_factory=list)
+    pending: list[dict[str, Any]] = field(default_factory=list)
+    """Gestes a effet durable inscrits en attente d'une decision humaine."""
+    qualification: dict[str, Any] | None = None
+    """Fiche de qualification ouverte si la menace est hors catalogue."""
+    warnings: list[str] = field(default_factory=list)
+    """Traitements annexes ayant échoué APRÈS l'exécution.
+
+    Ils n'invalident pas la réponse : les gestes ont bien eu lieu. Les
+    remonter ici plutôt que de les laisser interrompre la chaîne évite qu'un
+    canal de notification en panne fasse croire à l'appelant que rien n'a
+    été fait."""
 
     @property
     def acted(self) -> bool:
@@ -70,6 +83,9 @@ class OrchestrationResult:
             "execution": self.execution.to_dict() if self.execution else None,
             "control_loop": self.control_loop.to_dict() if self.control_loop else None,
             "notifications": self.notifications,
+            "pending": self.pending,
+            "qualification": self.qualification,
+            "warnings": self.warnings,
             "acted": self.acted,
         }
 
@@ -90,10 +106,15 @@ class OrchestrationEngine:
         ledger: AuditLedger,
         notifier: Any = None,
         classifier: Classifier | None = None,
+        fallback: FallbackPlanner | None = None,
+        pending: Any = None,
+        qualifications: Any = None,
+        qualifier: Qualifier | None = None,
         autonomy_enabled: bool = True,
     ) -> None:
         self._enrichment = enrichment
         self._planner = planner
+        self._fallback = fallback
         self._executor = executor
         self._rollback = rollback
         self._breaker = breaker
@@ -104,7 +125,39 @@ class OrchestrationEngine:
         self._ledger = ledger
         self._notifier = notifier
         self._classifier = classifier or Classifier()
+        self._pending = pending
+        self._qualifications = qualifications
+        self._qualifier = qualifier or Qualifier()
         self._autonomy_enabled = autonomy_enabled
+
+    @staticmethod
+    def _sans_rompre(result: OrchestrationResult, quoi: str, action: Any) -> Any:
+        """Exécute un traitement annexe sans laisser son échec rompre la chaîne.
+
+        La règle est celle du point de non-retour : **tout ce qui suit la
+        première action exécutée doit être isolé**. Un geste posé sur un
+        équipement ne se dépose pas ; laisser une exception remonter ferait
+        croire à l'appelant que rien n'a eu lieu, et un collecteur qui
+        réessaierait produirait un second incident pour la même observation.
+
+        Ce qui précède l'exécution n'est pas isolé, et ne doit pas l'être :
+        là, une exception signifie que l'événement n'a pas été traité, et
+        l'appelant a raison de l'apprendre.
+        """
+        try:
+            return action()
+        except Exception as exc:  # noqa: BLE001
+            message = f"{quoi} : {type(exc).__name__} — {exc}"
+            result.warnings.append(message)
+            log_with(
+                logger,
+                logging.CRITICAL,
+                "traitement annexe en échec après exécution ; la réponse reste valide",
+                etape=quoi,
+                error=str(exc),
+                incident_id=result.incident.incident_id,
+            )
+            return None
 
     def set_policy(self, policy: ResponsePolicy) -> None:
         """Rechargement à chaud d'une politique recompilee."""
@@ -141,6 +194,30 @@ class OrchestrationEngine:
         )
 
         result = OrchestrationResult(event=event, incident=incident, decision=decision)
+
+        # EF-28 : les gestes a effet durable ne sont pas executes, mais ils ne
+        # doivent pas non plus se perdre dans une notification qu'on lit une
+        # fois. Ils sont inscrits en attente et y restent tant que personne
+        # n'a tranche.
+        # Ces deux inscriptions sont de la tenue de registre : leur échec ne
+        # doit jamais empêcher le confinement qui suit.
+        result.pending = (
+            self._sans_rompre(
+                result,
+                "inscription des gestes en attente",
+                lambda: self._open_pending(incident, decision),
+            )
+            or []
+        )
+
+        # EF-29 : une menace hors catalogue est contenue mais pas nommee. On
+        # ouvre une fiche de qualification, qui reste une *proposition*.
+        result.qualification = self._sans_rompre(
+            result,
+            "ouverture de la fiche de qualification",
+            lambda: self._propose_qualification(event, incident, classification),
+        )
+
         if not decision.is_actionable:
             log_with(
                 logger,
@@ -150,7 +227,20 @@ class OrchestrationEngine:
                 outcome=decision.outcome.value,
                 rationale=decision.rationale,
             )
-            self._incidents.save(incident)
+            self._sans_rompre(
+                result, "enregistrement de l'incident", lambda: self._incidents.save(incident)
+            )
+            # S'abstenir n'est pas rassurant : la menace reste entiere. Le
+            # silence sur une abstention est pire que sur une action, puisque
+            # l'action, elle, a au moins contenu quelque chose.
+            result.notifications = (
+                self._sans_rompre(
+                    result,
+                    "notification d'abstention",
+                    lambda: self._notify_abstention(incident, decision),
+                )
+                or []
+            )
             return result
 
         # EF-07 : exécution immédiate, sans validation préalable.
@@ -161,17 +251,34 @@ class OrchestrationEngine:
             watch_target=event.asset.correlation_key(),
         )
         result.execution = report
-        for action_result in report.results:
-            incident.register_action(action_result)
-        self._incidents.save(incident)
+
+        # --- POINT DE NON-RETOUR ------------------------------------------
+        # Les gestes sont posés. À partir d'ici, plus aucune exception ne doit
+        # remonter : elle ferait croire à l'appelant que la réponse n'a pas eu
+        # lieu, alors qu'elle est déjà appliquée sur les équipements.
+        def enregistrer() -> None:
+            for action_result in report.results:
+                incident.register_action(action_result)
+            self._incidents.save(incident)
+
+        self._sans_rompre(result, "enregistrement de l'incident", enregistrer)
 
         # EF-13 revisee : l'analyste est informé après coup, sans rien bloquer.
-        result.notifications = self._notify_after_the_fact(incident, decision, report)
+        result.notifications = (
+            self._sans_rompre(
+                result,
+                "notification a posteriori",
+                lambda: self._notify_after_the_fact(incident, decision, report),
+            )
+            or []
+        )
 
         # Un échec d'actuateur peut annoncer une panne en série : on laisse le
         # coupe-circuit en juger immédiatement plutôt qu'au prochain incident.
         if report.failed:
-            self._breaker.evaluate_auto_trip()
+            self._sans_rompre(
+                result, "évaluation du coupe-circuit", self._breaker.evaluate_auto_trip
+            )
 
         return result
 
@@ -219,14 +326,68 @@ class OrchestrationEngine:
             )
             return decision
 
-        # EF-04 : sans contexte fonde, pas d'action. C'est le refus le plus
-        # important du système, et celui qui couvre les menaces inconnues.
+        # EF-04 : sans contexte fondé, aucun playbook n'est choisi. C'est le
+        # refus le plus important du système, et il tient : on ne devine pas
+        # un type d'attaque pour en déduire une réponse.
+        #
+        # Le repli qui suit ne lève pas cette garde, il change de fondement.
+        # Il ne déduit rien du type — il part des indicateurs *observés* et
+        # n'engage que des gestes réversibles, à rayon contenu, annulables.
+        # Bloquer une adresse hostile protège quelle que soit l'attaque
+        # qu'elle porte ; c'est un fait constaté, pas une hypothèse.
         if not context.is_usable:
-            decision.outcome = DecisionOutcome.NO_GROUNDED_CONTEXT
+            repli = self._fallback.plan(event) if self._fallback else None
+            if repli is None or repli.empty:
+                decision.outcome = DecisionOutcome.NO_GROUNDED_CONTEXT
+                decision.rationale = (
+                    "contexte non fondé documentairement : "
+                    f"{context.grounding.reason if context.grounding else 'aucune source'}. "
+                    "Agir reviendrait a agir sur une hypothèse."
+                )
+                return decision
+
+            decision.fallback = repli.to_dict()
+            trace.considered_actions = [
+                s.spec.key for s in (*repli.autonomous, *repli.requires_confirmation)
+            ]
+            trace.rejected_actions = [
+                {
+                    "action": s.spec.key,
+                    "reason": (
+                        f"effet durable ({s.spec.reversibility.value}) : "
+                        f"{s.residual_effect or 'annulation partielle'} — "
+                        "confirmation humaine requise"
+                    ),
+                }
+                for s in repli.requires_confirmation
+            ]
+
+            # La politique s'applique au repli comme au reste : une consigne
+            # « ne jamais bloquer une adresse » vaut aussi pour une menace
+            # inconnue. Contourner la politique au motif de l'urgence serait
+            # exactement ce que la compilation a priori (EF-15) interdit.
+            autorisees, verdicts = self._apply_policy(
+                [s.spec for s in repli.autonomous], event, incident
+            )
+            trace.policy_verdicts = verdicts
+
+            if not autorisees:
+                decision.outcome = DecisionOutcome.POLICY_DENIED
+                decision.rationale = (
+                    "menace non catalogüée : le confinement de repli a été refusé "
+                    "par la politique de réponse. Aucune action n'est engagée."
+                )
+                return decision
+
+            decision.outcome = DecisionOutcome.AUTONOMOUS_EXECUTION
+            decision.actions = autorisees
             decision.rationale = (
-                "contexte non fondé documentairement : "
-                f"{context.grounding.reason if context.grounding else 'aucune source'}. "
-                "Agir reviendrait a agir sur une hypothèse."
+                "contexte non fondé documentairement : aucun playbook n'est applicable. "
+                "Confinement de repli engagé sur les seuls indicateurs observés "
+                f"({'; '.join(repli.observations[:3])}) — "
+                f"{len(autorisees)} geste(s) réversible(s), annulables. "
+                f"{len(repli.requires_confirmation)} geste(s) à effet durable attendent "
+                "une confirmation humaine. Le type d'attaque reste à qualifier."
             )
             return decision
 
@@ -305,7 +466,97 @@ class OrchestrationEngine:
                 allowed.append(spec)
         return allowed, verdicts
 
+    # -- EF-28 : ce qui attend une decision humaine -------------------------
+
+    def _open_pending(self, incident: Incident, decision: Decision) -> list[dict[str, Any]]:
+        """Inscrit les gestes a effet durable, et les y laisse.
+
+        La difference avec une notification est le point du mecanisme : une
+        notification informe une fois, une ligne en attente se represente a
+        chaque consultation. C'est ce qui la rend persistante au sens ou le
+        CIRT l'a demandee.
+        """
+        if self._pending is None or not decision.fallback:
+            return []
+        ouverts: list[dict[str, Any]] = []
+        for suggestion in decision.fallback.get("requires_confirmation", []):
+            entree = self._pending.open(
+                incident_id=incident.incident_id,
+                decision_id=decision.decision_id,
+                suggestion=suggestion,
+            )
+            ouverts.append(entree)
+            self._ledger.record(
+                AuditEventType.CONFIRMATION_REQUESTED,
+                {
+                    "pending_id": entree["pending_id"],
+                    "action": f"{entree['actuator']}:{entree['verb']}",
+                    "target": entree["target"],
+                    "reversibility": entree["reversibility"],
+                    "residual_effect": entree["residual_effect"],
+                    "basis": entree["basis"],
+                },
+                incident_id=incident.incident_id,
+                decision_id=decision.decision_id,
+            )
+        if ouverts and self._notifier is not None:
+            self._notifier.notify_pending(incident, ouverts)
+        return ouverts
+
+    # -- EF-29 : nommer ce qui ne l'etait pas -------------------------------
+
+    def _propose_qualification(
+        self, event: DetectionEvent, incident: Incident, classification: Classification
+    ) -> dict[str, Any] | None:
+        """Ouvre une fiche pour un incident que le catalogue ne couvre pas.
+
+        Une seule fiche par incident : rouvrir une proposition a chaque
+        evenement correle noierait l'analyste sous des doublons.
+        """
+        if self._qualifications is None or classification.is_catalogued:
+            return None
+        if self._qualifications.already_proposed_for(incident.incident_id):
+            return None
+        fiche = self._qualifier.propose(
+            event,
+            incident.incident_id,
+            dangerousness=classification.dangerousness,
+            severity=classification.severity,
+        )
+        entree = self._qualifications.propose(fiche.to_dict())
+        self._ledger.record(
+            AuditEventType.QUALIFICATION_PROPOSED,
+            {
+                "qualification_id": entree["qualification_id"],
+                "label": entree["label"],
+                "family": entree["family"],
+                "signature": entree["category"],
+                "rationale": entree.get("rationale", ""),
+            },
+            incident_id=incident.incident_id,
+        )
+        return entree
+
     # -- EF-13 revisee ------------------------------------------------------
+
+    def _notify_abstention(self, incident: Incident, decision: Decision) -> list[str]:
+        if self._notifier is None:
+            return []
+        sent = self._notifier.notify_abstention(incident, decision)
+        for notification_id in sent:
+            self._ledger.record(
+                AuditEventType.ANALYST_NOTIFIED,
+                {
+                    "notification_id": notification_id,
+                    "incident_id": incident.incident_id,
+                    "abstention": True,
+                    "outcome": decision.outcome.value,
+                    "rationale": decision.rationale,
+                },
+                incident_id=incident.incident_id,
+                decision_id=decision.decision_id,
+            )
+        return sent
 
     def _notify_after_the_fact(
         self, incident: Incident, decision: Decision, report: ExecutionReport

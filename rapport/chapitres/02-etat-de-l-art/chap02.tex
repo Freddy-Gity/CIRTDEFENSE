@@ -1,0 +1,106 @@
+\let\textcircled=\pgftextcircled
+\chapter{\'Etat de l'art}
+\label{chap:etat-art}
+
+\textit{\initial{C}e chapitre situe le travail dans le paysage de la r\'eponse
+automatis\'ee aux incidents. Il examine successivement les briques de d\'etection,
+les plateformes d'orchestration, les approches fond\'ees sur l'apprentissage, puis
+d\'egage le verrou que la contribution entend lever.}
+
+\mtcselectlanguage{french}
+\minitoc
+\newpage
+
+\section{Cha\^ine de traitement d'un incident de s\'ecurit\'e}
+\subsection{Cycle de vie normalis\'e}
+% A COMPLETER : s'appuyer sur NIST SP 800-61r2 (Computer Security Incident
+% Handling Guide) et ISO/IEC 27035. Les quatre phases : preparation ;
+% detection et analyse ; confinement, eradication et retablissement ;
+% activite post-incident.
+Le cycle de vie retenu par la litt\'erature normative comporte quatre phases
+[compl\'eter avec NIST SP 800-61r2 et ISO/IEC 27035]. La contribution de ce travail
+porte sur la troisi\`eme --- le \textbf{confinement} --- et sur la boucle de retour
+qui la relie \`a la quatri\`eme.
+
+\subsection{Sources de d\'etection}
+\begin{itemize}
+  \item \textbf{\textsc{siem}} --- corr\'elation de journaux h\'et\'erog\`enes ;
+  \item \textbf{\textsc{nids}} --- inspection du trafic r\'eseau ;
+  \item \textbf{\textsc{edr}} --- t\'el\'em\'etrie des postes et serveurs ;
+  \item \textbf{\textsc{ueba}} --- \'ecart \`a un profil comportemental de r\'ef\'erence.
+\end{itemize}
+[D\'evelopper : forces, limites, taux de faux positifs constat\'es dans la
+litt\'erature.]
+
+\section{Orchestration de la r\'eponse : les plateformes SOAR}
+\subsection{Principe}
+[Origine du terme, promesse : orchestration, automatisation, r\'eponse.]
+
+\subsection{Limite structurelle}
+La quasi-totalit\'e des plateformes de cette famille s'arr\^ete \`a la
+\emph{recommandation}, ou n'automatise que des gestes sans effet sur la
+production --- ouverture de ticket, enrichissement, notification. La raison n'est
+pas technique : elle tient \`a l'absence de garantie sur la r\'eversibilit\'e des gestes
+correctifs. Faute de pouvoir prouver qu'une action est annulable, l'\'editeur
+reporte la responsabilit\'e sur l'analyste.
+
+\begin{table}[H]
+\centering
+\caption{Comparaison des approches d'orchestration de la r\'eponse}
+\label{tab:comparaison-soar}
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Crit\`ere} & \textbf{SOAR classique} & \textbf{Playbooks} & \textbf{Approches ML} & \textbf{Ce travail} \\
+ & & \textbf{scriptés} & & \\
+\midrule
+Action sans validation   & Non           & Partielle    & Variable & \textbf{Oui, born\'ee} \\
+Garantie d'annulation    & Non trait\'ee  & Non trait\'ee & Non      & \textbf{Condition d'ex\'ecution} \\
+Refus d'agir motiv\'e     & Non           & Non          & Non      & \textbf{Oui (ancrage)} \\
+Explicabilit\'e           & \'Elev\'ee     & \'Elev\'ee    & Faible   & \'Elev\'ee \\
+Boucle de contr\^ole      & Absente       & Absente      & Rare     & \textbf{Ferm\'ee} \\
+Menace hors catalogue    & Silence       & Silence      & Extrapolation & \textbf{Repli par indicateurs} \\
+Fonctionnement hors ligne& Non           & Oui          & Non      & \textbf{Oui} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% A COMPLETER : citer et discuter au moins trois plateformes representatives,
+% ainsi que deux travaux academiques sur la reponse automatisee.
+
+\section{Approches fond\'ees sur l'apprentissage}
+\subsection{Apport}
+[D\'etection d'anomalies, r\'eduction du bruit, priorisation.]
+
+\subsection{Obstacle \`a l'action autonome}
+Trois obstacles interdisent de confier la \emph{d\'ecision d'agir} \`a un mod\`ele
+appris dans le contexte vis\'e :
+
+\begin{enumerate}
+  \item \textbf{L'opposabilit\'e} --- une d\'ecision doit \^etre justifiable devant une
+        autorit\'e ; un poids de r\'eseau ne constitue pas une justification ;
+  \item \textbf{L'invention} --- un mod\`ele g\'en\'eratif produit une r\'eponse
+        plausible m\^eme lorsqu'il ne dispose d'aucune donn\'ee fiable ;
+  \item \textbf{La souverainet\'e} --- l'appel \`a un mod\`ele h\'eberg\'e hors du territoire
+        contredit la contrainte de non-sortie des donn\'ees.
+\end{enumerate}
+
+C'est pourquoi, dans la conception retenue, le mod\`ele de langage n'est jamais
+autoris\'e \`a produire un fait ni \`a choisir une action : il ne fait que reformuler
+des faits d\'ej\`a \'etablis par le moteur d\'eterministe (voir
+section~\ref{sec:assistant-conception}).
+
+\section{R\'eversibilit\'e et s\^uret\'e de fonctionnement}
+[Rapprocher des notions issues d'autres domaines : transactions et annulation en
+bases de donn\'ees, patron \emph{Command}/\emph{Memento} en g\'enie logiciel,
+\emph{circuit breaker} en syst\`emes r\'epartis, principe de r\'eversibilit\'e des
+actions en s\^uret\'e des automatismes.]
+
+\section{Synth\`ese et positionnement}
+L'\'etat de l'art fait appara\^itre un verrou constant : l'automatisation de la
+r\'eponse est trait\'ee comme un probl\`eme de \emph{confiance dans la d\'etection}, alors
+qu'elle est d'abord un probl\`eme de \emph{co\^ut de l'erreur}. Le travail pr\'esent\'e ici
+d\'eplace la question : plut\^ot que de chercher \`a rendre la d\'etection assez s\^ure pour
+agir, il restreint l'action \`a ce dont l'erreur est rattrapable. La
+r\'eversibilit\'e, jusque-l\`a trait\'ee comme une m\'etadonn\'ee documentaire, devient une
+\textbf{condition op\'erationnelle} \'evalu\'ee avant chaque ex\'ecution.

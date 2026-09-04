@@ -1,0 +1,344 @@
+\let\textcircled=\pgftextcircled
+\chapter{Analyse et sp\'ecification des besoins}
+\label{chap:analyse}
+
+\textit{\initial{C}e chapitre formalise ce que le syst\`eme doit faire, avant toute
+consid\'eration sur la mani\`ere dont il le fera. Il identifie les acteurs, \'enonce les
+exigences fonctionnelles et non fonctionnelles, et les traduit en cas
+d'utilisation dont les plus critiques sont d\'ecrits en d\'etail.}
+
+\mtcselectlanguage{french}
+\minitoc
+\newpage
+
+\section{D\'emarche de mod\'elisation}
+\subsection{Choix du processus}
+Le processus retenu est le \textbf{2TUP} (\emph{Two Track Unified Process}),
+d\'eclinaison du processus unifi\'e qui s\'epare explicitement la branche fonctionnelle
+--- ce que le m\'etier demande --- de la branche technique --- ce que
+l'infrastructure impose --- avant de les faire converger en conception.
+
+Ce choix est motiv\'e par la nature du projet. Les contraintes techniques y ne sont
+pas subordonn\'ees au fonctionnel : la souverainet\'e des donn\'ees et le
+fonctionnement hors ligne \'ecartent d'embl\'ee des solutions qui satisferaient
+parfaitement le besoin m\'etier. Traiter les deux branches en parall\`ele \'evite de
+concevoir une solution fonctionnellement correcte mais non d\'eployable.
+
+\begin{figure}[H]
+\centering
+\begin{diagramme}[node distance=6mm]
+  \node (bf)  [action=3.4cm, fill=umltete] {Branche fonctionnelle\\[2pt]\scriptsize
+        Capture des besoins m\'etier\\ Analyse\\ Cas d'utilisation};
+  \node (bt)  [action=3.4cm, fill=umltete, right=42mm of bf] {Branche technique\\[2pt]\scriptsize
+        Contraintes de d\'eploiement\\ Architecture\\ Choix des composants};
+  \node (conc) [action=4cm, below=16mm of $(bf)!0.5!(bt)$] {Conception pr\'eliminaire\\ puis d\'etaill\'ee};
+  \node (real) [action=4cm, below=8mm of conc] {R\'ealisation};
+  \node (val)  [action=4cm, below=8mm of real] {Recette};
+  \draw[flot] (bf.south) -- (conc.north west);
+  \draw[flot] (bt.south) -- (conc.north east);
+  \draw[flot] (conc) -- (real);
+  \draw[flot] (real) -- (val);
+  \draw[dependance] (val.east) to[out=0,in=0,looseness=1.6] node[role,right=1mm]{it\'eration} (conc.east);
+\end{diagramme}
+\caption{D\'emarche en Y du processus 2TUP appliqu\'ee au projet}
+\label{fig:2tup}
+\end{figure}
+
+\subsection{Recueil des besoins}
+% A COMPLETER : preciser le dispositif reel de recueil.
+Le recueil s'est appuy\'e sur [nombre] entretiens semi-directifs conduits aupr\`es
+des analystes du CIRT, sur l'observation de [nombre] traitements d'incidents
+r\'eels et sur l'analyse du document interne de \emph{classification des r\'eactions
+autonomes par type d'attaque}, qui constitue la r\'ef\'erence m\'etier du projet.
+
+\section{Identification des acteurs}
+Un acteur est un r\^ole tenu vis-\`a-vis du syst\`eme, non une personne. Le m\^eme agent
+peut en tenir plusieurs successivement --- un administrateur est, dans
+l'organisation du CIRT, un analyste promu.
+
+\begin{table}[H]
+\centering
+\caption{Acteurs du syst\`eme et responsabilit\'es associ\'ees}
+\label{tab:acteurs}
+\small
+\begin{tabular}{@{}p{2.6cm}p{2.2cm}p{8.5cm}@{}}
+\toprule
+\textbf{Acteur} & \textbf{Nature} & \textbf{Responsabilit\'e vis-\`a-vis du syst\`eme} \\
+\midrule
+Analyste & Humain, principal &
+  Supervise \emph{a posteriori}. Consulte le journal et le portefeuille, d\'eclenche
+  une annulation manuelle, qualifie une menace hors catalogue. Ne valide jamais
+  une action avant son ex\'ecution. \\
+Administrateur & Humain, principal &
+  Analyste promu. Ajoute la d\'efinition de la politique de r\'eponse, la gestion du
+  catalogue de r\'eversibilit\'e, le r\'eglage du coupe-circuit et la gestion des comptes. \\
+Super-admin. & Humain, principal &
+  Cr\'e\'e \`a l'installation. Ajoute la promotion et la r\'evocation des administrateurs. \\
+D\'ecideur & Humain, secondaire &
+  Lecture strat\'egique stricte : portefeuille et journal. Aucune action. \\
+Source de d\'etection & Syst\`eme, primaire &
+  \'Emet les observations : SIEM, sonde r\'eseau, EDR, journaux syst\`eme. \\
+Ordonnanceur interne & Syst\`eme, primaire &
+  D\'eclenche les traitements p\'eriodiques : sondes d'infrastructure, boucle de
+  contr\^ole post-action, rejeu de la file du mode d\'egrad\'e. \\
+\'Equipement cible & Syst\`eme, secondaire &
+  Subit les actions : pare-feu, EDR, annuaire, r\'esolveur DNS, sauvegarde. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Besoins fonctionnels}
+\label{sec:besoins-fonctionnels}
+Les exigences sont num\'erot\'ees \texttt{EF-\textit{nn}}. Cette num\'erotation est
+conserv\'ee sans changement jusqu'\`a la matrice de tra\c cabilit\'e du
+chapitre~\ref{chap:conception} et jusqu'aux noms des tests de recette : c'est ce
+qui permet de v\'erifier, exigence par exigence, qu'aucune n'a \'et\'e perdue en route.
+
+\begin{table}[H]
+\centering
+\caption{Exigences fonctionnelles}
+\label{tab:exigences-fonctionnelles}
+\scriptsize
+\begin{tabular}{@{}llp{9.2cm}@{}}
+\toprule
+\textbf{R\'ef.} & \textbf{Groupe} & \textbf{\'Enonc\'e} \\
+\midrule
+EF-18 & Ingestion & Normaliser les remont\'ees de sources h\'et\'erog\`enes en un sch\'ema pivot unique. \\
+EF-19 & Ingestion & \'Eliminer les remont\'ees multiples d'une m\^eme observation. \\
+EF-20 & Ingestion & Corr\'eler les \'ev\'enements en incidents sur une cl\'e et une fen\^etre temporelle. \\
+\addlinespace
+EF-03 & Analyse & Enrichir le contexte d'un incident \`a partir d'un fonds documentaire. \\
+EF-04 & Analyse & \textbf{N'engager aucune action lorsque le contexte n'est pas document\'e.} \\
+EF-08 & Analyse & \'Etablir un profil comportemental de r\'ef\'erence par entit\'e. \\
+EF-09 & Analyse & D\'etecter un \'ecart significatif \`a ce profil. \\
+EF-10 & Analyse & Rendre le score d'anomalie explicable. \\
+\addlinespace
+EF-05 & D\'ecision & S\'electionner l'action corrective selon la famille de menace. \\
+EF-06 & D\'ecision & Param\'etrer l'action \`a partir des indicateurs de l'\'ev\'enement. \\
+EF-14 & D\'ecision & \textbf{N'autoriser en autonomie que les actions r\'eversibles.} \\
+EF-15 & D\'ecision & \textbf{Appliquer une politique r\'edig\'ee en langage naturel, compil\'ee a priori.} \\
+EF-26 & D\'ecision & \textbf{Suspendre globalement l'autonomie au-del\`a d'un seuil d'\'echec.} \\
+\addlinespace
+EF-07 & Ex\'ecution & \textbf{Ex\'ecuter l'action sans validation humaine pr\'ealable.} \\
+EF-13 & Ex\'ecution & \textbf{Notifier l'analyste apr\`es coup, sans bloquer l'ex\'ecution.} \\
+EF-25 & Ex\'ecution & \textbf{Surveiller l'effet de l'action et l'annuler si la cible se d\'egrade.} \\
+\addlinespace
+EF-21 & Surveillance & Surveiller la disponibilit\'e des services supervis\'es. \\
+EF-22 & Surveillance & Param\'etrer des seuils de service par cible. \\
+EF-23 & Surveillance & Traiter une d\'egradation d'infrastructure comme un incident. \\
+\addlinespace
+EF-11 & Consultation & Consulter l'\'etat courant du syst\`eme. \\
+EF-12 & Consultation & Consulter le journal des d\'ecisions. \\
+EF-16 & Consultation & Prioriser le portefeuille d'incidents. \\
+EF-17 & Consultation & Produire les indicateurs de pilotage. \\
+\addlinespace
+EF-27 & Hors catalogue & \textbf{Confiner une menace inconnue \`a partir des seuls indicateurs observ\'es.} \\
+EF-28 & Hors catalogue & \textbf{Alerter de mani\`ere persistante sur un geste \`a effet durable non engag\'e.} \\
+EF-29 & Hors catalogue & \textbf{Proposer une qualification soumise \`a validation humaine, et en enrichir le catalogue.} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{tcolorbox}[colback=umlalerte!5, colframe=umlalerte, boxrule=0.5pt, sharp corners,
+                  fontupper=\small, title=\textbf{Inversion assum\'ee par rapport \`a la version pr\'ec\'edente du cahier des charges}]
+Les exigences EF-07 et EF-13 inversent la position ant\'erieure, qui interdisait
+toute ex\'ecution automatique et imposait la validation manuelle de chaque
+recommandation. Cette inversion n'est pas un assouplissement : elle est
+compens\'ee par EF-04, EF-14, EF-15, EF-25 et EF-26, qui sont autant de
+\emph{refus} et de \emph{corrections} substitu\'es \`a la relecture humaine. Aucun de
+ces m\'ecanismes ne r\'eintroduit d'attente : le syst\`eme ne poss\`ede aucun \'etat
+« en attente de validation » sur le chemin nominal.
+\end{tcolorbox}
+
+\section{Besoins non fonctionnels}
+\begin{table}[H]
+\centering
+\caption{Exigences non fonctionnelles}
+\label{tab:exigences-non-fonctionnelles}
+\scriptsize
+\begin{tabular}{@{}llp{8.4cm}@{}}
+\toprule
+\textbf{R\'ef.} & \textbf{Cat\'egorie} & \textbf{\'Enonc\'e et crit\`ere de v\'erification} \\
+\midrule
+ENF-01 & Souverainet\'e & Aucun appel sortant obligatoire ; fonctionnement nominal sans acc\`es Internet. \\
+ENF-02 & Opposabilit\'e & Toute d\'ecision et toute action inscrites dans un journal dont la modification est techniquement emp\^ech\'ee. \\
+ENF-03 & Tra\c cabilit\'e & Chaque d\'ecision porte ses sources documentaires, les r\`egles appliqu\'ees et les alternatives \'ecart\'ees. \\
+ENF-04 & Performance & D\'elai entre r\'eception de l'\'ev\'enement et ex\'ecution de l'action inf\'erieur \`a [valeur] secondes au 95\textsuperscript{e} centile. \\
+ENF-05 & Disponibilit\'e & Mode d\'egrad\'e : mise en file et rejeu int\'egral au retour du lien, sans perte. \\
+ENF-06 & S\^uret\'e & Aucune action irr\'eversible ex\'ecutable en autonomie, quelle que soit la configuration. \\
+ENF-07 & Portabilit\'e & D\'eploiement sur un serveur unique, sans service manag\'e externe. \\
+ENF-08 & Maintenabilit\'e & Ajout d'une source de d\'etection sans modification du moteur d'orchestration. \\
+ENF-09 & Utilisabilit\'e & Interface en fran\c cais ; la couleur ne porte jamais seule une information. \\
+ENF-10 & S\'ecurit\'e & S\'eparation des r\^oles ; empreintes de mots de passe ; sessions \`a dur\'ee born\'ee. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Mod\`ele des cas d'utilisation}
+\subsection{Diagramme de cas d'utilisation}
+La figure~\ref{fig:cas-utilisation} pr\'esente le mod\`ele des cas d'utilisation.
+Deux traits m\'eritent d'\^etre relev\'es avant lecture. D'une part, l'acteur
+\emph{Source de d\'etection} et l'acteur \emph{Ordonnanceur} d\'eclenchent la cha\^ine
+compl\`ete jusqu'\`a l'ex\'ecution : aucun cas d'utilisation humain ne s'ins\`ere entre la
+d\'ecision et l'action. D'autre part, l'analyste n'appara\^it qu'en aval --- ses cas
+d'utilisation sont tous post\'erieurs \`a une ex\'ecution.
+
+\begin{figure}[H]
+\centering
+\begin{diagramme}[node distance=5mm]
+  % ---- cas d'utilisation, colonne centrale
+  \node (uc1) [cas=3.1cm] {Ing\'erer un \'ev\'enement normalis\'e};
+  \node (uc2) [cas=3.1cm, below=6mm of uc1, umlaccentue] {Ex\'ecuter une action corrective en autonomie};
+  \node (uc3) [cas=3.1cm, below=6mm of uc2] {\'Evaluer la r\'eversibilit\'e d'une action};
+  \node (uc4) [cas=3.1cm, below=6mm of uc3, umlaccentue] {Annuler automatiquement une action};
+  \node (uc5) [cas=3.1cm, below=6mm of uc4] {Notifier l'analyste a posteriori};
+  \node (uc13)[cas=3.1cm, below=6mm of uc5, umlaccentue] {Confiner une menace hors catalogue};
+  \node (uc6) [cas=3.1cm, below=6mm of uc13] {D\'eclencher une annulation manuelle};
+  \node (uc7) [cas=3.1cm, below=6mm of uc6] {Consulter le journal d'audit};
+  \node (uc8) [cas=3.1cm, below=6mm of uc7] {Consulter le portefeuille prioris\'e};
+  \node (uc14)[cas=3.1cm, below=6mm of uc8] {Qualifier une menace et enrichir le catalogue};
+  \node (uc9) [cas=3.1cm, below=6mm of uc14] {D\'efinir la politique de r\'eponse};
+  \node (uc10)[cas=3.1cm, below=6mm of uc9] {G\'erer le catalogue de r\'eversibilit\'e};
+  \node (uc11)[cas=3.1cm, below=6mm of uc10] {Configurer le coupe-circuit};
+  \node (uc12)[cas=3.1cm, below=6mm of uc11] {Consulter la file du mode d\'egrad\'e};
+
+  % ---- frontiere du systeme
+  \begin{scope}[on background layer]
+    \node (sys) [systeme, fit=(uc1)(uc12)] {};
+    \node [font=\scriptsize\bfseries, anchor=north] at (sys.north) {CIRTDEFENSE};
+  \end{scope}
+
+  % ---- acteurs
+  \umlacteur{src}{$(sys.west)+(-2.6cm,4.6cm)$}{Source de\\d\'etection}
+  \umlacteur{ord}{$(sys.west)+(-2.6cm,1.6cm)$}{Ordonnanceur\\interne}
+  \umlacteur{ana}{$(sys.east)+(2.6cm,1.2cm)$}{Analyste}
+  \umlacteur{adm}{$(sys.east)+(2.6cm,-2.6cm)$}{Administrateur}
+  \umlacteur{dec}{$(sys.west)+(-2.6cm,-3.4cm)$}{D\'ecideur}
+  \umlacteur{eqp}{$(sys.east)+(2.6cm,4.6cm)$}{\'Equipement\\cible}
+
+  % ---- associations acteur / cas
+  \draw[association] (src) -- (uc1);
+  \draw[association] (ord) -- (uc4);
+  \draw[association] (ord) -- (uc12);
+  \draw[association] (uc2) -- (eqp);
+  \draw[association] (uc4) -- (eqp);
+  \draw[association] (uc5) -- (ana);
+  \draw[association] (ana) -- (uc6);
+  \draw[association] (ana) -- (uc7);
+  \draw[association] (ana) -- (uc8);
+  \draw[association] (ana) -- (uc14);
+  \draw[association] (adm) -- (uc9);
+  \draw[association] (adm) -- (uc10);
+  \draw[association] (adm) -- (uc11);
+  \draw[association] (adm) -- (uc12);
+  \draw[association] (dec) -- (uc7);
+  \draw[association] (dec) -- (uc8);
+
+  % ---- relations entre cas
+  \draw[inclut] (uc1) to[out=0,in=90] node[role, pos=0.5]{\guillemotleft include\guillemotright} (uc2.north east);
+  \draw[inclut] (uc2) -- node[role]{\guillemotleft include\guillemotright} (uc3);
+  \draw[inclut] (uc4) -- node[role]{\guillemotleft include\guillemotright} (uc3);
+  \draw[inclut] (uc2) to[out=180,in=180] node[role,left=1mm]{\guillemotleft include\guillemotright} (uc5);
+  \draw[etend]  (uc13) to[out=180,in=180] node[role,left=1mm]{\guillemotleft extend\guillemotright} (uc2);
+  \draw[etend]  (uc14) to[out=0,in=0] node[role,right=1mm]{\guillemotleft extend\guillemotright} (uc13);
+\end{diagramme}
+\caption{Diagramme de cas d'utilisation du syst\`eme}
+\label{fig:cas-utilisation}
+\end{figure}
+
+\subsection{Description d\'etaill\'ee des cas critiques}
+Les fiches qui suivent adoptent le format usuel : identification, acteurs,
+pr\'econditions, sc\'enario nominal, sc\'enarios alternatifs, postconditions, exigences
+couvertes. Seuls les cas portant l'apport du travail sont d\'etaill\'es ici ; les
+autres figurent en annexe~\ref{ann:cas-utilisation}.
+
+\begin{fichecas}{UC-02}{Ex\'ecuter une action corrective en autonomie}
+\rubrique{Acteur principal}{Source de d\'etection (acteur syst\`eme).}
+\rubrique{Acteurs secondaires}{\'Equipement cible, Analyste (notifi\'e apr\`es coup).}
+\rubrique{Objectif}{Contenir une menace sans attendre d'intervention humaine.}
+\rubrique{Pr\'econditions}{Un \'ev\'enement normalis\'e a \'et\'e ing\'er\'e et rattach\'e \`a un
+  incident ; le coupe-circuit est ferm\'e ; le syst\`eme n'est pas en mode d\'egrad\'e.}
+\rubrique{Sc\'enario nominal}{%
+  \begin{enumerate}
+    \item Le syst\`eme enrichit le contexte de l'incident \`a partir du fonds documentaire.
+    \item Il v\'erifie que le contexte est document\'e \emph{(EF-04)}.
+    \item Il classe l'incident au catalogue m\'etier et s\'electionne le playbook associ\'e.
+    \item Il param\`etre les actions \`a partir des indicateurs de l'\'ev\'enement.
+    \item Il \'ecarte toute action non r\'eversible \emph{(EF-14, cf. UC-03)}.
+    \item Il soumet les actions restantes \`a la politique compil\'ee \emph{(EF-15)}.
+    \item Il ex\'ecute les actions autoris\'ees aupr\`es des actionneurs \emph{(EF-07)}.
+    \item Il inscrit d\'ecision et r\'esultats au journal d'audit.
+    \item Il notifie l'analyste \emph{(EF-13, cf. UC-05)}.
+  \end{enumerate}}
+\rubrique{A1 --- contexte non document\'e}{\`A l'\'etape 2, le syst\`eme n'ex\'ecute rien,
+  inscrit un refus motiv\'e et \'emet une alerte indiquant que la menace n'est pas
+  contenue. Reprise possible par UC-13.}
+\rubrique{A2 --- toutes les actions refus\'ees}{\`A l'\'etape 6, aucune action n'est
+  autoris\'ee ; le syst\`eme inscrit le verdict de politique et notifie l'analyste.}
+\rubrique{A3 --- coupe-circuit ouvert}{Le cas se termine sans ex\'ecution ; l'incident
+  reste ouvert et remonte dans le portefeuille.}
+\rubrique{E1 --- \'echec d'un actionneur}{L'action est marqu\'ee en \'echec ; les autres
+  se poursuivent ; l'\'echec alimente le compteur du coupe-circuit.}
+\rubrique{Postconditions}{Les actions ex\'ecut\'ees portent chacune un jeton
+  d'annulation ; l'incident passe \`a l'\'etat \emph{confin\'e} ; la boucle de contr\^ole
+  post-action est arm\'ee sur la cible.}
+\rubrique{Exigences}{EF-05, EF-06, EF-07, EF-13, EF-14, EF-15, EF-26.}
+\end{fichecas}
+
+\begin{fichecas}{UC-04}{Annuler automatiquement une action}
+\rubrique{Acteur principal}{Ordonnanceur interne.}
+\rubrique{Objectif}{Rattraper une action correcte du point de vue de la menace mais
+  nuisible du point de vue de la cible.}
+\rubrique{Pr\'econditions}{Au moins une action a \'et\'e ex\'ecut\'ee et porte un jeton
+  d'annulation ; une mesure de r\'ef\'erence de la cible a \'et\'e prise avant l'action.}
+\rubrique{Sc\'enario nominal}{%
+  \begin{enumerate}
+    \item L'ordonnanceur d\'eclenche la boucle de contr\^ole.
+    \item Le syst\`eme mesure l'\'etat courant de chaque cible ayant subi une action.
+    \item Il compare cet \'etat \`a la mesure de r\'ef\'erence.
+    \item Si la d\'egradation d\'epasse le seuil, il d\'eclenche l'annulation au moyen du jeton.
+    \item Il inscrit l'annulation au journal et notifie l'analyste.
+  \end{enumerate}}
+\rubrique{A1 --- absence de r\'ef\'erence}{Le syst\`eme s'abstient : sans mesure
+  ant\'erieure, la comparaison n'aurait aucun sens. L'abstention est motiv\'ee et inscrite.}
+\rubrique{A2 --- am\'elioration ou stabilit\'e}{Aucune annulation ; l'action est confirm\'ee.}
+\rubrique{E1 --- \'echec de l'annulation}{L'action passe \`a \emph{\'echec d'annulation} ;
+  une alerte de gravit\'e critique est \'emise : c'est le seul cas o\`u une intervention
+  humaine imm\'ediate est requise.}
+\rubrique{Postconditions}{L'\'etat de la cible est restaur\'e ou l'incapacit\'e \`a le
+  restaurer est trac\'ee et signal\'ee.}
+\rubrique{Exigences}{EF-25, EF-21, EF-22.}
+\end{fichecas}
+
+\begin{fichecas}{UC-13}{Confiner une menace hors catalogue}
+\rubrique{Acteur principal}{Source de d\'etection.}
+\rubrique{Objectif}{\'Eviter le silence face \`a une menace qu'aucun playbook ne couvre.}
+\rubrique{Pr\'econditions}{Le contexte de l'incident n'est pas document\'e : UC-02 s'est
+  arr\^et\'e au sc\'enario alternatif A1.}
+\rubrique{Sc\'enario nominal}{%
+  \begin{enumerate}
+    \item Le syst\`eme extrait les indicateurs observables de l'\'ev\'enement.
+    \item Pour chaque indicateur exploitable, il d\'eduit un geste de confinement.
+    \item Il partage les gestes en deux ensembles selon leur r\'eversibilit\'e.
+    \item Il ex\'ecute sans attendre les gestes r\'eversibles \`a rayon d'impact restreint.
+    \item Il inscrit les gestes \`a effet durable comme \emph{en attente de d\'ecision humaine}.
+    \item Il \'emet une alerte persistante d\'ecrivant ce qui a \'et\'e fait et ce qui reste \`a d\'ecider.
+  \end{enumerate}}
+\rubrique{R\`egle de gestion}{Le syst\`eme ne d\'eduit jamais un geste d'un \emph{type
+  d'attaque suppos\'e} mais d'un \emph{indicateur constat\'e}. Cette distinction est ce
+  qui permet de sortir du catalogue sans lever l'exigence de non-invention.}
+\rubrique{A1 --- aucun indicateur exploitable}{Le syst\`eme n'ex\'ecute rien et \'emet une
+  alerte d'abstention motiv\'ee.}
+\rubrique{A2 --- adresse interne}{Une adresse appartenant au plan d'adressage interne
+  n'est jamais bloqu\'ee : le geste serait plus dommageable que la menace.}
+\rubrique{Postconditions}{L'incident est ouvert, partiellement confin\'e, et porte une
+  demande de qualification (UC-14).}
+\rubrique{Exigences}{EF-27, EF-28, EF-14, EF-15.}
+\end{fichecas}
+
+\section{Conclusion du chapitre}
+Les besoins recueillis \'etablissent une contrainte dominante : l'autonomie n'est
+acceptable que si elle est \emph{born\'ee}, et la borne retenue est la
+r\'eversibilit\'e. Le chapitre suivant traduit cette contrainte en structures :
+c'est elle qui explique la plupart des choix de conception, jusqu'\`a la forme des
+classes du domaine.

@@ -367,10 +367,12 @@ function badge(route, valeur) {
 
 // =========================================================== /dashboard
 async function vueDashboard() {
-  const [portefeuille, stats, audit] = await Promise.all([
+  const [portefeuille, stats, audit, attentes, fiches] = await Promise.all([
     api("/api/v1/incidents?limit=200"),
     api("/api/v1/incidents/statistics"),
     api("/api/v1/audit?limit=40"),
+    api("/api/v1/pending").catch(() => ({ count: 0, pending: [] })),
+    api("/api/v1/qualifications").catch(() => ({ count: 0, qualifications: [] })),
   ]);
   const etat = etatGlobal;
   const cb = etat.circuit_breaker;
@@ -387,8 +389,11 @@ async function vueDashboard() {
   });
 
   badge("/incidents/portfolio", portefeuille.count || 0);
+  badge("/dashboard", (attentes.count || 0) + (fiches.count || 0));
 
   $("vue").innerHTML = `
+    ${blocAttentes(attentes)}
+    ${blocQualifications(fiches)}
     <h2>Statistiques sur 24 heures</h2>
     <div class="grille six">
       ${tuile(stats.incidents_total, "Incidents traités", "toutes familles confondues")}
@@ -441,6 +446,232 @@ async function vueDashboard() {
              <a href="/demo" data-lien>lancez une attaque depuis la Démonstration</a>.</div>`}
     </div>`;
   brancherLiens();
+  brancherDecisions();
+}
+
+// ------------------------------------------- EF-28 : decisions requises
+// Une notification se lit une fois et se perd. Ces blocs restent affiches
+// tant qu'aucune decision n'a ete prise : c'est ce qui en fait une alerte
+// persistante au sens ou le CIRT l'a demandee.
+function blocAttentes(attentes) {
+  if (!attentes.count) return "";
+  const enCours = attentes.pending.filter((a) => a.status === "taken_over").length;
+  return `
+    <div class="carte alerte-durable">
+      <div class="tete-alerte">
+        <span class="etat critique">décision requise</span>
+        <b>${attentes.count} geste${attentes.count > 1 ? "s" : ""} à effet durable
+           ${attentes.count > 1 ? "attendent" : "attend"} votre décision</b>
+        ${enCours ? `<span class="etat moyenne">${enCours} pris en charge</span>` : ""}
+      </div>
+      <div class="muet" style="margin:6px 0 14px">
+        Ils n'ont pas été exécutés : la plateforme n'engage seule que ce qu'elle sait
+        annuler entièrement. Ils resteront ici tant que personne n'aura tranché.
+      </div>
+      ${attentes.pending.map(ficheAttente).join("")}
+    </div>`;
+}
+
+// Une fiche par geste. Le motif se saisit dans la page : passer par prompt()
+// rendait la decision impossible des que le navigateur supprimait les
+// dialogues — il rendait null, le code sortait en silence, et l'exploitant
+// voyait un bouton qui ne faisait rien.
+function ficheAttente(a) {
+  const prise = a.status === "taken_over";
+  const esc_id = esc(a.pending_id);
+  return `
+    <div class="fiche-decision${prise ? " prise" : ""}" data-fiche-att="${esc_id}">
+      <div class="entete-decision">
+        <b>${esc(a.expected_effect || `${a.actuator} : ${a.verb}`)}</b>
+        <span class="muet mono">sur ${esc(a.target)}</span>
+        ${prise ? `<span class="etat moyenne">prise en charge par
+           ${esc((a.taken_over_by || "").replace("human:", ""))}</span>` : ""}
+      </div>
+      <div class="motifs-decision">
+        <div><span class="muet">Pourquoi la plateforme le propose :</span> ${esc(a.basis)}</div>
+        <div><span class="muet">Ce qui subsisterait après annulation :</span>
+             ${esc(a.residual_effect || "annulation partielle")}</div>
+      </div>
+      ${prise ? `
+        <div class="muet" style="margin:8px 0">
+          Vous vous êtes chargé de ce geste. Indiquez ce qui a été fait sur
+          l'équipement pour refermer le dossier.
+        </div>
+        <textarea data-motif="${esc_id}" rows="2"
+          placeholder="Ce que vous avez fait sur l'équipement…"></textarea>
+        <div class="choix">
+          <button class="primaire" data-att="${esc_id}" data-issue="resolved">
+            Rendre compte et clore</button>
+        </div>`
+      : `
+        <textarea data-motif="${esc_id}" rows="2"
+          placeholder="Motif de votre décision — consigné au journal…"></textarea>
+        <div class="choix">
+          <button class="primaire" data-att="${esc_id}" data-issue="confirm">
+            Confirmer — la plateforme exécute</button>
+          <button data-att="${esc_id}" data-issue="handled">Je m'en charge</button>
+          <button data-att="${esc_id}" data-issue="decline">Écarter</button>
+        </div>`}
+      <div class="suite-decision" data-suite="${esc_id}"></div>
+    </div>`;
+}
+
+// Ce que la plateforme a fait de son cote apres un refus. C'est la reponse a
+// « et maintenant ? » : sans elle, ecarter un geste ressemblerait a un abandon.
+function blocEscalade(id, escalade) {
+  if (!escalade) return "";
+  const alt = escalade.alternative;
+  const conseil = escalade.conseil || {};
+  const applique = !!escalade.action;
+  return `
+    <div class="escalade ${esc(escalade.mesure)}">
+      <div class="titre-escalade">
+        ${escalade.mesure === "quarantaine" ? "Confinement de substitution appliqué"
+                                            : "Surveillance rapprochée"}
+      </div>
+      <p>${esc(escalade.motif)}</p>
+      ${alt ? `
+        <div class="proposition">
+          <div class="tete-proposition">
+            <b>${esc(alt.description)}</b>
+            <span class="muet">sur ${esc(alt.target)}</span>
+            ${applique ? `<span class="etat bonne">appliqué</span>` : ""}
+          </div>
+          <div class="muet">Objectif servi : ${esc(alt.but)} —
+            annulable entièrement, ${esc(String(alt.blast_radius))} équipement(s) touché(s).</div>
+          <div class="muet reserve">${esc(alt.reserve)}</div>
+          ${conseil.explication_niveau
+            ? `<div class="muet provenance">${esc(conseil.explication_niveau)}</div>` : ""}
+          ${!applique ? `
+            <div class="choix">
+              <button class="primaire" data-att="${esc(id)}" data-issue="substitute">
+                Appliquer ce geste à la place</button>
+            </div>` : ""}
+        </div>` : ""}
+      ${(escalade.propositions || []).length ? `
+        <details class="autres-propositions">
+          <summary>${escalade.propositions.length} autre(s) geste(s) possible(s)</summary>
+          <ul>${escalade.propositions.map((x) =>
+            `<li>${esc(x.description)} <span class="muet">— ${esc(x.but)}</span></li>`).join("")}</ul>
+        </details>` : ""}
+    </div>`;
+}
+
+// ------------------------------------------- EF-29 : fiches a qualifier
+function blocQualifications(fiches) {
+  if (!fiches.count) return "";
+  return `
+    <div class="carte alerte-qualif">
+      <div class="tete-alerte">
+        <span class="etat moyenne">à qualifier</span>
+        <b>${fiches.count} menace(s) hors catalogue attendent d'être nommée(s)</b>
+      </div>
+      <div class="muet" style="margin:6px 0 12px">
+        La plateforme propose un nom à partir de ce qu'elle a observé. Elle ne pose
+        pas de diagnostic : c'est vous qui décidez si le nom porte un sens métier.
+        Une fiche validée rejoint le catalogue appris et la menace sera reconnue
+        à sa prochaine occurrence.
+      </div>
+      ${fiches.qualifications.map((f) => `
+        <div class="fiche">
+          <div class="champ-fiche">
+            <label>Nom proposé</label>
+            <input data-fiche="${esc(f.qualification_id)}" data-champ="label"
+                   value="${esc(f.label)}">
+          </div>
+          <div class="ligne-fiche">
+            <span class="muet">famille <b>${esc(f.family)}</b></span>
+            <span class="muet">gravité <b>${esc(f.severity)}</b></span>
+            <span class="muet">dangerosité <b>${esc(String(f.dangerousness))}/10</b></span>
+            <span class="muet mono">clé ${esc(f.category)}</span>
+          </div>
+          <div class="muet" style="margin:6px 0">
+            <b>Observé :</b> ${esc(f.signal)}
+          </div>
+          <div class="muet" style="font-size:11px">${esc(f.rationale || "")}</div>
+          <div class="choix" style="margin-top:10px">
+            <button data-fiche-act="${esc(f.qualification_id)}" data-issue="adopt">
+              Valider et cataloguer</button>
+            <button data-fiche-act="${esc(f.qualification_id)}" data-issue="dismiss">
+              Rejeter</button>
+          </div>
+        </div>`).join("")}
+    </div>`;
+}
+
+function brancherDecisions() {
+  $("vue").querySelectorAll("button[data-att]").forEach((b) =>
+    b.addEventListener("click", () => trancher(b)));
+  $("vue").querySelectorAll("button[data-fiche-act]").forEach((b) =>
+    b.addEventListener("click", () => qualifier(b)));
+}
+
+const LIBELLE_ISSUE = {
+  confirm: "geste confirmé et exécuté",
+  handled: "intervention notée à votre nom",
+  resolved: "dossier clos",
+  decline: "geste écarté",
+  substitute: "geste de remplacement appliqué",
+};
+
+// Le motif se lit dans la page. Aucun dialogue natif n'est employe : un
+// navigateur qui les supprime rendait toute decision impossible, sans le
+// moindre message.
+async function trancher(bouton) {
+  const id = bouton.dataset.att;
+  const issue = bouton.dataset.issue;
+  const champ = $("vue").querySelector(`textarea[data-motif="${id}"]`);
+  const motif = (champ?.value || "").trim();
+
+  if (motif.length < 3) {
+    if (champ) {
+      champ.classList.add("manquant");
+      champ.placeholder = "Un motif est nécessaire : il est consigné au journal.";
+      champ.focus();
+      champ.addEventListener("input", () => champ.classList.remove("manquant"), { once: true });
+    }
+    toast("indiquez un motif avant de décider", "erreur");
+    return;
+  }
+
+  const fiche = $("vue").querySelector(`[data-fiche-att="${id}"]`);
+  fiche?.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  const suite = $("vue").querySelector(`[data-suite="${id}"]`);
+  if (suite) suite.innerHTML = `<div class="muet">La plateforme traite votre décision…</div>`;
+
+  try {
+    const r = await post(`/api/v1/pending/${id}/${issue}`, { reason: motif });
+    toast(LIBELLE_ISSUE[issue] || "décision enregistrée");
+
+    // Un refus produit une suite : la plateforme dit ce qu'elle a fait a la
+    // place. On l'affiche avant de rafraichir, sinon le rafraichissement
+    // l'effacerait et l'exploitant ne saurait jamais ce qui a ete decide.
+    if (r.escalade && suite) {
+      suite.innerHTML = blocEscalade(id, r.escalade);
+      brancherDecisions();
+      return;
+    }
+    await rafraichir();
+  } catch (e) {
+    toast(e.message, "erreur");
+    fiche?.querySelectorAll("button").forEach((b) => (b.disabled = false));
+    if (suite) suite.innerHTML = "";
+  }
+}
+
+async function qualifier(bouton) {
+  const id = bouton.dataset.fiche_act || bouton.dataset["ficheAct"];
+  const issue = bouton.dataset.issue;
+  const champ = $("vue").querySelector(`input[data-fiche="${id}"][data-champ="label"]`);
+  const corps = issue === "adopt" && champ ? { label: champ.value.trim() } : {};
+  bouton.disabled = true;
+  try {
+    const r = await post(`/api/v1/qualifications/${id}/${issue}`, corps);
+    toast(issue === "adopt"
+      ? `type ${r.qualification.code} inscrit au catalogue appris`
+      : "proposition rejetée");
+    await rafraichir();
+  } catch (e) { toast(e.message, "erreur"); bouton.disabled = false; }
 }
 
 function etiquetteEvenement(e) {
@@ -1329,8 +1560,23 @@ async function vueCatalogue() {
 }
 
 // ================================================================= /demo
+// Le lancement d'un scenario rafraichit l'etat global, ce qui re-rend la vue :
+// sans memoire, le compte rendu disparaissait aussitot affiche. On le garde
+// donc ici et on le repose apres chaque rendu.
+let resultatDemo = "";
+const poserResultat = (html) => {
+  resultatDemo = html;
+  const hote = $("resultat");
+  if (!hote) return;
+  hote.innerHTML = html;
+  hote.scrollIntoView({ behavior: "smooth", block: "start" });
+};
+
 async function vueDemo() {
-  const data = await api("/api/v1/demo/scenarios");
+  const [data, inconnus] = await Promise.all([
+    api("/api/v1/demo/scenarios"),
+    api("/api/v1/demo/unknown").catch(() => ({ scenarios: [] })),
+  ]);
 
   $("vue").innerHTML = `
     <div class="carte" style="margin-bottom:16px">
@@ -1359,7 +1605,34 @@ async function vueDemo() {
             <span class="muet">dangerosité ${s.dangerousness}/10</span>
             ${s.no_direct_action ? '<span class="muet">· sans action corrective</span>' : ""}
           </div>
-        </div>`).join("")}</div>`).join("")}`;
+        </div>`).join("")}</div>`).join("")}
+
+    ${inconnus.scenarios.length ? `
+      <h2 style="margin-top:26px">Hors catalogue (${inconnus.scenarios.length})</h2>
+      <div class="carte" style="margin-bottom:12px">
+        Ces menaces ne figurent dans aucune des 22 lignes du catalogue. La plateforme
+        ne devine pas leur type : elle part des <b>indicateurs observés</b> et n'engage
+        seule que des gestes réversibles. Ce qui a un effet durable lui est proposé,
+        et attend une décision humaine.
+      </div>
+      <div class="attaques">${inconnus.scenarios.map((s) => `
+        <div class="attaque">
+          <div class="tete">
+            <span class="code">${esc(s.code)}</span>
+            <span class="etat critique">non catalogué</span>
+          </div>
+          <div class="titre">${esc(s.title)}</div>
+          <div class="recit">${esc(s.narrative)}</div>
+          <div class="pied">
+            <button data-inconnu="${esc(s.code)}">Lancer</button>
+            <span class="muet">${esc(s.indicators.join(" · "))}</span>
+          </div>
+        </div>`).join("")}</div>` : ""}`;
+
+  $("vue").querySelectorAll("button[data-inconnu]").forEach((b) =>
+    b.addEventListener("click", () => lancerInconnu(b)));
+
+  if (resultatDemo) $("resultat").innerHTML = resultatDemo;
 
   $("vue").querySelectorAll("button[data-code]").forEach((b) =>
     b.addEventListener("click", () => lancerUne(b)));
@@ -1367,11 +1640,81 @@ async function vueDemo() {
     b.addEventListener("click", () => lancerLot(b)));
   $("reset").addEventListener("click", async () => {
     const r = await post("/api/v1/demo/reset");
-    $("resultat").innerHTML = `<div class="carte" style="border-color:var(--good);margin-bottom:16px">
+    resultatDemo = "";
+    poserResultat(`<div class="carte" style="border-color:var(--good);margin-bottom:16px">
       Remise à zéro effectuée. ${r.audit_entries_kept} entrées d'audit conservées —
-      le journal est immuable par construction.</div>`;
+      le journal est immuable par construction.</div>`);
     await rafraichir();
   });
+}
+
+// Menace hors catalogue : le resultat doit montrer les deux volets, sans quoi
+// on ne comprend pas ce qui a ete fait ni ce qui reste a decider.
+async function lancerInconnu(bouton) {
+  bouton.disabled = true;
+  const texte = bouton.textContent;
+  bouton.textContent = "Traitement…";
+  try {
+    const r = await post(`/api/v1/demo/run-unknown/${bouton.dataset.inconnu}`);
+    afficherInconnu(r);
+    await rafraichir();
+  } catch (e) {
+    erreur(e.message);
+  } finally {
+    bouton.disabled = false;
+    bouton.textContent = texte;
+  }
+}
+
+function afficherInconnu(r) {
+  if (!r.accepted) {
+    poserResultat(`<div class="carte" style="border-color:var(--serious);margin-bottom:16px">
+        ${esc(r.reason || "scénario non traité")}</div>`);
+    return;
+  }
+
+  const geste = (s, partie) => `<tr>
+    <td class="mono"><b>${esc(s.actuator)}:${esc(s.verb)}</b></td>
+    <td class="mono">${esc(s.target)}</td>
+    <td class="muet">${esc(s.basis)}</td>
+    <td><span class="etat ${partie ? "basse" : "moyenne"}">${
+      esc(s.reversibility)}</span></td>
+    ${partie ? "" : `<td class="muet">${esc(s.residual_effect || "annulation partielle")}</td>`}
+  </tr>`;
+
+  poserResultat(`
+    <div class="carte" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <b>${esc(r.code)} — ${esc(r.scenario.title)}</b>
+        <span class="etat critique">non catalogué</span>
+        <span class="spacer"></span>
+        <span class="muet">incident ${esc(r.incident_id || "—")}</span>
+      </div>
+
+      <div class="muet" style="margin-bottom:14px">${esc(r.rationale)}</div>
+
+      <h3 style="margin:0 0 6px;font-size:12px">Ce que la plateforme a observé</h3>
+      <ul class="muet" style="margin:0 0 16px;padding-left:18px">
+        ${(r.observations || []).map((o) => `<li>${esc(o)}</li>`).join("")}
+      </ul>
+
+      <h3 style="margin:0 0 6px;font-size:12px;color:var(--success-text)">
+        Engagé seule — réversible (${(r.autonomous || []).length})</h3>
+      ${(r.autonomous || []).length ? `<table style="margin-bottom:16px"><thead><tr>
+        <th>Geste</th><th>Cible</th><th>Fondement observé</th><th>Réversibilité</th>
+      </tr></thead><tbody>${r.autonomous.map((s) => geste(s, true)).join("")}</tbody></table>`
+        : '<div class="vide">Aucun geste réversible applicable.</div>'}
+
+      <h3 style="margin:0 0 6px;font-size:12px;color:var(--serious)">
+        En attente d'une décision humaine — effet durable (${
+          (r.requires_confirmation || []).length})</h3>
+      ${(r.requires_confirmation || []).length ? `<table><thead><tr>
+        <th>Geste</th><th>Cible</th><th>Fondement observé</th><th>Réversibilité</th>
+        <th>Effet résiduel</th>
+      </tr></thead><tbody>${
+        r.requires_confirmation.map((s) => geste(s, false)).join("")}</tbody></table>`
+        : '<div class="vide">Aucun geste durable proposé.</div>'}
+    </div>`);
 }
 
 async function lancerUne(bouton) {
@@ -1394,8 +1737,7 @@ async function lancerLot(bouton) {
 }
 
 const erreur = (m) => {
-  $("resultat").innerHTML =
-    `<div class="carte" style="border-color:var(--critical);margin-bottom:16px">${esc(m)}</div>`;
+  poserResultat(`<div class="carte" style="border-color:var(--critical);margin-bottom:16px">${esc(m)}</div>`);
 };
 
 // Notification ephemere : confirme un geste des qu'il aboutit. `genre` vaut
@@ -1427,15 +1769,15 @@ function toast(message, genre = "ok") {
 
 function afficherResultat(r) {
   if (!r.accepted) {
-    $("resultat").innerHTML = `<div class="carte" style="margin-bottom:16px">
-      <b>${esc(r.code)}</b> — non traité : ${esc(r.reason)}</div>`;
+    poserResultat(`<div class="carte" style="margin-bottom:16px">
+      <b>${esc(r.code)}</b> — non traité : ${esc(r.reason)}</div>`);
     return;
   }
   const c = r.decision.classification;
   const actions = r.execution?.results || [];
   const ecartees = r.decision.trace?.rejected_actions || [];
 
-  $("resultat").innerHTML = `<div class="carte" style="margin-bottom:16px">
+  poserResultat(`<div class="carte" style="margin-bottom:16px">
     <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <span style="font-size:15px;font-weight:700">${esc(c.code)}</span>
       <span style="font-weight:600">${esc(c.label)}</span>
@@ -1471,11 +1813,11 @@ function afficherResultat(r) {
       <div class="quoi2">4 · Prescription du catalogue CIRT</div>
       <div class="muet">${esc(r.scenario.prescribed_actions)}</div>
     </div>
-  </div>`;
+  </div>`);
 }
 
 function afficherLot(r) {
-  $("resultat").innerHTML = `<div class="carte" style="margin-bottom:16px">
+  poserResultat(`<div class="carte" style="margin-bottom:16px">
     <div style="margin-bottom:10px"><b>${r.scenarios_run}</b> scénario(s) rejoué(s),
       <b>${r.actions_executed}</b> action(s) exécutée(s)${r.family ? ` — famille ${esc(r.family)}` : ""}.</div>
     <table><thead><tr><th>Type</th><th>Criticité</th><th>Dang.</th><th>Priorité</th><th>Actions</th></tr></thead>
@@ -1487,50 +1829,202 @@ function afficherLot(r) {
       <td>${x.classification.priority
         ? `<span class="etat ${esc(x.classification.priority)}">${esc(x.classification.priority)}</span>` : "—"}</td>
       <td class="mono">${esc(x.actions.join(", ") || "—")}</td>
-    </tr>`).join("")}</tbody></table></div>`;
+    </tr>`).join("")}</tbody></table></div>`);
 }
 
 
 // ============================================================== /reports
+// Rien n'est produit a l'ouverture de l'ecran. Un rapport que personne n'a
+// demande n'a pas d'objet, et en generer un d'office laisse croire que la
+// plateforme ne sait en faire qu'un seul.
+
+let optionsRapport = null;
+
 async function vueRapports() {
-  const PERIODES = [
-    { h: 24, label: "24 heures" }, { h: 168, label: "7 jours" },
-    { h: 720, label: "30 jours" }, { h: 2160, label: "90 jours" },
-  ];
+  if (!optionsRapport) optionsRapport = await api("/api/v1/rapports/options");
+  const o = optionsRapport;
+
+  // Les interventions proposees viennent du portefeuille : on ne demande pas
+  // a l'exploitant de retenir un numero de dossier.
+  let interventions = [];
+  try {
+    const pf = await api("/api/v1/incidents?limit=200");
+    interventions = pf.incidents || [];
+  } catch { interventions = []; }
+
+  const menu = (id, choix) => `<select id="${id}">${choix.map((c) =>
+    `<option value="${esc(c.cle)}">${esc(c.libelle)}</option>`).join("")}</select>`;
 
   $("vue").innerHTML = `
     <div class="carte" style="margin-bottom:16px">
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <span class="muet">Période :</span>
-        <select id="periode">
-          ${PERIODES.map((p, i) =>
-            `<option value="${p.h}" ${i === 0 ? "selected" : ""}>${p.label}</option>`).join("")}
-        </select>
-        <button class="primaire" id="generer">Générer</button>
-        <a class="btn" id="exporter" href="/api/v1/assistant/report.md?hours=24"
-           download>Exporter en Markdown</a>
+      <h3 style="margin:0 0 4px">Éditer un rapport</h3>
+      <p class="muet" style="margin:0 0 14px">
+        Choisissez ce que le rapport doit couvrir, puis le format sous lequel
+        vous souhaitez l'obtenir. Le document reprend la présentation des
+        actes officiels et peut être signé en l'état.
+      </p>
+
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+        <div class="champ">
+          <label for="perimetre">Ce que doit couvrir le rapport</label>
+          ${menu("perimetre", o.perimetres)}
+        </div>
+        <div class="champ" id="bloc-valeur" hidden>
+          <label for="valeur" id="etiquette-valeur">Précision</label>
+          <select id="valeur"></select>
+        </div>
+        <div class="champ" id="bloc-fenetre">
+          <label for="fenetre">Sur quelle durée</label>
+          ${menu("fenetre", o.fenetres)}
+        </div>
+        <div class="champ">
+          <label for="format">Format du fichier</label>
+          ${menu("format", o.formats)}
+        </div>
+        <button class="primaire" id="previsualiser">Prévisualiser</button>
+        <button id="telecharger">Télécharger</button>
       </div>
     </div>
-    <div id="apercu"></div>`;
+    <div id="apercu">
+      <div class="vide">
+        Aucun rapport n'est généré tant que vous n'en avez pas demandé un.
+        Précisez le périmètre ci-dessus, puis lancez la prévisualisation.
+      </div>
+    </div>`;
 
-  const majLien = () => {
-    $("exporter").href = `/api/v1/assistant/report.md?hours=${$("periode").value}`;
+  const valeursPour = (perimetre) => {
+    switch (perimetre) {
+      case "incident": return { etiquette: "Quelle intervention",
+        choix: interventions.map((i) => ({ cle: i.incident_id,
+          libelle: `${numeroCourt(i.incident_id)} — ${i.attack_label || "menace non qualifiée"}` })) };
+      case "famille": return { etiquette: "Quelle famille d'attaque", choix: o.familles };
+      case "criticite": return { etiquette: "À partir de quelle gravité", choix: o.criticites };
+      case "type": return { etiquette: "Quel type du catalogue", choix: o.types };
+      default: return null;
+    }
   };
-  $("periode").addEventListener("change", majLien);
 
-  const generer = async () => {
-    const heures = $("periode").value;
-    $("apercu").innerHTML = '<div class="vide">Génération…</div>';
+  const majFormulaire = () => {
+    const perimetre = $("perimetre").value;
+    const detail = valeursPour(perimetre);
+    $("bloc-valeur").hidden = !detail;
+    // Une intervention porte sa propre date : lui appliquer une fenêtre de
+    // temps n'aurait aucun sens et laisserait croire qu'on peut la manquer.
+    $("bloc-fenetre").hidden = perimetre === "incident";
+    if (detail) {
+      $("etiquette-valeur").textContent = detail.etiquette;
+      $("valeur").innerHTML = detail.choix.length
+        ? detail.choix.map((c) => `<option value="${esc(c.cle)}">${esc(c.libelle)}</option>`).join("")
+        : `<option value="">Aucun élément disponible</option>`;
+    }
+  };
+
+  const parametres = () => {
+    const p = new URLSearchParams({ perimetre: $("perimetre").value,
+      fenetre: $("fenetre").value });
+    if (!$("bloc-valeur").hidden) p.set("valeur", $("valeur").value || "");
+    return p;
+  };
+
+  const previsualiser = async () => {
+    $("apercu").innerHTML = '<div class="vide">Composition du rapport…</div>';
     try {
-      const r = await api(`/api/v1/assistant/report?hours=${heures}`);
-      $("apercu").innerHTML = `<div class="carte md">${markdown(r.markdown)}</div>`;
+      const r = await api(`/api/v1/rapports/apercu?${parametres()}`);
+      $("apercu").innerHTML = rendreFeuille(r.document);
     } catch (e) {
       $("apercu").innerHTML = `<div class="carte" style="border-color:var(--critical)">${esc(e.message)}</div>`;
     }
   };
-  $("generer").addEventListener("click", generer);
-  majLien();
-  await generer();
+
+  const telecharger = () => {
+    const p = parametres();
+    p.set("format", $("format").value);
+    // Une redirection plutôt qu'un fetch : le navigateur enregistre alors le
+    // fichier sous le nom que le serveur lui donne.
+    window.location.href = `/api/v1/rapports/editer?${p}`;
+  };
+
+  $("perimetre").addEventListener("change", majFormulaire);
+  $("previsualiser").addEventListener("click", previsualiser);
+  $("telecharger").addEventListener("click", telecharger);
+  majFormulaire();
+}
+
+const numeroCourt = (id) => {
+  const empreinte = String(id || "").split("_")[1] || "";
+  return empreinte ? `INT-${empreinte.slice(0, 8).toUpperCase()}` : String(id || "");
+};
+
+// Rendu a l'ecran du document compose. Il suit bloc pour bloc la structure
+// que le serveur renvoie : l'ecran et l'imprime disent la même chose, dans la
+// même mise en page.
+function rendreFeuille(doc) {
+  const e = doc.entete || {};
+  const colonne = (langue) => [
+    e.republique?.[langue], e.devise?.[langue], "", e.ministere?.[langue], "",
+    e.agence?.[langue], "", e.service?.[langue],
+  ].filter(Boolean).map((t) => `<div>${esc(t)}</div>`).join("");
+
+  return `<div class="feuille">
+    <div class="titulature">
+      <div>${colonne("fr")}</div>
+      <div><img src="/static/logo-antic.png" alt="Emblème de l'Agence"
+        onerror="this.outerHTML='&lt;div class=\\'reserve\\'&gt;EMBLÈME&lt;/div&gt;'"></div>
+      <div>${colonne("en")}</div>
+    </div>
+    <hr class="filet">
+    <div class="titre-doc">${esc(doc.titre)}</div>
+    <div class="cartouche">
+      <div><b>Référence :</b> ${esc(doc.reference)}</div>
+      <div><b>Objet :</b> ${esc(doc.objet)}</div>
+      <div><b>Établi le :</b> ${heure(doc.etabli_le)} — <b>par :</b> ${esc(doc.etabli_par)}</div>
+    </div>
+    ${(doc.contenu || []).map(blocFeuille).join("")}
+    ${doc.mention_finale ? `<p class="mention">${esc(doc.mention_finale)}</p>` : ""}
+    <div class="signature">
+      <div>${esc(doc.lieu)}, le ${heure(doc.etabli_le)}</div>
+      <div class="qui">${esc(doc.signataire)}</div>
+    </div>
+  </div>`;
+}
+
+function blocFeuille(b) {
+  switch (b.type) {
+    case "titre": {
+      const intitule = esc(b.numero ? `${b.numero}. ${b.texte}` : b.texte);
+      return b.niveau <= 1 ? `<h3>${intitule}</h3>` : `<h4>${intitule}</h4>`;
+    }
+    case "paragraphe":
+      return `<p${b.accent ? ' class="accent"' : ""}>${esc(b.texte)}</p>`;
+    case "liste": {
+      const items = (b.elements || []).map((x) => `<li>${esc(x)}</li>`).join("");
+      return b.numerotee ? `<ol>${items}</ol>` : `<ul>${items}</ul>`;
+    }
+    case "tableau":
+      return `<table><thead><tr>${(b.entetes || []).map((h) =>
+        `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${
+        (b.lignes || []).map((l) => `<tr>${l.map((c) =>
+          `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>${
+        b.legende ? `<p class="legende">${esc(b.legende)}</p>` : ""}`;
+    case "graphique": {
+      const valeurs = b.valeurs || [];
+      const max = Math.max(...valeurs.map((v) => v.valeur), 1);
+      return `<h4>${esc(b.titre)}</h4><div class="graphe">${valeurs.map((v) => `
+        <div class="ligne">
+          <div>${esc(v.libelle)}</div>
+          <div class="piste"><div class="remplissage"
+            style="width:${(v.valeur / max) * 100}%"></div></div>
+          <div class="val">${esc(v.valeur)}</div>
+        </div>`).join("")}</div>`;
+    }
+    case "encadre":
+      return `<div class="encadre ${esc(b.ton)}">
+        <div class="intitule">${esc(b.titre)}</div>${esc(b.texte)}</div>`;
+    case "saut_de_page":
+      return `<hr class="coupure">`;
+    default:
+      return "";
+  }
 }
 
 // ============================================================ /audit-log
@@ -2310,9 +2804,17 @@ function resultatEffet(r) {
       ${esc(r && r.reason ? r.reason : "aucun effet")}</div>`;
   }
   if (r.kind === "report") {
-    return `<div class="effet"><div class="titre-effet">Rapport généré</div>
-      Période de ${r.hours} heures — <a href="/api/v1/assistant/report.md?hours=${r.hours}"
-      download>télécharger en Markdown</a></div>`;
+    // La fenêtre demandée est reportée sur le lien : télécharger un rapport
+    // sur une autre période que celle qu'on vient de lire serait déroutant.
+    const fenetre = r.hours <= 24 ? "24h" : r.hours <= 168 ? "7j"
+      : r.hours <= 720 ? "30j" : r.hours <= 2160 ? "90j" : "1an";
+    const lien = (format, libelle) =>
+      `<a href="/api/v1/rapports/editer?perimetre=periode&fenetre=${fenetre}&format=${format}"
+         download>${libelle}</a>`;
+    return `<div class="effet"><div class="titre-effet">Rapport établi</div>
+      Période de ${r.hours} heures — télécharger en
+      ${lien("pdf", "PDF")}, ${lien("docx", "Word")},
+      ${lien("md", "Markdown")} ou ${lien("json", "JSON")}.</div>`;
   }
   const lignes = (r.results || []).map((x) => `<tr>
     <td class="mono"><b>${esc(x.code)}</b></td>
