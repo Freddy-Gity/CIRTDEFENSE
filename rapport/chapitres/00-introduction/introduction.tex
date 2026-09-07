@@ -1,0 +1,86 @@
+\let\textcircled=\pgftextcircled
+\chapter*{Introduction g\'en\'erale}
+\label{chap:intro}
+\addstarredchapter{Introduction g\'en\'erale}
+\markboth{Introduction g\'en\'erale}{}
+
+\section*{Contexte}
+% ---------------------------------------------------------------------------
+% A COMPLETER : ancrer le contexte national. Pistes documentaires :
+%   — rapports annuels de l'ANTIC sur l'etat de la cybersecurite au Cameroun ;
+%   — loi n° 2010/012 du 21 decembre 2010 relative a la cybersecurite et a la
+%     cybercriminalite au Cameroun ;
+%   — statistiques d'incidents traites par le CIRT national.
+% Remplacer les valeurs entre crochets par des chiffres sources.
+% ---------------------------------------------------------------------------
+\initial{L}a num\'erisation des services publics et bancaires au Cameroun s'est
+accompagn\'ee d'une croissance du volume et de la sophistication des attaques
+inform\'ees. Le CIRT national, log\'e \`a l'ANTIC, en est le point de convergence : il
+re\c coit les signalements, qualifie les incidents et coordonne la r\'eponse.
+[Compl\'eter par les chiffres du dernier rapport d'activit\'e : nombre d'incidents
+trait\'es, d\'elai moyen de r\'eaction, effectif d'analystes.]
+
+\section*{Probl\'ematique}
+Le d\'es\'equilibre auquel fait face une \'equipe de r\'eponse n'est pas
+d'ordre technologique mais arithm\'etique : le nombre d'alertes cro\^it plus vite que
+l'effectif capable de les lire. Les plateformes d'orchestration de la s\'ecurit\'e
+--- les \textsc{soar} --- ont \'et\'e con\c cues pour absorber ce volume, mais elles
+s'arr\^etent \`a la recommandation. La d\'ecision, et donc l'attente, reste humaine : le
+d\'elai de r\'eaction demeure born\'e par la disponibilit\'e d'un analyste, y compris la
+nuit et le week-end, moments o\`u les campagnes d'attaque sont les plus actives.
+
+Lever cette borne suppose d'autoriser le syst\`eme \`a agir seul. Mais une action
+corrective automatique n'est pas anodine : une r\`egle de pare-feu erron\'ee coupe un
+service de production, un compte verrouill\'e \`a tort bloque une cha\^ine m\'etier. La
+question de recherche s'\'enonce donc ainsi :
+
+\begin{quote}
+\textit{\`A quelles conditions un syst\`eme peut-il ex\'ecuter une action corrective
+sans validation humaine pr\'ealable, sans que le co\^ut d'une erreur devienne
+sup\'erieur au b\'en\'efice de la rapidit\'e ?}
+\end{quote}
+
+\section*{Objectifs}
+L'objectif g\'en\'eral est de concevoir et r\'ealiser une plateforme d'orchestration
+capable de r\'epondre seule \`a un incident de s\'ecurit\'e, sous des garanties
+v\'erifiables. Il se d\'ecline en objectifs sp\'ecifiques :
+
+\begin{enumerate}
+  \item \textbf{Normaliser} les remont\'ees de sources h\'et\'erog\`enes en un sch\'ema
+        pivot unique, les d\'edoublonner et les corr\'eler en incidents ;
+  \item \textbf{Borner l'autonomie} par la r\'eversibilit\'e : n'ex\'ecuter sans
+        validation que les actions dont l'annulation est garantie ;
+  \item \textbf{Emp\^echer l'invention} : refuser d'agir lorsque le contexte
+        d'analyse ne repose sur aucun document de r\'ef\'erence ;
+  \item \textbf{Exprimer la politique} de r\'eponse du CIRT en langage naturel et la
+        compiler en r\`egles appliqu\'ees avant toute ex\'ecution ;
+  \item \textbf{Fermer la boucle} : surveiller l'effet des actions ex\'ecut\'ees et les
+        annuler automatiquement lorsqu'elles d\'egradent la cible ;
+  \item \textbf{Traiter les menaces hors catalogue} sans se taire, en d\'eduisant un
+        confinement des seuls indicateurs observ\'es ;
+  \item \textbf{Rendre chaque geste opposable} par un journal d'audit immuable.
+\end{enumerate}
+
+\section*{M\'ethodologie}
+La d\'emarche suit le processus unifi\'e, dans sa variante \emph{2TUP} : une branche
+fonctionnelle partant des besoins recueillis aupr\`es du CIRT, une branche technique
+partant des contraintes de d\'eploiement, et une phase de r\'ealisation confluente.
+La mod\'elisation emploie le formalisme \textsc{uml}~2.5.1. La validation repose sur une
+suite de tests automatis\'es dont un sous-ensemble --- les crit\`eres de recette ---
+est d\'eriv\'e ligne \`a ligne des exigences du cahier des charges.
+
+\section*{Plan du rapport}
+Le document s'organise en cinq chapitres :
+
+\begin{itemize}
+  \item \textbf{Chapitre 1 --- Pr\'esentation de la structure d'accueil} d\'ecrit
+        l'ANTIC, le CIRT national et le cadre du stage ;
+  \item \textbf{Chapitre 2 --- \'Etat de l'art} examine les approches existantes de
+        l'orchestration de la r\'eponse et situe l'apport du travail ;
+  \item \textbf{Chapitre 3 --- Analyse et sp\'ecification des besoins} formalise les
+        exigences fonctionnelles et non fonctionnelles ;
+  \item \textbf{Chapitre 4 --- Conception et mod\'elisation} constitue le c\oe ur du
+        rapport : mod\`eles statiques, dynamiques et architecturaux du syst\`eme ;
+  \item \textbf{Chapitre 5 --- Impl\'ementation, tests et r\'esultats} pr\'esente la
+        r\'ealisation, la strat\'egie de validation et les r\'esultats obtenus.
+\end{itemize}

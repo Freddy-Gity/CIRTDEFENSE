@@ -1,0 +1,232 @@
+\chapter{Scénarios d'utilisation courants}
+\minitoc
+
+Ce chapitre déroule les six situations que rencontre un exploitant. Chacune se
+lit indépendamment des autres.
+
+\section{Scénario 1 --- Une menace connue est traitée seule}
+
+\textbf{Situation.} Une sonde signale une exfiltration de données par tunnel
+DNS depuis un serveur de base de données.
+
+\textbf{Ce que fait la plateforme, sans vous.}
+
+\begin{enumerate}[leftmargin=*]
+  \item Elle normalise l'observation et vérifie qu'elle ne l'a pas déjà traitée.
+  \item Elle la rapproche du catalogue : \emph{A5, exfiltration de données},
+        gravité critique, dangerosité 9,4 sur 10, priorité critique.
+  \item Elle cherche les cas comparables dans sa documentation : quatre fiches
+        concordent.
+  \item Elle applique la conduite à tenir documentée : coupure de la connexion
+        sortante, blocage de l'adresse au pare-feu, bascule de la machine en
+        réseau de quarantaine.
+  \item Elle vous informe.
+\end{enumerate}
+
+\textbf{Ce que vous faites.} Vous ouvrez \textbf{Vue d'ensemble} et vous
+constatez. Si un geste vous paraît inapproprié, vous l'annulez depuis le détail
+de l'intervention : chaque geste appliqué porte un jeton d'annulation qui
+permet de le défaire précisément.
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir}, fonttitle=\bfseries, boxrule=0.6pt]
+Le délai entre la réception de l'observation et le dernier geste appliqué se
+compte en dizaines de millisecondes. Quand vous ouvrez la console, tout est
+déjà fait.
+\end{tcolorbox}
+
+\section{Scénario 2 --- Une menace inédite se présente}
+
+\textbf{Situation.} Une sonde signale une séquence protocolaire non conforme
+sur un automate industriel, suivie d'un transfert sortant massif. Aucun type du
+catalogue ne correspond.
+
+\textbf{Ce que fait la plateforme.} Elle ne devine pas. N'ayant aucun cas
+comparable documenté, elle s'interdit d'appliquer une conduite à tenir. Mais
+elle ne reste pas inerte pour autant : elle bascule sur un \textbf{confinement
+de repli} fondé sur les seuls indicateurs observés.
+
+\begin{quote}
+\small
+« Adresse source externe observée : 185.220.101.44~; destination sortante
+externe observée : 91.199.7.12~; compte impliqué : operateur.scada~; port
+concerné : 502~; actif de criticité 5/5 exposé : srv-scada-07. »
+\end{quote}
+
+De ces observations elle déduit quatre gestes \textbf{entièrement réversibles},
+qu'elle applique : blocage de l'adresse, exigence d'authentification renforcée
+sur le compte, fermeture du port, sauvegarde immédiate.
+
+Quatre autres gestes seraient pertinents mais ont un \emph{effet durable} :
+coupure de la connexion sortante, fermeture des sessions, verrouillage du
+compte, mise en quarantaine réseau. Elle ne les exécute pas. Elle les
+\textbf{inscrit en attente de votre décision}.
+
+Enfin, elle ouvre une \textbf{fiche de qualification} : une proposition de nom
+pour cette menace qu'elle ne sait pas désigner.
+
+\textbf{Ce que vous faites.} Vous traitez les décisions requises
+(scénario~3) puis la fiche de qualification (scénario~5).
+
+\section{Scénario 3 --- Trancher sur un geste à effet durable}
+
+\textbf{Situation.} La \textbf{Vue d'ensemble} affiche un bloc « décisions
+requises » avec, pour chaque geste : ce qu'il ferait, sur quoi, pourquoi la
+plateforme le propose, et ce qui subsisterait après annulation.
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir --- ce n'est pas une validation préalable},
+  fonttitle=\bfseries, boxrule=0.6pt]
+Ces gestes n'ont jamais été planifiés pour exécution autonome. Le planificateur
+les a écartés au moment de la décision, parce que le catalogue les déclare à
+effet durable. Rien n'attend ici pour partir : ce qui attend, c'est une
+décision \emph{humaine} sur un geste que la plateforme a refusé de s'autoriser.
+\end{tcolorbox}
+
+Saisissez le motif de votre décision dans le champ prévu — il est consigné au
+journal et sans lui rien ne part — puis choisissez.
+
+\subsection{Confirmer}
+
+Vous assumez l'effet durable. La plateforme exécute le geste par la voie
+nominale : contrôle avant vol, journal, jeton d'annulation, surveillance de
+l'effet. Une action confirmée par un humain n'est pas de seconde classe :
+elle reste annulable comme les autres.
+
+\subsection{Je m'en charge}
+
+Vous intervenez vous-même sur l'équipement. La plateforme n'exécute rien et
+pose un statut de \textbf{prise en charge}. Le dossier \textbf{ne se referme
+pas} : il reste visible à votre nom jusqu'à ce que vous rendiez compte de ce
+qui a été fait, par le bouton \textbf{Rendre compte et clore}.
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir}, fonttitle=\bfseries, boxrule=0.6pt]
+Ce fonctionnement en deux temps est délibéré. Un engagement que plus personne
+ne voit est exactement le défaut que l'alerte persistante corrige.
+\end{tcolorbox}
+
+\subsection{Écarter}
+
+Vous jugez le geste inutile ou disproportionné. \textbf{Il ne sera jamais
+exécuté}, ni sous ce nom ni sous un autre.
+
+Mais votre refus dit que \emph{ce geste-là} ne convient pas — il ne rend pas la
+menace inoffensive. La plateforme cherche donc ce qu'elle sait encore faire,
+et vous répond. Deux cas, arbitrés par la dangerosité de l'intervention :
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}p{3.4cm}p{10.4cm}@{}}
+\toprule
+\textbf{Dangerosité} & \textbf{Ce que fait la plateforme} \\
+\midrule
+Sous 7 sur 10 &
+\textbf{Surveillance rapprochée.} Aucun geste n'est posé : votre refus
+s'applique tel quel. L'actif reste sous l'œil, l'intervention demeure ouverte,
+et un geste plus léger vous est proposé — appliqué seulement si vous le
+demandez. \\[8pt]
+7 sur 10 et au-delà &
+\textbf{Confinement de substitution.} La plateforme applique un geste plus
+léger servant le même objectif, entièrement réversible, que vous pouvez annuler
+à tout moment. \\
+\bottomrule
+\end{tabular}
+\caption{L'arbitrage après un refus}
+\end{table}
+
+\textbf{Exemple concret.} Vous écartez la mise en quarantaine réseau d'un
+automate, au motif qu'il est en production. La plateforme vous propose la
+\emph{bascule en réseau de quarantaine} : même objectif — couper la machine du
+reste du réseau — mais entièrement réversible là où la première ne l'était
+qu'à moitié. Le geste que vous avez écarté n'est pas rejoué.
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir --- d'où vient la proposition},
+  fonttitle=\bfseries, boxrule=0.6pt]
+La plateforme rattache chaque geste de son catalogue à un \emph{objectif de
+confinement}, et calcule pour chacun son \emph{engagement} : ce qu'il coûte
+s'il se révèle inutile. Une alternative n'est retenue que si elle sert le même
+objectif, s'annule entièrement, et engage \textbf{strictement moins} que le
+geste refusé. Proposer plus engageant après un refus reviendrait à passer
+outre votre décision.
+\end{tcolorbox}
+
+\section{Scénario 4 --- Annuler un geste appliqué}
+
+\textbf{Situation.} La plateforme a bloqué une adresse qui se révèle
+légitime — un prestataire, un site distant du Ministère.
+
+Depuis le détail de l'intervention, chaque geste exécuté porte un bouton
+d'annulation. L'annulation emploie le jeton rendu par l'équipement au moment
+de l'application : elle défait \emph{précisément} ce geste, et rien d'autre.
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir}, fonttitle=\bfseries, boxrule=0.6pt]
+Vous n'êtes pas seul à pouvoir annuler. Après un délai de surveillance, la
+plateforme compare l'état de la machine avant et après son intervention. Si le
+confinement a dégradé le service qu'il protégeait, elle l'annule d'elle-même.
+Les annulations autonomes et manuelles sont distinguées dans les rapports.
+\end{tcolorbox}
+
+\section{Scénario 5 --- Nommer une menace inédite}
+
+\textbf{Situation.} Une fiche de qualification attend dans la
+\textbf{Vue d'ensemble}.
+
+La fiche porte un nom proposé, une famille déduite, une gravité, une
+dangerosité, et surtout la \textbf{signature} : les indicateurs qui ont été
+observés, et qui serviront à reconnaître la prochaine occurrence.
+
+\begin{enumerate}[leftmargin=*]
+  \item Lisez le nom proposé. Il décrit ce qui a été constaté, pas un
+        diagnostic.
+  \item Corrigez-le s'il ne porte pas le sens métier attendu. Dans notre
+        exemple, « Communication sortante vers une destination externe non
+        référencée » devient « Détournement de protocole industriel Modbus ».
+  \item \textbf{Valider et cataloguer.} Le type rejoint le catalogue appris
+        sous un code de la forme \texttt{L01}.
+\end{enumerate}
+
+À l'occurrence suivante — même forme d'attaque, machine et adresse
+différentes — la plateforme reconnaît le type et l'intervention est
+correctement qualifiée et priorisée.
+
+\begin{tcolorbox}[colback=red!4!white, colframe=darkred,
+  title=\textbf{Limitation connue --- apprendre à nommer, pas à répondre},
+  fonttitle=\bfseries, boxrule=0.6pt]
+Adopter une fiche enrichit la \emph{classification} : l'incident suivant est
+reconnu, sa dangerosité entre dans le score de risque, son rang au portefeuille
+est juste. Mais la \emph{réponse} continue de venir du confinement de repli,
+faute de conduite à tenir écrite pour ce type appris. Fermer complètement la
+boucle demande qu'un analyste rédige un playbook — geste délibérément laissé
+humain.
+\end{tcolorbox}
+
+\section{Scénario 6 --- La plateforme s'est trompée trop souvent}
+
+\textbf{Situation.} Le bandeau affiche \textbf{Autonomie suspendue}.
+
+Le \emph{coupe-circuit} s'est déclenché : sur une fenêtre de dix minutes, le
+nombre d'annulations ou d'échecs a dépassé le seuil configuré. La plateforme
+continue de recevoir, de classifier et de journaliser, mais elle
+\textbf{n'exécute plus rien}.
+
+\textbf{Ce que vous faites.}
+
+\begin{enumerate}[leftmargin=*]
+  \item Ouvrez le \textbf{Journal d'audit} et filtrez sur les annulations pour
+        comprendre ce qui a dérivé.
+  \item Corrigez la cause : une consigne de réponse trop large, un playbook
+        inadapté, un actuateur en panne.
+  \item Réarmez le coupe-circuit depuis les \textbf{Réglages} — geste réservé à
+        l'administrateur, et inscrit au journal avec son auteur et son motif.
+\end{enumerate}
+
+\begin{tcolorbox}[colback=orange!5!white, colframe=orange!70!black,
+  title=\textbf{Attention}, fonttitle=\bfseries, boxrule=0.6pt]
+Ne réarmez pas sans avoir traité la cause. Le coupe-circuit s'est déclenché
+parce que la plateforme se corrigeait en boucle : le réarmer sans rien changer
+la ramène dans le même état, et le journal s'emplit d'annulations qui masquent
+les vraies.
+\end{tcolorbox}

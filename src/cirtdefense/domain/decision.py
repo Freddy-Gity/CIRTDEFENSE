@@ -72,6 +72,9 @@ class Decision:
     decided_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     classification: dict[str, Any] = field(default_factory=dict)
     """Qualification au catalogue CIRT : type, famille, criticité, dangerosité."""
+    fallback: dict[str, Any] = field(default_factory=dict)
+    """Plan de repli, quand la menace n'est pas catalogüée : les gestes déduits
+    des indicateurs observés, et ceux qui attendent une confirmation humaine."""
 
     @property
     def is_actionable(self) -> bool:
@@ -86,6 +89,7 @@ class Decision:
             "rationale": self.rationale,
             "decided_at": self.decided_at.isoformat(),
             "classification": self.classification,
+            "fallback": self.fallback,
             "actions": [
                 {
                     "verb": a.verb,

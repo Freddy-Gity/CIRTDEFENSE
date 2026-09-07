@@ -19,6 +19,37 @@ class IngestBatchRequest(BaseModel):
     payloads: list[dict[str, Any]]
 
 
+class PendingResolutionRequest(BaseModel):
+    """Motif obligatoire : une décision humaine sans motif ne se rejuge pas."""
+
+    reason: str = Field(min_length=3, description="Motif de la décision, consigné au journal")
+
+
+class QualificationDecisionRequest(BaseModel):
+    """Corrections apportées par l'humain à la proposition de la plateforme.
+
+    Tous les champs sont optionnels : valider sans rien corriger est le cas
+    nominal quand la proposition tombe juste.
+    """
+
+    label: str | None = Field(default=None, description="Nom retenu pour ce type d'attaque")
+    family: str | None = Field(
+        default=None, description="network | application | insider | infrastructure"
+    )
+    category: str | None = Field(
+        default=None,
+        description="Clé de reconnaissance ; à ne changer qu'en connaissance de cause",
+    )
+    severity: str | None = Field(default=None, description="info | low | medium | high | critical")
+    dangerousness: float | None = Field(default=None, ge=0, le=10)
+    signal: str | None = Field(default=None, description="Signal caractéristique, en clair")
+    note: str = Field(default="", description="Commentaire libre, consigné au journal")
+
+    def corrections(self) -> dict[str, object]:
+        champs = ("label", "family", "category", "severity", "dangerousness", "signal")
+        return {c: getattr(self, c) for c in champs if getattr(self, c) not in (None, "")}
+
+
 class RollbackRequest(BaseModel):
     reason: str = Field(min_length=3, description="Motif de l'annulation, consigne au journal")
 

@@ -1,0 +1,245 @@
+%%%===========================================================================
+%%% uml.tex — outillage de dessin UML en TikZ pur
+%%%
+%%% Choix assume : aucune dependance a tikz-uml / pgf-umlcd / pgf-umlsd. Les
+%%% diagrammes sont traces avec les seules bibliotheques PGF du noyau, deja
+%%% presentes dans toute distribution TeX Live et sur Overleaf. Le rapport
+%%% compile donc partout ou le modele d'origine compile, sans installation.
+%%%
+%%% Conventions de notation retenues (UML 2.5.1, OMG formal/2017-12-05) :
+%%%   — generalisation      : trait plein,   pointe triangulaire creuse
+%%%   — realisation         : trait pointille, pointe triangulaire creuse
+%%%   — composition         : losange plein cote tout
+%%%   — agregation          : losange creux cote tout
+%%%   — association         : trait plein, multiplicites aux deux extremites
+%%%   — dependance          : trait pointille, pointe ouverte
+%%%===========================================================================
+
+\usetikzlibrary{positioning,calc,fit,matrix,chains,arrows.meta,
+                shapes.multipart,shapes.geometric,shapes.symbols,
+                decorations.markings,decorations.pathreplacing,backgrounds}
+
+%%% ---------------------------------------------------------------- couleurs
+\definecolor{umlcadre}{HTML}{2F3B52}   % traits et bordures
+\definecolor{umltete}{HTML}{DCE4F0}    % bandeau de nom d'un classeur
+\definecolor{umlcorps}{HTML}{FFFFFF}   % compartiments
+\definecolor{umlaccent}{HTML}{2A78D6}  % elements mis en avant
+\definecolor{umlalerte}{HTML}{D03B3B}  % chemins de refus
+\definecolor{umlok}{HTML}{1BAF7A}      % chemins nominaux
+\definecolor{umlgris}{HTML}{6B7280}    % annotations
+
+%%% -------------------------------------------------------------- classeurs
+% Un classeur UML se dessine avec `rectangle split` : un compartiment par
+% partie. On fixe la largeur pour que les diagrammes restent alignes.
+\tikzset{
+  uml/.style={
+    draw=umlcadre, line width=0.5pt, font=\scriptsize,
+    rectangle split, rectangle split draw splits=true,
+    text width=#1, align=left, inner sep=3pt,
+    rectangle split part fill={umltete,umlcorps,umlcorps},
+  },
+  uml/.default=3.5cm,
+  umlclasse/.style={uml=#1, rectangle split parts=3},
+  umlclasse/.default=3.5cm,
+  umlcompact/.style={uml=#1, rectangle split parts=2},
+  umlcompact/.default=3.5cm,
+  umlsimple/.style={uml=#1, rectangle split parts=1},
+  umlsimple/.default=3.5cm,
+  umlaccentue/.style={draw=umlaccent, line width=1pt},
+  % Titre d'un classeur : nom centre, stereotype eventuel au-dessus.
+  umlnom/.style={font=\scriptsize\bfseries},
+}
+\newcommand{\umlstereo}[1]{{\scriptsize\guillemotleft #1\guillemotright}}
+\newcommand{\umltitre}[1]{\begin{center}\bfseries #1\end{center}}
+\newcommand{\umltitres}[2]{\begin{center}\scriptsize\guillemotleft #1\guillemotright\\\bfseries #2\end{center}}
+\newcommand{\umlabs}[1]{\begin{center}\bfseries\itshape #1\end{center}}
+
+%%% ------------------------------------------------------------- relations
+\tikzset{
+  generalisation/.style={draw=umlcadre, -{Triangle[open, length=3.2mm, width=3.2mm]}},
+  realisation/.style={draw=umlcadre, dashed, -{Triangle[open, length=3.2mm, width=3.2mm]}},
+  composition/.style={draw=umlcadre, {Diamond[length=3mm, width=2mm]}-},
+  agregation/.style={draw=umlcadre, {Diamond[open, length=3mm, width=2mm]}-},
+  association/.style={draw=umlcadre},
+  navigable/.style={draw=umlcadre, -{Straight Barb[length=2mm]}},
+  dependance/.style={draw=umlcadre, dashed, -{Straight Barb[length=2mm]}},
+  flot/.style={draw=umlcadre, -{Stealth[length=2.2mm]}},
+  flotok/.style={draw=umlok, line width=0.8pt, -{Stealth[length=2.2mm]}},
+  flotko/.style={draw=umlalerte, line width=0.8pt, -{Stealth[length=2.2mm]}},
+  mult/.style={font=\tiny, inner sep=1.5pt, fill=white},
+  role/.style={font=\tiny\itshape, inner sep=1.5pt, fill=white, text=umlgris},
+}
+
+%%% ------------------------------------------------- cas d'utilisation
+\tikzset{
+  acteur/.style={font=\scriptsize, align=center, inner sep=1pt},
+  cas/.style={draw=umlcadre, fill=umlcorps, ellipse, font=\scriptsize,
+              align=center, inner sep=2pt, minimum height=8mm, text width=#1},
+  cas/.default=2.5cm,
+  systeme/.style={draw=umlcadre, rounded corners=2pt, inner sep=6pt},
+  inclut/.style={dependance},
+  etend/.style={dependance},
+}
+% Bonhomme-baton UML. #1 = nom du noeud, #2 = position, #3 = libelle.
+\newcommand{\umlacteur}[3]{%
+  \node (#1) at (#2) [acteur] {%
+    \begin{tikzpicture}[scale=0.30, baseline=0pt]
+      \draw[umlcadre, line width=0.9pt] (0,0) circle (0.42);
+      \draw[umlcadre, line width=0.9pt] (0,-0.42) -- (0,-1.7);
+      \draw[umlcadre, line width=0.9pt] (-0.85,-0.85) -- (0.85,-0.85);
+      \draw[umlcadre, line width=0.9pt] (0,-1.7) -- (-0.7,-2.9);
+      \draw[umlcadre, line width=0.9pt] (0,-1.7) -- (0.7,-2.9);
+    \end{tikzpicture}\\[2pt] #3};%
+}
+
+%%% ------------------------------------------------- etats-transitions
+\tikzset{
+  etat/.style={draw=umlcadre, fill=umlcorps, rounded corners=4pt, font=\scriptsize,
+               align=center, inner sep=4pt, minimum width=2.2cm, minimum height=7mm},
+  etatinit/.style={circle, fill=umlcadre, minimum size=3.5mm, inner sep=0pt},
+  etatfin/.style={circle, draw=umlcadre, fill=white, minimum size=4.5mm, inner sep=0pt,
+                  path picture={\fill[umlcadre] (path picture bounding box.center) circle (1.3mm);}},
+  transition/.style={draw=umlcadre, -{Stealth[length=2.2mm]}, font=\tiny},
+  garde/.style={font=\tiny, inner sep=1.5pt, fill=white, align=center},
+}
+
+%%% ------------------------------------------------------- activite
+\tikzset{
+  action/.style={draw=umlcadre, fill=umlcorps, rounded corners=3pt, font=\scriptsize,
+                 align=center, inner sep=3pt, text width=#1, minimum height=7mm},
+  action/.default=3cm,
+  decision/.style={draw=umlcadre, fill=umlcorps, diamond, aspect=2.2, font=\scriptsize,
+                   align=center, inner sep=1pt},
+  barre/.style={fill=umlcadre, minimum width=#1, minimum height=1.4mm, inner sep=0pt},
+  barre/.default=3cm,
+  couloir/.style={draw=umlgris, dashed, inner sep=5pt},
+  etiquettecouloir/.style={font=\scriptsize\bfseries, text=umlgris, rotate=90},
+}
+
+%%% ------------------------------------------------------- sequence
+% Une ligne de vie = un classeur en tete + un trait pointille vertical.
+% #1 nom de noeud, #2 abscisse, #3 ordonnee basse, #4 libelle
+\newcommand{\lignedevie}[4]{%
+  \node (#1) at (#2,0) [uml=2.3cm, rectangle split parts=1, align=center] {#4};
+  \draw[umlgris, dashed] (#1.south) -- (#2,#3);
+}
+\tikzset{
+  activation/.style={draw=umlcadre, fill=umltete, minimum width=2.2mm, inner sep=0pt},
+  message/.style={draw=umlcadre, -{Stealth[length=2mm]}, font=\tiny},
+  retour/.style={draw=umlcadre, dashed, -{Stealth[length=2mm]}, font=\tiny},
+  cadrefrag/.style={draw=umlcadre, line width=0.4pt},
+  etiquettefrag/.style={draw=umlcadre, fill=umltete, font=\tiny\bfseries,
+                        inner sep=1.5pt, anchor=north west},
+  note/.style={draw=umlgris, fill=yellow!8, font=\tiny, align=left,
+               text width=#1, inner sep=3pt},
+  note/.default=3cm,
+}
+
+%%% -------------------------------------------- composants / deploiement
+\tikzset{
+  composant/.style={draw=umlcadre, fill=umlcorps, font=\scriptsize, align=center,
+                    text width=#1, inner sep=4pt, minimum height=9mm},
+  composant/.default=2.8cm,
+  noeudmat/.style={draw=umlcadre, fill=umltete, font=\scriptsize, align=center,
+                   inner sep=5pt},
+  paquetage/.style={draw=umlcadre, fill=umlcorps, font=\scriptsize, align=center,
+                    text width=#1, inner sep=4pt, minimum height=8mm},
+  paquetage/.default=3cm,
+  artefact/.style={draw=umlcadre, fill=umlcorps, font=\tiny, align=center, inner sep=3pt},
+}
+% Onglet de paquetage UML dessine au-dessus du rectangle.
+\newcommand{\ongletpaquetage}[2]{%
+  \draw[umlcadre, fill=umltete]
+    ($(#1.north west)+(0,0)$) rectangle ($(#1.north west)+(1.1cm,3.5mm)$);
+  \node[font=\tiny, anchor=west] at ($(#1.north west)+(1mm,1.75mm)$) {#2};
+}
+
+%%% ------------------------------------------------------------- divers
+% Encadre « fiche de cas d'utilisation », format academique.
+\newenvironment{fichecas}[2]{%
+  \par\medskip\noindent
+  \begin{tabular}{@{}p{0.24\linewidth}p{0.70\linewidth}@{}}
+  \toprule
+  \multicolumn{2}{@{}l@{}}{\textbf{#1} — \textbf{#2}}\\
+  \midrule
+}{%
+  \bottomrule
+  \end{tabular}\par\medskip
+}
+\newcommand{\rubrique}[2]{\textit{#1} & #2\\}
+
+%%% ------------------------------------------------------- environnement
+%%% babel-french rend « ; : ! ? » actifs pour l'espacement typographique.
+%%% Ces caracteres servent aussi de separateurs dans la syntaxe de PGF/TikZ
+%%% (cles, etiquettes de position, chemins). Tout diagramme est donc trace
+%%% a l'interieur de cet environnement, qui suspend les raccourcis le temps
+%%% du dessin et les retablit ensuite.
+\newenvironment{diagramme}[1][]
+  {\shorthandoff{;:!?}\begin{tikzpicture}[#1]}
+  {\end{tikzpicture}\shorthandon{;:!?}}
+
+%%% ------------------------------------------- primitives de sequence
+%%% Un diagramme de sequence se construit en coordonnees explicites :
+%%% l'axe des x porte les lignes de vie, l'axe des y le temps qui descend.
+%%% \seqvie{nom}{x}{y bas}{libelle} : tete de ligne de vie + trait pointille
+\newcommand{\seqvie}[4]{%
+  \node (#1) at (#2,0) [uml=2.15cm, rectangle split parts=1,
+                        align=center, font=\tiny] {#4};
+  \draw[umlgris, dashed] (#1.south) -- (#2,#3);%
+}
+%%% \seqact{x}{y haut}{y bas} : barre d'activation
+\newcommand{\seqact}[3]{%
+  \draw[activation] (#1-0.09,#2) rectangle (#1+0.09,#3);%
+}
+%%% \seqmsg{x depart}{x arrivee}{y}{libelle} : message synchrone
+\newcommand{\seqmsg}[4]{%
+  \draw[message] (#1,#3) -- (#2,#3)
+    node[midway, above=0.3pt, font=\tiny, align=center] {#4};%
+}
+%%% \seqrep{x depart}{x arrivee}{y}{libelle} : message de retour
+\newcommand{\seqrep}[4]{%
+  \draw[retour] (#1,#3) -- (#2,#3)
+    node[midway, above=0.3pt, font=\tiny, align=center] {#4};%
+}
+%%% \seqauto{x}{y}{libelle} : message reflexif
+\newcommand{\seqauto}[3]{%
+  \draw[message] (#1+0.09,#2) -- (#1+0.8,#2) -- (#1+0.8,#2-0.4) -- (#1+0.11,#2-0.4);
+  \node[font=\tiny, anchor=west, align=left] at (#1+0.9,#2-0.2) {#3};%
+}
+%%% \seqfrag{x1}{y haut}{x2}{y bas}{operateur}{garde} : fragment combine
+\newcommand{\seqfrag}[6]{%
+  \draw[cadrefrag] (#1,#2) rectangle (#3,#4);
+  \node[etiquettefrag] at (#1,#2) {#5};
+  \node[font=\tiny, anchor=north west] at (#1+0.95,#2) {[#6]};%
+}
+%%% \seqsep{x1}{x2}{y}{libelle} : separateur d'alternative dans un fragment
+\newcommand{\seqsep}[4]{%
+  \draw[cadrefrag, dashed] (#1,#3) -- (#2,#3);
+  \node[font=\tiny, anchor=north west] at (#1+0.15,#3) {[#4]};%
+}
+%%% \seqfin{x}{y} : marque de fin de ligne de vie (destruction)
+\newcommand{\seqfin}[2]{%
+  \draw[umlcadre, line width=0.7pt] (#1-0.18,#2+0.18) -- (#1+0.18,#2-0.18);
+  \draw[umlcadre, line width=0.7pt] (#1-0.18,#2-0.18) -- (#1+0.18,#2+0.18);%
+}
+
+%%% ------------------------------------------------ ajustement des figures
+%%% Un diagramme trace en coordonnees absolues ne connait pas la largeur de
+%%% la page. Ces deux commandes le ramenent dans la zone imprimable sans
+%%% jamais l'agrandir : un petit diagramme garde sa taille naturelle.
+%%%
+%%% Elles n'emploient pas adjustbox : celui-ci charge trimclip, qui redefinit
+%%% \clipbox deja pose par pstricks (charge par psvectorian dans le preambule
+%%% du modele). Le facteur d'echelle est donc calcule a la main avec pgfmath,
+%%% deja disponible puisque TikZ est charge.
+\newsavebox{\boitediagramme}
+\newcommand{\ajusterdans}[3]{%
+  \sbox{\boitediagramme}{#3}%
+  \pgfmathsetmacro{\facteurdiagramme}{%
+    min(1,
+        (#1)/(\wd\boitediagramme + 0.01pt),
+        (#2)/(\ht\boitediagramme + \dp\boitediagramme + 0.01pt))}%
+  \scalebox{\facteurdiagramme}{\usebox{\boitediagramme}}%
+}
+\newcommand{\ajusterportrait}[1]{\ajusterdans{\linewidth}{0.88\textheight}{#1}}
+\newcommand{\ajusterpaysage}[1]{\ajusterdans{\linewidth}{0.92\textwidth}{#1}}

@@ -9,6 +9,10 @@ WORKDIR /app
 
 COPY pyproject.toml README.md ./
 COPY src ./src
+# L'interface et l'emblème imprimé en tête des rapports officiels. Sans ce
+# dossier, la console est introuvable au démarrage et les rapports sortent
+# avec un cartouche de réserve à la place du logo de l'Agence.
+COPY web ./web
 
 RUN pip install --no-cache-dir .
 

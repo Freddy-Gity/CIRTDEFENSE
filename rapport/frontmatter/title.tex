@@ -1,0 +1,65 @@
+%%% Page de titre — en-tete bilingue UY1 / ENSPY.
+%%% A COMPLETER : titre, nom, encadreurs, annee academique.
+\begin{titlingpage}
+\begin{SingleSpace}
+\begin{adjustwidth*}{\unitlength}{-\unitlength}
+\vspace*{13mm}
+\vspace{-4cm}
+\begin{center}
+  \begin{tabular}{ccc}
+    {\large UNIVERSITE DE YAOUNDE I} & \multirow{8}{*}{\includegraphics[width=3cm, height=3cm]{logos/uy1.png}} & \large{UNIVERSITY OF YAOUNDE I}\\
+    \textbf{*******} & & \textbf{*******} \\
+    \textcolor{darkgray}{ECOLE NATIONALE SUPERIEURE} & & \textcolor{darkgray}{NATIONAL ADVANCED SCHOOL}\\
+    \textcolor{darkgray}{POLYTECHNIQUE} & & \textcolor{darkgray}{OF ENGINEERING} \\
+    \textbf{********} & & \textbf{*******} \\
+    DEPARTEMENT DE GENIE & & DEPARTMENT OF COMPUTER \\
+    INFORMATIQUE & & ENGINEERING \\
+  \end{tabular}
+\end{center}
+\hspace{3cm}
+\vspace{2.3cm}
+\begin{center}
+\rule[0.5ex]{\linewidth}{2pt}\vspace*{-\baselineskip}\vspace*{3.2pt}
+\rule[0.5ex]{\linewidth}{1pt}\\[\baselineskip]
+{\LARGE {\textcolor{darkgray}{\textsc{Orchestration autonome de la r\'eponse aux incidents
+de s\'ecurit\'e sous contrainte de r\'eversibilit\'e}}}}\\[4mm]
+{\Large \textcolor{darkgray}{Cas du CIRT national de l'ANTIC}}\\
+\rule[0.5ex]{\linewidth}{1pt}\vspace*{-\baselineskip}\vspace{3.2pt}
+\rule[0.5ex]{\linewidth}{2pt}\\
+\vspace{10mm}
+{\Large \textbf{Rapport de stage}}\\
+\vspace{15mm}
+{\Large Pr\'esent\'e par} \\
+\vspace{4mm}
+{\large \textsc{\textbf{\textcolor{darkgray}{NOM Pr\'enom}}}}\\
+\vspace{6mm}
+\vspace{30mm}
+{\Large Sous la supervision de :}\\
+\vspace{4mm}
+{\normalsize \textsc{\textbf{\textcolor{darkgray}{Encadreur acad\'emique, Grade, \'Ecole Nationale Sup\'erieure Polytechnique de Yaound\'e}}}}\\
+\vspace{4.5mm}
+{\normalsize \textsc{\textbf{\textcolor{darkgray}{Encadreur professionnel, Fonction, ANTIC}}}}\\
+\vspace{6.5mm}
+\begin{tabular}{c}
+{\Large \textcolor{darkgray}{Ann\'ee acad\'emique 20XX-20XX}}\\
+\end{tabular}
+
+% Encadrement ornemental de la page de garde (repris du modele).
+\begin{tikzpicture}[remember picture, overlay, start chain, node distance=-2mm,color=darkgray]
+\node (nworn) [shift={(5mm,-5mm)}, anchor=north west, on chain ] at (current page.north west) {\pgfornament[width=10mm]{24}};
+\foreach \i in {1,...,17}
+\node [on chain] {\pgfornament[width=10mm]{19}};
+\node (neorn) [on chain] {\pgfornament[width=10mm]{24}};
+\foreach \i in {1,...,25}
+\node [continue chain=going below, on chain] {\pgfornament[width=10mm]{24}};
+\node (seorn) [on chain] {\pgfornament[width=10mm]{24}};
+\foreach \i in {1,...,17}
+\node [continue chain=going left, on chain] {\pgfornament[width=10mm]{24}};
+\node (sworn) [on chain] {\pgfornament[width=10mm]{24}};
+\foreach \i in {1,...,25}
+\node [continue chain=going above, on chain] {\pgfornament[width=10mm]{24}};
+\end{tikzpicture}
+\end{center}
+\end{adjustwidth*}
+\end{SingleSpace}
+\end{titlingpage}

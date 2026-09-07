@@ -1,0 +1,89 @@
+%%%===========================================================================
+%%% CIRTDEFENSE — Guide d utilisation (fichier maitre : main.tex)
+%%%
+%%% Fichier maitre. Il ne contient aucun texte : il ordonne les parties.
+%%% Compilation :  make        (ou voir README.md)
+%%%
+%%% Le style est celui du rapport de stage (dossier ../rapport). Le preambule
+%%% en est une copie : les deux documents sont livres separement, et un guide
+%%% qui ne compilerait qu'a cote de son rapport ne serait pas un livrable.
+%%%
+%%% Arborescence
+%%%   preambule.tex ......... style du modele (memoir)
+%%%   glossaire.tex ......... acronymes et entrees de glossaire
+%%%   frontmatter/ .......... page de titre, avant-propos, conventions
+%%%   chapitres/ ............ un dossier par chapitre
+%%%===========================================================================
+
+\input{preambule}
+\input{glossaire}
+
+\begin{document}
+\sloppy
+
+\lstloadlanguages{bash, Python, sql}
+\lstset{basicstyle=\scriptsize\ttfamily,
+    keywordstyle=\color{darkgreen}\ttfamily,
+    identifierstyle=\ttfamily,
+    commentstyle=\color{lightblue}\itshape\ttfamily,
+    stringstyle=\sffamily,
+    showstringspaces=false,
+    breaklines=true,
+    numbers=none,
+    frame=leftline,
+    framesep=8pt,
+    xleftmargin=10pt,
+    aboveskip=10pt,
+    belowskip=10pt}
+
+%%%--------------------------------------------------------- pages liminaires
+\frontmatter
+
+\input{frontmatter/title}
+\clearemptydoublepage
+
+\input{frontmatter/avant-propos}
+\clearemptydoublepage
+
+\input{frontmatter/conventions}
+\clearemptydoublepage
+
+\renewcommand{\contentsname}{Table des Mati\`eres}
+\maxtocdepth{subsection}
+\setcounter{tocdepth}{1}
+
+\dominitoc
+\tableofcontents*
+\markboth{TABLE DES MATI\`ERES}{}
+\clearemptydoublepage
+
+%%%--------------------------------------------------------------------- corps
+\mainmatter
+
+\clearemptydoublepage
+\import{chapitres/01-presentation/}{presentation.tex}
+\clearemptydoublepage
+\import{chapitres/02-installation/}{installation.tex}
+\clearemptydoublepage
+\import{chapitres/03-prise-en-main/}{prise-en-main.tex}
+\clearemptydoublepage
+\import{chapitres/04-interface/}{interface.tex}
+\clearemptydoublepage
+\import{chapitres/05-scenarios/}{scenarios.tex}
+\clearemptydoublepage
+\import{chapitres/06-administration/}{administration.tex}
+\clearemptydoublepage
+\import{chapitres/07-rapports/}{rapports.tex}
+\clearemptydoublepage
+\import{chapitres/08-technologies/}{technologies.tex}
+\clearemptydoublepage
+\import{chapitres/09-depannage/}{depannage.tex}
+\clearemptydoublepage
+
+%%%------------------------------------------------------------------ annexes
+\appendix
+\import{chapitres/annexes/}{annexes.tex}
+
+\backmatter
+
+\end{document}

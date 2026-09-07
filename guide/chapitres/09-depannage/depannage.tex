@@ -1,0 +1,125 @@
+\chapter{Dépannage}
+\minitoc
+
+\section{Problèmes au démarrage}
+
+\subsection{« No module named cirtdefense »}
+
+Le paquet n'est pas installé. Le code se trouve dans \texttt{src/}, et Python
+ne l'y cherche pas tout seul.
+
+\begin{lstlisting}[language=bash]
+$ pip install -e ".[dev]"
+\end{lstlisting}
+
+\subsection{« WinError 10013 » sous Windows}
+
+Le système refuse à Python le droit d'écouter sur ce port. Ce n'est pas un
+problème de la plateforme. Deux causes, par ordre de fréquence.
+
+\textbf{Plages réservées par Hyper-V, WSL ou Docker Desktop.} Ces composants
+réservent dynamiquement des milliers de ports. Dans un PowerShell
+administrateur :
+
+\begin{lstlisting}[language=bash]
+PS> netsh interface ipv4 show excludedportrange protocol=tcp
+PS> net stop winnat
+PS> cirtd serve --host 127.0.0.1 --port 8000
+PS> net start winnat
+\end{lstlisting}
+
+\textbf{Antivirus ou pare-feu tiers.} Pour trancher, testez un serveur
+minimal : si celui-ci échoue aussi, la plateforme est hors de cause.
+
+\begin{lstlisting}[language=bash]
+PS> python -m http.server 8000 --bind 127.0.0.1
+\end{lstlisting}
+
+\subsection{La console ne s'affiche pas, l'API répond}
+
+Vous avez installé sans le tiret \texttt{-e}. L'interface, qui vit dans
+\texttt{web/}, n'a pas été installée. Réinstallez en mode éditable.
+
+Pour confirmer, ouvrez \texttt{/health} : le champ \texttt{web\_root\_exists}
+doit valoir \texttt{true}.
+
+\section{Problèmes de fonctionnement}
+
+\subsection{La plateforme n'agit sur rien}
+
+Vérifiez dans l'ordre :
+
+\begin{enumerate}[leftmargin=*]
+  \item le bandeau — l'autonomie est-elle active~?
+  \item le coupe-circuit — s'est-il déclenché~?
+  \item les décisions, dans le journal — quelle issue portent-elles~?
+\end{enumerate}
+
+L'issue « aucune réponse engagée : la menace n'est pas documentée » est un
+\textbf{refus}, pas une panne. Elle signale que le fonds documentaire ne couvre
+pas ce que vous lui envoyez.
+
+\subsection{Les boutons de décision ne répondent pas}
+
+Ce défaut a existé : les boutons demandaient le motif par une boîte de dialogue
+du navigateur, et lorsque celui-ci les supprimait, rien ne se passait — sans le
+moindre message. Il est corrigé : le motif se saisit désormais dans la page.
+
+Si vous rencontrez encore ce comportement, vous exécutez une version
+antérieure : mettez à jour.
+
+\subsection{« database is locked »}
+
+Deux processus écrivent en même temps dans la base. N'exécutez pas la boucle de
+contrôle dans un processus séparé de l'API tant que le délai d'attente sur
+verrou n'est pas configuré.
+
+\subsection{La chaîne du journal est rompue}
+
+Ce n'est pas une anomalie de fonctionnement mais un incident de sécurité :
+une entrée a été modifiée en dehors de l'application. Préservez le fichier de
+base en l'état, ne le réparez pas, et ouvrez une enquête.
+
+\section{Limitations connues}
+
+Elles sont énoncées ici plutôt que découvertes en exploitation.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}p{5.6cm}p{8.4cm}@{}}
+\toprule
+\textbf{Limitation} & \textbf{Conséquence pratique} \\
+\midrule
+La boucle de contrôle ne se déclenche pas dans la topologie Docker documentée &
+Elle tourne et ne vérifie rien, silencieusement. Exécutez-la dans le même
+processus que l'API. \\[8pt]
+L'apprentissage porte sur la qualification, pas sur la réponse &
+Un type adopté est reconnu à l'occurrence suivante, mais traité par repli
+faute de playbook écrit pour lui. \\[8pt]
+Trois sources produisent trois clés de corrélation pour une même machine &
+Un serveur vu par trois capteurs ouvre trois interventions au lieu d'une. \\[8pt]
+La criticité d'un actif vaut 3 par défaut &
+Sans inventaire du parc, la promotion de gravité et le score de risque sont
+aplatis. \\[8pt]
+Pas de délai d'attente sur verrou SQLite &
+Deux écrivains simultanés produisent une erreur immédiate. \\[8pt]
+Le classement des substitutions dépend du catalogue de réversibilité &
+Une entrée mal déclarée produit une proposition mal classée. C'est le catalogue
+qu'il faut corriger, pas le code. \\
+\bottomrule
+\end{tabular}
+\caption{Limitations connues à la révision 1.0 de ce guide}
+\end{table}
+
+\section{Où chercher davantage}
+
+\begin{description}[leftmargin=3.4cm, style=nextline]
+  \item[\texttt{/docs}] La documentation interactive de l'API, engendrée par
+        FastAPI. Toutes les routes y sont décrites et essayables.
+  \item[\texttt{/health}] L'état du système en une requête : chemin du paquet,
+        racine de l'interface, présence des fichiers.
+  \item[\texttt{docs/}] Dans le dépôt : architecture, structure, traçabilité
+        des exigences, et les décisions d'architecture (ADR).
+  \item[Journal d'audit] La source de vérité sur ce que la plateforme a fait.
+        Quand une explication manque, elle s'y trouve.
+\end{description}

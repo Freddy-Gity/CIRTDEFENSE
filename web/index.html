@@ -118,6 +118,25 @@ h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
 h2:first-child { margin-top: 0; }
 .carte { background: var(--surface-1); border: 1px solid var(--ring); border-radius: 9px; padding: 14px 16px; }
 .grille { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); }
+
+/* --- EF-28 / EF-29 : ce qui attend une decision humaine ------------------
+   Ces deux blocs coiffent la vue d'ensemble tant qu'ils ont du contenu.
+   Leur persistance est le mecanisme : une notification se lit une fois, une
+   ligne en attente se represente a chaque consultation. */
+.alerte-durable { border-left: 3px solid var(--critical); margin-bottom: 16px; }
+.alerte-qualif  { border-left: 3px solid var(--warning);  margin-bottom: 16px; }
+.tete-alerte { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.choix { display: flex; gap: 6px; flex-wrap: wrap; }
+.choix button { white-space: nowrap; font-size: 12px; padding: 5px 11px; }
+.alerte-durable td { vertical-align: top; }
+.fiche { border: 1px solid var(--ring); border-radius: 7px; padding: 12px 14px; margin-top: 10px; }
+.champ-fiche label { display: block; font-size: 11px; color: var(--ink-muted);
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.champ-fiche input { width: 100%; padding: 7px 10px; border-radius: 6px;
+  border: 1px solid var(--ring); background: var(--surface-0); color: var(--ink-1);
+  font-size: 13px; font-family: inherit; }
+.ligne-fiche { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 9px; font-size: 12px; }
+
 /* Six tuiles se repartissent en 5+1 avec auto-fit, ce qui laisse la derniere
    isolee. Sur large ecran on impose trois colonnes : deux rangees egales. */
 @media (min-width: 1180px) { .grille.six { grid-template-columns: repeat(3, 1fr); } }
@@ -213,6 +232,7 @@ h2:first-child { margin-top: 0; }
 /* formulaire */
 .champs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .champ { display: flex; flex-direction: column; gap: 5px; }
+.champ[hidden] { display: none; }
 .champ.pleine { grid-column: 1 / -1; }
 .champ label { font-size: 12px; font-weight: 600; color: var(--ink-2); }
 .champ .indice { font-size: 11px; color: var(--ink-muted); }
@@ -1089,6 +1109,122 @@ body[data-role="super_admin"] .admin-only { display: block; }
 .puce-statut.pending { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 45%, transparent); }
 .puce-statut.active { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
 .puce-statut.suspended, .puce-statut.refused { color: var(--critical); border-color: color-mix(in srgb, var(--critical) 45%, transparent); }
+
+/* ------------------------------------------------- aperçu d'un rapport
+   L'aperçu reproduit à l'écran la mise en page du document imprimé :
+   titulature en trois colonnes, emblème centré, cartouche, corps, signature.
+   L'exploitant doit reconnaître à l'écran ce qui sortira de l'imprimante,
+   sinon il télécharge à l'aveugle. */
+.feuille {
+  background: #fff; color: #111; max-width: 860px; margin: 0 auto;
+  padding: 30px 38px 34px; border: 1px solid var(--grid); border-radius: 6px;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, .09); font-size: 13.5px; line-height: 1.55;
+}
+.feuille .titulature {
+  display: grid; grid-template-columns: 1fr 120px 1fr; gap: 14px;
+  align-items: center; text-align: center;
+  font-size: 8.6px; font-weight: 700; letter-spacing: .01em; line-height: 1.5;
+}
+.feuille .titulature img { width: 76px; height: auto; }
+.feuille .titulature .reserve {
+  width: 76px; height: 76px; margin: 0 auto; border: 1px dashed #9aa3a8;
+  border-radius: 4px; display: grid; place-items: center;
+  font-size: 8px; color: #9aa3a8; font-weight: 600;
+}
+.feuille .filet { border: 0; border-top: 2px solid #1b5e3a; margin: 16px 0 18px; }
+.feuille .titre-doc {
+  text-align: center; color: #1b5e3a; font-size: 20px; font-weight: 700;
+  margin: 0 0 12px; letter-spacing: .01em;
+}
+.feuille .cartouche {
+  background: #f0f2f3; border: 1px solid #d5dade; border-radius: 4px;
+  padding: 11px 14px; margin-bottom: 22px; font-size: 12.5px;
+}
+.feuille .cartouche div { margin: 2px 0; }
+.feuille h3 { color: #1b5e3a; font-size: 15px; margin: 22px 0 8px;
+  text-transform: uppercase; letter-spacing: .02em; }
+.feuille h4 { font-size: 13px; margin: 16px 0 6px; }
+.feuille p { margin: 0 0 9px; text-align: justify; }
+.feuille p.accent { color: #1b5e3a; font-weight: 600; }
+.feuille ul, .feuille ol { margin: 0 0 12px; padding-left: 22px; }
+.feuille table { width: 100%; border-collapse: collapse; margin-bottom: 6px;
+  font-size: 11.6px; }
+.feuille thead th { background: #1b5e3a; color: #fff; text-align: left;
+  padding: 6px 8px; font-weight: 600; text-transform: none; letter-spacing: 0; }
+.feuille tbody td { border: 1px solid #cfd5d8; padding: 5px 8px; }
+.feuille tbody tr:nth-child(even) td { background: #f0f2f3; }
+.feuille td.droite, .feuille th.droite { text-align: right; }
+.feuille .legende { text-align: center; font-style: italic; font-size: 11px;
+  color: #555b5e; margin: 0 0 16px; }
+.feuille .graphe { margin: 6px 0 18px; }
+.feuille .graphe .ligne {
+  display: grid; grid-template-columns: minmax(90px, 30%) 1fr 42px;
+  align-items: center; gap: 10px; margin-bottom: 5px; font-size: 11.6px;
+}
+.feuille .graphe .piste { background: #f0f2f3; height: 15px; border-radius: 2px; }
+.feuille .graphe .remplissage { background: #1b5e3a; height: 100%; border-radius: 2px; }
+.feuille .graphe .val { text-align: right; font-weight: 700; font-size: 11.6px; }
+.feuille .encadre {
+  border: 1px solid #1b5e3a; border-left-width: 4px; background: #fbfaf6;
+  padding: 10px 13px; margin: 12px 0 16px; border-radius: 3px;
+}
+.feuille .encadre.attention { border-color: #a06a10; }
+.feuille .encadre.alerte { border-color: #a02020; }
+.feuille .encadre .intitule { font-weight: 700; margin-bottom: 3px; }
+.feuille .encadre.attention .intitule { color: #a06a10; }
+.feuille .encadre.alerte .intitule { color: #a02020; }
+.feuille .coupure { border: 0; border-top: 1px dashed #c3c8cb; margin: 20px 0; }
+.feuille .mention { font-style: italic; font-size: 12px; margin-top: 22px; }
+.feuille .signature { text-align: center; margin: 26px 0 0 auto; width: 52%; }
+.feuille .signature .qui { font-weight: 700; margin-top: 6px; }
+
+/* ------------------------------------------- fiches de décision (EF-28)
+   Le motif se saisit ici, dans la page. Aucun dialogue natif : un navigateur
+   qui les supprime rendrait toute décision impossible, sans message. */
+.fiche-decision {
+  border: 1px solid var(--ring); border-radius: 8px;
+  padding: 12px 14px; margin-bottom: 12px; background: var(--surface-1);
+}
+.fiche-decision.prise { border-left: 3px solid var(--warning); }
+.entete-decision {
+  display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.motifs-decision { display: grid; gap: 3px; font-size: 12px; margin-bottom: 9px; }
+.fiche-decision textarea {
+  width: 100%; padding: 7px 10px; border-radius: 6px; resize: vertical;
+  border: 1px solid var(--grid); background: var(--plane); color: var(--ink-1);
+  font: inherit; font-size: 12.5px; margin-bottom: 8px;
+}
+.fiche-decision textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.fiche-decision textarea.manquant { border-color: var(--critical); }
+.suite-decision:empty { display: none; }
+
+/* Ce que la plateforme a fait d'elle-même après un refus. */
+.escalade {
+  margin-top: 12px; padding: 11px 13px; border-radius: 7px;
+  border-left: 3px solid var(--warning); background: var(--plane);
+}
+.escalade.quarantaine { border-left-color: var(--critical); }
+.escalade.surveillance { border-left-color: var(--fam-D); }
+.titre-escalade { font-weight: 600; margin-bottom: 5px; }
+.escalade p { margin: 0 0 9px; font-size: 12.5px; line-height: 1.55; }
+.proposition {
+  border: 1px solid var(--ring); border-radius: 6px;
+  padding: 10px 12px; background: var(--surface-1);
+}
+.tete-proposition {
+  display: flex; gap: 9px; align-items: baseline; flex-wrap: wrap; margin-bottom: 4px;
+}
+.proposition .reserve { margin-top: 5px; font-style: italic; }
+.proposition .provenance {
+  margin-top: 7px; padding-top: 6px; border-top: 1px dashed var(--grid); font-size: 11px;
+}
+.proposition .choix { margin-top: 9px; }
+.autres-propositions { margin-top: 9px; font-size: 12px; }
+.autres-propositions summary { cursor: pointer; color: var(--ink-2); }
+.autres-propositions ul { margin: 6px 0 0; padding-left: 20px; }
+.etat.bonne { color: var(--success-text); border-color: var(--success-text); }
 </style>
 </head>
 <body>

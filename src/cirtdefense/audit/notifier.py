@@ -29,6 +29,117 @@ class AnalystNotifier:
         self._actuator = notification_actuator
         self._recipient = default_recipient
 
+    def notify_abstention(self, incident: Incident, decision: Decision) -> list[str]:
+        """Prévient qu'une menace a été vue et qu'aucune action n'est partie.
+
+        C'est la notification la plus importante du système, et c'est aussi
+        celle qui manquait : une menace inconnue arrivait, la plateforme la
+        jugeait critique, refusait d'agir faute de contexte fondé — et
+        personne ne l'apprenait. Le silence sur une abstention est pire qu'un
+        silence sur une action : l'action, elle, a au moins contenu quelque
+        chose.
+        """
+        corps = "\n".join(
+            [
+                "Une menace a été détectée et AUCUNE action n'a été engagée.",
+                "",
+                f"Incident   : {incident.incident_id}",
+                f"Catégorie  : {incident.category} (gravité {incident.severity.value})",
+                f"Cible      : {incident.correlation_key}",
+                f"Qualification : {incident.attack_label or 'non catalogué'}"
+                + (f" ({incident.attack_code})" if incident.attack_code else ""),
+                f"Dangerosité : {incident.dangerousness}/10 · priorité {incident.priority or '—'}",
+                "",
+                "MOTIF DE L'ABSTENTION",
+                f"  {decision.rationale}",
+                "",
+                "CE QUE CELA IMPLIQUE",
+                "  La menace n'est pas contenue. Le système s'est abstenu parce qu'il",
+                "  ne disposait pas de quoi choisir une réponse sûre, non parce que la",
+                "  situation serait bénigne. Une intervention humaine est requise.",
+                "",
+                f"Décision : {decision.decision_id} (issue : {decision.outcome.value})",
+            ]
+        )
+        outcome = self._actuator.execute(
+            "notify",
+            self._recipient,
+            {
+                "channel": "analyst",
+                "severity": "critical" if incident.severity is Severity.CRITICAL else "high",
+                "subject": f"ABSTENTION — {incident.category} sur {incident.correlation_key}",
+                "body": corps,
+                "incident_id": incident.incident_id,
+            },
+        )
+        if not outcome.success:
+            log_with(
+                logger,
+                logging.ERROR,
+                "la notification d'abstention a echoue : personne n'est prévenu",
+                incident_id=incident.incident_id,
+            )
+            return []
+        return [outcome.rollback_token or outcome.message]
+
+    def notify_pending(self, incident: Incident, attentes: list[dict[str, Any]]) -> list[str]:
+        """Signale les gestes à effet durable qui attendent une décision (EF-28).
+
+        Cette notification double une inscription en base : c'est voulu. La
+        notification prévient tout de suite ; l'inscription, elle, subsiste et
+        se represente tant que personne n'a tranché. Une alerte qui disparaît
+        dès qu'on l'a lue n'est pas une alerte persistante.
+        """
+        if not attentes:
+            return []
+        lignes = [
+            "Une menace hors catalogue a été partiellement contenue.",
+            "",
+            f"Incident : {incident.incident_id} — cible {incident.correlation_key}",
+            "",
+            f"{len(attentes)} GESTE(S) À EFFET DURABLE ATTENDENT VOTRE DÉCISION",
+            "  Ils n'ont PAS été exécutés : la plateforme n'engage seule que ce",
+            "  qu'elle sait annuler entièrement.",
+            "",
+        ]
+        for attente in attentes:
+            lignes += [
+                f"  · {attente['actuator']}:{attente['verb']} -> {attente['target']}",
+                f"      fondement : {attente['basis']}",
+                "      ce qui subsisterait : "
+                + (attente["residual_effect"] or "annulation partielle"),
+                f"      confirmer  : POST /api/v1/pending/{attente['pending_id']}/confirm",
+                f"      j'ai agi   : POST /api/v1/pending/{attente['pending_id']}/handled",
+                f"      écarter    : POST /api/v1/pending/{attente['pending_id']}/decline",
+                "",
+            ]
+        lignes.append("Tant qu'aucune décision n'est prise, ces gestes restent en attente.")
+
+        outcome = self._actuator.execute(
+            "notify",
+            self._recipient,
+            {
+                "channel": "analyst",
+                "severity": "high",
+                "subject": (
+                    f"DÉCISION REQUISE — {len(attentes)} geste(s) durable(s) "
+                    f"sur {incident.correlation_key}"
+                ),
+                "body": "\n".join(lignes),
+                "incident_id": incident.incident_id,
+            },
+        )
+        if not outcome.success:
+            log_with(
+                logger,
+                logging.ERROR,
+                "la notification de décision requise a échoué ; "
+                "les gestes restent inscrits en attente",
+                incident_id=incident.incident_id,
+            )
+            return []
+        return [outcome.rollback_token or outcome.message]
+
     def notify_actions(self, incident: Incident, decision: Decision, report: Any) -> list[str]:
         if not report.results:
             return []

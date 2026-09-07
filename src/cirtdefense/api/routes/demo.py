@@ -15,6 +15,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, status
 
 from ...demo import build_payload, get_scenario, list_scenarios
+from ...demo.inconnus import build_payload_inconnu, get_inconnu, lister_inconnus
 from ...demo.scenarios import ASSETS, by_family
 from ...domain.taxonomy import summary as taxonomy_summary
 from ..deps import AdminDep, PlatformDep
@@ -120,6 +121,62 @@ def run_all(platform: PlatformDep, role: AdminDep, family: str | None = None) ->
         "scenarios_run": len(results),
         "actions_executed": executed,
         "results": results,
+    }
+
+
+# ------------------------------------------------ menaces hors catalogue
+# Le catalogue couvre 22 types ; ces scenarios eprouvent ce que fait la
+# plateforme devant ce qu'elle ne connait pas. C'est le cas le plus important
+# a montrer : une menace inedite est celle contre laquelle personne n'est
+# prepare.
+
+
+@router.get("/unknown")
+def unknown_scenarios() -> dict:
+    """Scénarios de menaces absentes du catalogue."""
+    scenarios = lister_inconnus()
+    return {"count": len(scenarios), "scenarios": scenarios}
+
+
+@router.post("/run-unknown/{code}", status_code=status.HTTP_202_ACCEPTED)
+def run_unknown(code: str, platform: PlatformDep, role: AdminDep) -> dict:
+    """Injecte une menace non catalogüée et rend ce que la plateforme en fait.
+
+    La réponse porte les deux volets du repli : ce qui est parti seul parce
+    que réversible, et ce qui attend une confirmation humaine parce que
+    durable.
+    """
+    _refuse_in_live_mode(platform)
+
+    scenario = get_inconnu(code)
+    if scenario is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"scénario inconnu '{code}' ; consulter /api/v1/demo/unknown",
+        )
+
+    resultat = platform.ingest_and_respond(scenario.source, build_payload_inconnu(scenario.code))
+    if resultat is None:
+        return {
+            "code": scenario.code,
+            "accepted": False,
+            "reason": "événement dupliqué (deduplication EF-19), ou plateforme en mode dégradé",
+            "scenario": scenario.to_dict(),
+        }
+
+    decision = resultat.decision
+    repli = decision.fallback or {}
+    return {
+        "code": scenario.code,
+        "accepted": True,
+        "scenario": scenario.to_dict(),
+        "catalogued": bool(decision.classification.get("catalogued")),
+        "outcome": decision.outcome.value,
+        "rationale": decision.rationale,
+        "observations": repli.get("observations", []),
+        "autonomous": repli.get("autonomous", []),
+        "requires_confirmation": repli.get("requires_confirmation", []),
+        **resultat.to_dict(),
     }
 
 

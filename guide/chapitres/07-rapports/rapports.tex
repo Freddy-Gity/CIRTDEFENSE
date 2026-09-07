@@ -1,0 +1,130 @@
+\chapter{Édition des rapports}
+\minitoc
+
+\section{Le principe}
+
+Rien n'est produit à l'ouverture de l'onglet \textbf{Rapports}. C'est
+délibéré : un rapport que personne n'a demandé n'a pas d'objet, et en produire
+un d'office ferait croire que la plateforme ne sait en faire qu'un seul.
+
+Vous choisissez donc deux choses : \textbf{ce que le rapport doit couvrir}, et
+\textbf{sous quel format} l'obtenir.
+
+\section{Choisir le périmètre}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}p{4.2cm}p{9.6cm}@{}}
+\toprule
+\textbf{Périmètre} & \textbf{Ce qu'il retient} \\
+\midrule
+Une période &
+Toute l'activité sur 24 heures, 7, 30, 90 jours ou un an. \\[6pt]
+Une intervention &
+Le compte rendu détaillé d'une seule affaire, à annexer à un courrier ou à une
+procédure. \\[6pt]
+Une famille d'attaque &
+Réseau, applicative, comportementale ou infrastructure. \\[6pt]
+Un niveau de gravité &
+Le niveau retenu \textbf{et au-dessus} : demander les incidents graves en
+espérant que les plus graves en soient absents n'aurait pas de sens. \\[6pt]
+Un type du catalogue &
+Un seul des types métier, appris compris. \\
+\bottomrule
+\end{tabular}
+\caption{Les cinq périmètres}
+\end{table}
+
+Un bouton \textbf{Prévisualiser} affiche le document à l'écran, dans la mise en
+page exacte qu'aura le document imprimé. On télécharge ensuite, si le résultat
+convient.
+
+\section{Choisir le format}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}p{2.4cm}p{4cm}p{7.4cm}@{}}
+\toprule
+\textbf{Format} & \textbf{Produit par} & \textbf{Usage} \\
+\midrule
+PDF & ReportLab &
+Document officiel, prêt à signer et à classer. \\[6pt]
+Word & python-docx &
+Reprise et annotation : styles de titre et tableaux réels, pas une image. \\[6pt]
+Markdown & --- &
+Texte lisible sans aucun outil, à coller dans un courriel. \\[6pt]
+JSON & bibliothèque standard &
+Transmission à un autre système. Les tableaux restent des tableaux. \\
+\bottomrule
+\end{tabular}
+\caption{Les quatre formats}
+\end{table}
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir --- les quatre versions disent la même chose},
+  fonttitle=\bfseries, boxrule=0.6pt]
+Le document est composé \textbf{une fois}, sous forme de blocs, puis rendu dans
+les quatre formats. Écrire quatre générateurs produirait immanquablement des
+écarts, et un rapport officiel qui ne dit pas la même chose selon le fichier
+ouvert n'est plus opposable. Un test compare les quatre à chaque
+modification.
+\end{tcolorbox}
+
+\section{Ce que contient un rapport}
+
+Le document reprend la présentation des actes administratifs camerounais :
+titulature bilingue en trois colonnes — français à gauche, emblème de l'Agence
+au centre, anglais à droite — référence d'ordre, objet, parties numérotées en
+chiffres romains, lieu, date et bloc de signature.
+
+Un rapport périodique comporte neuf parties : objet, conditions de
+fonctionnement, vue d'ensemble chiffrée, nature des menaces traitées avec
+diagrammes, interventions conduites, gestes appliqués, situations où la
+plateforme s'est abstenue, traçabilité, appréciation d'ensemble.
+
+Un compte rendu d'intervention en comporte six : identification, ce qui a été
+observé, ce que la plateforme a décidé, gestes appliqués, déroulement
+chronologique, conclusion.
+
+\section{La numérotation des documents}
+
+Chaque rapport porte une référence de la forme :
+
+\begin{center}
+\texttt{N° 4503/RAP/MINPOSTEL/ANTIC/CIRT/2026}
+\end{center}
+
+Elle est calculée à partir du périmètre et du jour d'édition. Deux éditions du
+même rapport le même jour portent \textbf{le même numéro} — ce qu'attend un
+service d'archives : rééditer un rapport ne crée pas une pièce nouvelle.
+
+\section{Le langage employé}
+
+Aucun identifiant technique n'atteint la page. Une table de correspondance
+unique traduit tout le vocabulaire :
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Dans le code} & \textbf{Dans le rapport} \\
+\midrule
+\texttt{firewall:block\_ip} & Blocage d'une adresse au pare-feu \\
+\texttt{edr:isolate\_host} & Mise en quarantaine réseau d'une machine \\
+\texttt{no\_grounded\_context} & Aucune réponse engagée --- la menace n'est
+pas documentée \\
+\texttt{rolled\_back} & Annulée par la plateforme \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Le motif d'une décision est \textbf{recomposé} à partir des données
+structurées, jamais recopié du moteur : celui-ci cite des identifiants de
+playbook et une empreinte de politique, qui ont leur place dans le registre,
+pas dans un document que lit un directeur.
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir}, fonttitle=\bfseries, boxrule=0.6pt]
+Un test refuse d'avance tout geste ajouté au catalogue sans traduction. Sans
+lui, un geste nouveau finirait par apparaître sous son identifiant technique
+dans un document officiel, et personne ne s'en apercevrait avant l'impression.
+\end{tcolorbox}

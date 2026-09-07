@@ -110,10 +110,20 @@ CIRTDEFENSE/
 │   ├── demo/                     ── Mode demonstration ──
 │   │   └── scenarios.py          Une charge utile realiste par type d'attaque
 │   │
-│   ├── assistant/                ── Bilan et rapports ──
+│   ├── assistant/                ── Bilan et questions ──
 │   │   ├── facts.py              Collecte des faits, depuis les seuls depots
 │   │   ├── service.py            Intentions reconnues et redaction
-│   │   └── reports.py            Rapport d'operations transmissible
+│   │   └── reports.py            Bilan d'operations servi a l'assistant
+│   │
+│   ├── reporting/                ── Rapports officiels ──
+│   │   ├── selection.py          Les cinq perimetres proposes a l'exploitant
+│   │   ├── langage.py            Traduction du vocabulaire technique en clair
+│   │   ├── document.py           Modele de blocs, independant du format
+│   │   ├── composer.py           Faits -> document (le seul endroit qui redige)
+│   │   ├── rendu_pdf.py          Document officiel, titulature et embleme
+│   │   ├── rendu_docx.py         Version reprise et annotee
+│   │   ├── rendu_markdown.py     Version texte, lisible sans outil
+│   │   └── rendu_json.py         Version destinee a un autre systeme
 │   │
 │   ├── llm/                      ── Redaction optionnelle ──
 │   │   └── client.py             Repli deterministe par defaut
@@ -171,7 +181,7 @@ Les neuf vues suivent la navigation demandee :
 | Reversibilite | `/reversibility-catalog` | Metadonnees de reversibilite (Axe 2) |
 | Demonstration | `/demo` | Declenchement des 22 types du catalogue |
 | Assistant | `/assistant` | Interface conversationnelle |
-| Rapports | `/reports` | Generation et export |
+| Rapports | `/reports` | Choix du perimetre, apercu, export PDF/Word/Markdown/JSON |
 | Journal d'audit | `/audit-log` | Journal des decisions |
 | Reglages | `/settings` | Preferences de compte et de session |
 

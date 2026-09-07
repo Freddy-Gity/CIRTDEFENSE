@@ -1,0 +1,150 @@
+\chapter{Administration}
+\minitoc
+
+Ce chapitre s'adresse à l'administrateur. Toutes les fonctions décrites ici
+sont inscrites au journal d'audit avec leur auteur et leur motif.
+
+\section{La posture d'autonomie}
+
+Deux réglages commandent ce que la plateforme s'autorise.
+
+\subsection{Autonomie active ou non}
+
+\texttt{CIRT\_AUTONOMY\_ENABLED}, ou le bouton du bandeau. Désactivée, la
+plateforme reçoit, classifie, décide et journalise — mais n'exécute rien. Les
+décisions portent alors l'issue « aucune réponse engagée : les consignes de
+l'agence s'y opposent ».
+
+C'est le mode d'observation : utile pour évaluer ce que la plateforme
+\emph{ferait} avant de la laisser faire.
+
+\subsection{Mode d'actionnement}
+
+\texttt{CIRT\_ACTUATION\_MODE}, \texttt{simulation} ou \texttt{live}. En
+simulation, les actuateurs sont des implantations de référence qui respectent
+le contrat — idempotence, jeton d'annulation, délais — sans toucher à aucun
+équipement.
+
+\begin{tcolorbox}[colback=orange!5!white, colframe=orange!70!black,
+  title=\textbf{Attention}, fonttitle=\bfseries, boxrule=0.6pt]
+Les rapports produits en mode simulation portent une mention explicite : « les
+gestes ont été décidés, tracés et chronométrés, mais n'ont produit aucun effet
+sur les équipements réels ». Ne retirez jamais cette mention d'un rapport
+transmis : elle est ce qui empêche de prendre une répétition pour une opération.
+\end{tcolorbox}
+
+\section{La politique de réponse}
+
+La politique dit ce que la plateforme n'a pas le droit de faire. Elle s'écrit
+\textbf{en français}, et la plateforme la compile en contraintes exécutables.
+
+\begin{lstlisting}[language=bash]
+$ cirtd compile-policy "ne jamais bloquer une adresse du reseau interne"
+\end{lstlisting}
+
+Le résultat de la compilation est un ensemble de prédicats relisibles, versionné
+et signé par une empreinte. Cette empreinte figure dans chaque décision : on
+peut donc établir, six mois plus tard, quelle version de la politique
+s'appliquait à telle action.
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir --- pourquoi compiler à l'avance},
+  fonttitle=\bfseries, boxrule=0.6pt]
+Le langage naturel ne se trouve jamais sur le chemin d'exécution. Au moment où
+une action est évaluée, il n'y a plus que des prédicats. Une même phrase
+compilée une fois produit le même comportement à chaque incident.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=orange!5!white, colframe=orange!70!black,
+  title=\textbf{Attention}, fonttitle=\bfseries, boxrule=0.6pt]
+Une consigne que le compilateur ne comprend pas est \textbf{rapportée comme non
+compilée}, et l'administrateur en est informé. Elle n'est pas approximée.
+Vérifiez toujours qu'une consigne nouvellement écrite a bien été compilée :
+une politique qui paraîtrait appliquée sans l'être serait le pire des
+comportements.
+\end{tcolorbox}
+
+\section{Le coupe-circuit}
+
+Trois paramètres le règlent :
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}p{6.4cm}p{1.8cm}p{5.2cm}@{}}
+\toprule
+\textbf{Variable} & \textbf{Défaut} & \textbf{Effet} \\
+\midrule
+\texttt{CIRT\_BREAKER\_ROLLBACK\_THRESHOLD} & 3 &
+Annulations tolérées sur la fenêtre. \\[6pt]
+\texttt{CIRT\_BREAKER\_ERROR\_THRESHOLD} & 5 &
+Échecs d'actuateur tolérés. \\[6pt]
+\texttt{CIRT\_BREAKER\_WINDOW\_SECONDS} & 600 &
+Largeur de la fenêtre, en secondes. \\
+\bottomrule
+\end{tabular}
+\caption{Réglage du coupe-circuit}
+\end{table}
+
+Le réarmement se fait depuis les Réglages ou en ligne de commande :
+
+\begin{lstlisting}[language=bash]
+$ cirtd breaker --status
+$ cirtd breaker --reset --reason "playbook A5 corrige"
+\end{lstlisting}
+
+\section{Le seuil de confinement après refus}
+
+\texttt{CIRT\_DECLINE\_QUARANTINE\_THRESHOLD}, par défaut 7 sur 10. C'est la
+dangerosité à partir de laquelle un geste écarté par un analyste déclenche tout
+de même un confinement — posé par substitution réversible, jamais avec le geste
+refusé.
+
+Abaisser ce seuil rend la plateforme plus interventionniste face aux refus ;
+l'élever la rend plus déférente. Sept correspond au seuil « gravité élevée » du
+catalogue métier.
+
+\section{La gestion des comptes}
+
+Depuis l'onglet \textbf{Comptes} : création, admission d'une inscription,
+changement de rôle, suspension, réactivation, suppression. Le
+super-administrateur peut transférer son rôle à un autre administrateur.
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir}, fonttitle=\bfseries, boxrule=0.6pt]
+Les sessions expirent après douze heures par défaut
+(\texttt{CIRT\_SESSION\_TTL\_HOURS}). Suspendre un compte ferme immédiatement
+toutes ses sessions ouvertes.
+\end{tcolorbox}
+
+\section{Le mode dégradé}
+
+Lorsque la plateforme ne peut plus observer l'effet de ses actions, elle entre
+en mode dégradé : les observations sont mises en file d'attente et
+\textbf{rien n'est exécuté}.
+
+Agir sans pouvoir mesurer l'effet reviendrait à désactiver la boucle de
+contrôle en silence — c'est-à-dire à perdre le garde-fou qui rend l'autonomie
+acceptable. À la reprise, la file est rejouée.
+
+\section{La sauvegarde}
+
+Tout l'état de la plateforme tient dans deux emplacements :
+
+\begin{itemize}[leftmargin=*]
+  \item \texttt{CIRT\_DB\_PATH} — la base SQLite : incidents, décisions,
+        actions, journal d'audit, comptes, catalogue appris~;
+  \item \texttt{CIRT\_DEGRADED\_SPOOL} — la file du mode dégradé et les profils
+        comportementaux.
+\end{itemize}
+
+Sauvegardez les deux. La base employant le journal WAL, copiez-la de préférence
+plateforme arrêtée, ou par la commande \texttt{.backup} de SQLite.
+
+\begin{tcolorbox}[colback=red!4!white, colframe=darkred,
+  title=\textbf{Limitation connue}, fonttitle=\bfseries, boxrule=0.6pt]
+La base n'est pas configurée avec un délai d'attente sur verrou
+(\texttt{PRAGMA busy\_timeout}). Deux processus qui écrivent simultanément
+produisent une erreur immédiate « \texttt{database is locked} » au lieu de
+patienter. Évitez pour l'instant d'exécuter la boucle de contrôle dans un
+processus séparé de l'API.
+\end{tcolorbox}

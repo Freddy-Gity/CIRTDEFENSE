@@ -1,0 +1,60 @@
+\chapter*{Abr\'eviations}
+\begin{table}[H]
+    \centering
+    \begin{tabular}{p{2.2cm} p{11cm}}
+        \textbf{ANTIC} & Agence Nationale des Technologies de l'Information et de la Communication \\
+        \textbf{API}   & Application Programming Interface \\
+        \textbf{CIRT}  & Computer Incident Response Team \\
+        \textbf{CDCF}  & Cahier des Charges Fonctionnel \\
+        \textbf{CDCT}  & Cahier des Charges Technique \\
+        \textbf{EDR}   & Endpoint Detection and Response \\
+        \textbf{EF}    & Exigence Fonctionnelle \\
+        \textbf{ENSPY} & \'Ecole Nationale Sup\'erieure Polytechnique de Yaound\'e \\
+        \textbf{IOC}   & Indicator of Compromise \\
+        \textbf{MTTR}  & Mean Time To Respond \\
+        \textbf{NIDS}  & Network Intrusion Detection System \\
+        \textbf{RAG}   & Retrieval-Augmented Generation \\
+        \textbf{REST}  & Representational State Transfer \\
+        \textbf{SIEM}  & Security Information and Event Management \\
+        \textbf{SOAR}  & Security Orchestration, Automation and Response \\
+        \textbf{SSE}   & Server-Sent Events \\
+        \textbf{UEBA}  & User and Entity Behavior Analytics \\
+        \textbf{UML}   & Unified Modeling Language \\
+        \textbf{UY1}   & Universit\'e de Yaound\'e I \\
+    \end{tabular}
+\end{table}
+
+\newpage
+
+\chapter*{Glossaire}
+\begin{description}
+    \item[Actionneur] : connecteur ex\'ecutant un geste sur un \'equipement r\'eel
+      (pare-feu, EDR, annuaire, r\'esolveur DNS). Il expose un contrat unique :
+      ex\'ecution idempotente et remise d'un jeton d'annulation.
+    \item[Ancrage documentaire] : garde interdisant toute action lorsque le
+      contexte r\'euni ne repose sur aucun document de r\'ef\'erence.
+    \item[Autonomie] : capacit\'e du syst\`eme \`a ex\'ecuter une action corrective sans
+      validation humaine pr\'ealable.
+    \item[Coupe-circuit] : m\'ecanisme global suspendant l'autonomie lorsque le taux
+      d'\'echec ou d'annulation d\'epasse un seuil.
+    \item[D\'edoublonnage] : \'elimination des remont\'ees multiples d'une m\^eme
+      observation par plusieurs collecteurs, au moyen d'une empreinte stable.
+    \item[\'Ev\'enement de d\'etection] : observation normalis\'ee produite par une
+      source. Objet immuable : il d\'ecrit un constat, pas un \'etat.
+    \item[Incident] : agr\'egat d'\'ev\'enements partageant une cible et une famille de
+      menace dans une fen\^etre temporelle. Unit\'e de priorisation.
+    \item[Journal immuable] : registre d'audit cha\^in\'e par empreintes
+      cryptographiques, dont la modification et la suppression sont interdites au
+      niveau du moteur de base de donn\'ees.
+    \item[Mode d\'egrad\'e] : r\'egime sans connectivit\'e sortante, o\`u les \'ev\'enements
+      sont mis en file et rejou\'es au retour du lien.
+    \item[Playbook] : proc\'edure de r\'eponse d\'eclarative associant une famille de
+      menace \`a une suite d'actions correctives param\'etr\'ees.
+    \item[Rayon d'impact] : nombre approximatif d'entit\'es affect\'ees par une action.
+    \item[R\'eversibilit\'e] : possibilit\'e d'annuler l'effet d'une action ; prend trois
+      valeurs, r\'eversible, partiellement r\'eversible, irr\'eversible.
+    \item[Rollback] : annulation d'une action ex\'ecut\'ee, au moyen du jeton rendu par
+      l'actionneur au moment de l'ex\'ecution.
+    \item[SOAR] : cat\'egorie d'outils orchestrant la r\'eponse aux incidents ;
+      historiquement con\c cus pour proposer, non pour agir.
+\end{description}

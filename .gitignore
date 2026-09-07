@@ -18,3 +18,18 @@ node_modules/
 
 # Claude Code — reglages locaux de session
 .claude/settings.local.json
+
+# Guide : fichiers intermediaires LaTeX
+guide/*.aux
+guide/*.log
+guide/*.out
+guide/*.toc
+guide/*.mtc*
+guide/*.maf
+guide/*.lof
+guide/*.lot
+guide/**/*.aux
+guide/*.glo
+guide/*.gls
+guide/*.ist
+guide/*.pdf

@@ -1,0 +1,88 @@
+\let\textcircled=\pgftextcircled
+\chapter{Pr\'esentation de la structure d'accueil}
+\label{chap:structure}
+
+\textit{\initial{C}e chapitre pr\'esente l'organisme au sein duquel le stage s'est
+d\'eroul\'e, la mission qui y a \'et\'e confi\'ee et le p\'erim\`etre op\'erationnel dans lequel
+le syst\`eme con\c cu doit s'ins\'erer.}
+
+\mtcselectlanguage{french}
+\minitoc
+\newpage
+
+\section{L'Agence Nationale des Technologies de l'Information et de la Communication}
+% ---------------------------------------------------------------------------
+% A COMPLETER. Elements a reunir aupres de la structure :
+%   — texte de creation (decret) et missions statutaires ;
+%   — tutelle ministerielle ;
+%   — effectif, implantation, budget si communicable.
+% ---------------------------------------------------------------------------
+[Historique, texte de cr\'eation, missions statutaires de l'ANTIC.]
+
+\subsection{Missions}
+[\'Enum\'erer les missions : r\'egulation, certification \'electronique, veille,
+r\'eponse aux incidents, sensibilisation.]
+
+\subsection{Organisation}
+[Organigramme et positionnement de la direction dont d\'epend le CIRT.]
+
+\begin{figure}[H]
+    \centering
+    % \includegraphics[width=0.85\linewidth]{fig01/organigramme.png}
+    \caption{Organigramme de l'ANTIC}
+    \label{fig:organigramme}
+\end{figure}
+
+\section{Le CIRT national}
+\subsection{Mandat et p\'erim\`etre}
+[Champ de comp\'etence : administrations, op\'erateurs d'importance vitale, secteur
+bancaire, signalements citoyens.]
+
+\subsection{Organisation de la r\'eponse aux incidents}
+[Cha\^ine actuelle : r\'eception du signalement, qualification, escalade,
+coordination, cl\^oture. Pr\'eciser les niveaux d'astreinte.]
+
+\subsection{Outillage existant}
+[Sources de d\'etection en place : SIEM, sondes r\'eseau, EDR, remont\'ees
+partenaires. Cet inventaire conditionne les adaptateurs \`a d\'evelopper --- voir
+la figure~\ref{fig:composants}.]
+
+\section{Cadre et d\'eroulement du stage}
+\subsection{Objet de la mission}
+[Intitul\'e exact de la mission tel qu'il figure sur la convention de stage.]
+
+\subsection{Chronologie des travaux}
+% Remplacer les intitules et les bornes par le deroule reel.
+\begin{table}[H]
+\centering
+\caption{Chronologie des travaux men\'es durant le stage}
+\label{tab:chronologie}
+\begin{tabular}{@{}llp{7.5cm}@{}}
+\toprule
+\textbf{P\'eriode} & \textbf{Phase} & \textbf{Livrable} \\
+\midrule
+Semaines 1--2 & Immersion    & Prise de connaissance des proc\'edures du CIRT \\
+Semaines 3--4 & Analyse      & Cahier des charges fonctionnel \\
+Semaines 5--7 & Conception   & Mod\`eles UML et architecture \\
+Semaines 8--13 & R\'ealisation & Plateforme et suite de tests \\
+Semaine 14    & Validation   & Recette et r\'edaction du rapport \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Contraintes impos\'ees}
+Trois contraintes ont structur\'e l'ensemble du travail et sont reprises comme
+exigences non fonctionnelles au chapitre~\ref{chap:analyse} :
+
+\begin{enumerate}
+  \item \textbf{Souverainet\'e} --- aucune donn\'ee d'incident ne doit sortir du
+        territoire ; le syst\`eme doit fonctionner sans acc\`es Internet ;
+  \item \textbf{Opposabilit\'e} --- toute action men\'ee par le syst\`eme doit pouvoir
+        \^etre reconstitu\'ee et prouv\'ee a posteriori ;
+  \item \textbf{Sobri\'et\'e d'infrastructure} --- le d\'eploiement doit tenir sur un
+        serveur unique, sans d\'ependance \`a un service manag\'e externe.
+\end{enumerate}
+
+\section{Conclusion du chapitre}
+[Synth\`ese : ce que la structure attend du syst\`eme et ce que le chapitre suivant
+va confronter \`a l'existant.]

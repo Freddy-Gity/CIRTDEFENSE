@@ -24,7 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..domain.enums import Severity
+from ..domain.enums import Reversibility, Severity
 from ..domain.events import DetectionEvent
 from ..domain.taxonomy import BY_CATEGORY, AttackFamily, AttackType, Priority
 
@@ -121,10 +121,26 @@ class Classification:
 
 
 class Classifier:
-    """Rattache un événement au catalogue et calcule ses scores."""
+    """Rattache un événement au catalogue et calcule ses scores.
+
+    Deux catalogues sont consultés, dans cet ordre : le document métier du
+    CIRT — 22 lignes, figées — puis le catalogue appris, alimenté par les
+    qualifications qu'un humain a validées (EF-29). Le second ne prend jamais
+    le pas sur le premier.
+
+    Une entrée apprise donne un **nom** et une **famille** à l'incident ; elle
+    ne donne pas de playbook. Savoir comment s'appelle une menace n'apprend pas
+    comment y répondre : la réponse restera le confinement de repli, déduit des
+    indicateurs, tant qu'une fiche documentaire n'aura pas été rédigée.
+    """
+
+    def __init__(self, learned: Any = None) -> None:
+        self._learned = learned
 
     def classify(self, event: DetectionEvent) -> Classification:
         attack_type, aliased_from = self._resolve(event.category)
+        if attack_type is None:
+            attack_type = self._from_learned(event)
         factors: list[str] = []
 
         severity = self._effective_severity(event, attack_type, factors)
@@ -148,6 +164,24 @@ class Classifier:
             factors=factors,
             aliased_from=aliased_from,
         )
+
+    def _from_learned(self, event: DetectionEvent) -> AttackType | None:
+        """Cherche l'événement dans le catalogue appris, par signature.
+
+        La recherche ne se fait pas sur `event.category` : celle-ci vaut
+        `unknown` pour toutes les menaces hors catalogue, et servirait donc de
+        clé à toutes indifféremment. C'est la *forme* des indicateurs observés
+        qui identifie le type.
+        """
+        if self._learned is None:
+            return None
+        from .qualifier import signature
+
+        cle = signature(event)
+        for entree in self._learned.validated():
+            if entree.get("category") == cle:
+                return _type_appris(entree)
+        return None
 
     # -- résolution du type --------------------------------------------------
 
@@ -247,3 +281,36 @@ class Classifier:
             factors.append("priorité abaissee a basse : actif accessoire")
             return Priority.LOW
         return priority
+
+
+def _type_appris(entree: dict[str, Any]) -> AttackType:
+    """Traduit une entrée validée du catalogue appris en ligne de catalogue.
+
+    Le reste de la plateforme ne fait aucune différence entre une ligne du
+    document CIRT et une ligne apprise, *sauf* sur un point : les actions
+    prescrites restent vides. Le confinement continue de venir des indicateurs
+    observés, jamais d'un nom.
+    """
+    try:
+        famille = AttackFamily(entree.get("family", "network"))
+    except ValueError:
+        famille = AttackFamily.NETWORK
+    try:
+        gravite = Severity(entree.get("severity", "medium"))
+    except ValueError:
+        gravite = Severity.MEDIUM
+
+    return AttackType(
+        code=entree.get("code") or "L??",
+        family=famille,
+        label=entree.get("label", "Type appris"),
+        category=entree.get("category", ""),
+        detection_sources=(entree.get("source_product", "") or "observation",),
+        signal=entree.get("signal", ""),
+        prescribed_actions="",
+        reversibility=Reversibility.REVERSIBLE,
+        priority=Priority.MEDIUM,
+        priority_rationale="type appris : priorité moyenne par défaut, à réviser",
+        base_severity=gravite,
+        dangerousness=int(round(float(entree.get("dangerousness", 5.0)))),
+    )
