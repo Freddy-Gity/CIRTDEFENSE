@@ -14,7 +14,7 @@ make propre     # efface les fichiers intermédiaires
 ```
 
 Sur Overleaf : téléverser le dossier `rapport/` et régler le document
-principal sur `rapport.tex`, moteur pdfLaTeX.
+principal sur `main.tex`, moteur pdfLaTeX.
 
 Le modèle s'appuie sur des paquets d'ornements et de fontes historiques
 (`pgfornament`, `fourier-orns`, `psvectorian`, `initials`, `calligra`). Une
@@ -25,7 +25,7 @@ Debian/Ubuntu.
 
 | Fichier | Rôle |
 |---|---|
-| `rapport.tex` | fichier maître — ordonne les parties, ne contient aucun texte |
+| `main.tex` | fichier maître — ordonne les parties, ne contient aucun texte |
 | `preambule.tex` | préambule du modèle d'origine, inchangé sauf une ligne (voir plus bas) |
 | `uml.tex` | outillage de dessin UML en TikZ pur, écrit pour ce rapport |
 | `glossaire.tex` | acronymes et entrées de glossaire du projet |

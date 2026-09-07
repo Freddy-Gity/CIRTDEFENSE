@@ -1,6 +1,6 @@
 # Compilation du rapport de stage.
 #
-#   make        -> rapport.pdf (chaine complete : index, glossaire, minitoc)
+#   make        -> main.pdf (chaine complete : index, glossaire, minitoc)
 #   make vite   -> une seule passe, pour relire une correction de texte
 #   make propre -> efface les fichiers intermediaires
 #
@@ -8,7 +8,7 @@
 # paquets d'ornements et de fontes historiques : pgfornament, fourier-orns,
 # psvectorian, initials). Sur Debian/Ubuntu : texlive-full.
 
-MAITRE = rapport
+MAITRE = main
 
 all: $(MAITRE).pdf
 

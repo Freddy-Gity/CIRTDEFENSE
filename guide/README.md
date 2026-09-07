@@ -7,7 +7,7 @@ et decideurs du Centre.
 
 ```bash
 cd guide
-make            # -> guide.pdf
+make            # -> main.pdf
 make clean      # efface les fichiers intermediaires
 ```
 
@@ -16,14 +16,14 @@ matieres, les suivantes la placent et resolvent les mini-tables de chapitre.
 
 ## Fichier maitre
 
-`guide.tex`. Sur Overleaf, le designer explicitement par
-**Menu -> Main document -> guide.tex** : sans fichier nomme `main.tex`,
-Overleaf choisit parfois mal.
+`main.tex`. LaTeX n'impose aucun nom, mais Overleaf et plusieurs editeurs
+cherchent `main.tex` par defaut : le respecter evite d'avoir a regler le
+document principal a la main.
 
 ## Arborescence
 
 ```
-guide.tex ................ fichier maitre, n'ordonne que les parties
+main.tex ................. fichier maitre, n'ordonne que les parties
 preambule.tex ............ style (memoir) — copie de celui du rapport
 glossaire.tex ............ acronymes
 frontmatter/ ............. titre, avant-propos, conventions

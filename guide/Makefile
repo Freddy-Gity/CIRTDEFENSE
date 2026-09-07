@@ -1,12 +1,12 @@
 # Compilation du guide d'utilisation.
 #
-#   make        -> guide.pdf (chaine complete : minitoc)
+#   make        -> main.pdf (chaine complete : minitoc)
 #   make clean  -> efface les fichiers intermediaires
 #
 # Le style est celui du rapport (../rapport). Le preambule en est une copie :
 # les deux documents se livrent separement.
 
-MAITRE = guide
+MAITRE = main
 
 all: $(MAITRE).pdf
 
