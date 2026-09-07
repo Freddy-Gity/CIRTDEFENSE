@@ -1,0 +1,205 @@
+\chapter{Technologies, frameworks et bibliothèques}
+\minitoc
+
+Ce chapitre s'adresse à un lecteur technique ou à un évaluateur. Il répond à
+trois questions : sur quoi la plateforme est bâtie, quelles bibliothèques elle
+emploie et où, et quelle est la nature exacte de l'« intelligence » qu'elle met
+en œuvre.
+
+\section{Le socle}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}p{3.6cm}p{2.4cm}p{7.8cm}@{}}
+\toprule
+\textbf{Élément} & \textbf{Version} & \textbf{Rôle} \\
+\midrule
+Python & 3.11+ & Langage unique du projet. \\[5pt]
+FastAPI & 0.141 & Cadre applicatif web : les 91 routes de l'API. \\[5pt]
+Pydantic & 2.13 & Validation des charges utiles entrantes. \\[5pt]
+Uvicorn & 0.52 & Serveur d'application. \\[5pt]
+SQLite & intégré & Base de données, en mode journal WAL. \\[5pt]
+PyYAML & 6.0 & Lecture des playbooks. \\[5pt]
+ReportLab & 5.0 & Rendu PDF des rapports. \\[5pt]
+python-docx & 1.2 & Rendu Word des rapports. \\[5pt]
+HTML/CSS/JS & --- & Console web, sans aucun cadre applicatif. \\
+\bottomrule
+\end{tabular}
+\caption{Le socle technique}
+\end{table}
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir --- pourquoi si peu de dépendances},
+  fonttitle=\bfseries, boxrule=0.6pt]
+ReportLab et python-docx sont écrits en Python pur : aucune bibliothèque
+système à installer, et la génération des rapports reste possible sur un site
+coupé d'Internet. La console est écrite en JavaScript sans cadre applicatif ni
+étape de construction — elle se sert telle quelle. Ce sont des contraintes du
+Centre, pas des préférences.
+\end{tcolorbox}
+
+\section{Où chaque bibliothèque intervient}
+
+Le relevé qui suit porte sur les imports réels du dépôt, module par module.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}p{4.4cm}p{3.6cm}p{5.8cm}@{}}
+\toprule
+\textbf{Module} & \textbf{Tierces} & \textbf{Standard Python employé} \\
+\midrule
+\texttt{ingestion/} & \textbf{aucune} & \texttt{re}, \texttt{datetime} \\[4pt]
+\texttt{domain/} & \textbf{aucune} & \texttt{dataclasses}, \texttt{enum},
+\texttt{uuid} \\[4pt]
+\texttt{enrichment/} & \textbf{aucune} & \texttt{math}, \texttt{collections} \\[4pt]
+\texttt{orchestration/} & PyYAML & \texttt{hashlib}, \texttt{ipaddress},
+\texttt{re} \\[4pt]
+\texttt{actuators/} & \textbf{aucune} & \texttt{abc}, \texttt{uuid} \\[4pt]
+\texttt{detection/} & \textbf{aucune} & \texttt{math}, \texttt{json} \\[4pt]
+\texttt{audit/} & \textbf{aucune} & \texttt{hashlib}, \texttt{sqlite3},
+\texttt{threading} \\[4pt]
+\texttt{persistence/} & \textbf{aucune} & \texttt{sqlite3}, \texttt{json} \\[4pt]
+\texttt{api/} & FastAPI, Pydantic & frontière HTTP seulement \\[4pt]
+\texttt{reporting/} & ReportLab, python-docx & sortie documentaire seulement \\[4pt]
+\texttt{llm/} & \texttt{anthropic} & \textbf{facultatif, non installé par
+défaut} \\
+\bottomrule
+\end{tabular}
+\caption{Bibliothèques par module}
+\end{table}
+
+Ce tableau porte le résultat le plus notable du projet : \textbf{toute la
+chaîne de décision} — de la normalisation d'une observation à son inscription
+au registre — \textbf{ne dépend que de la bibliothèque standard}, à l'exception
+de PyYAML qui ne fait que lire des fichiers de playbook.
+
+Trois conséquences :
+
+\begin{itemize}[leftmargin=*]
+  \item le comportement est \textbf{entièrement lisible dans le dépôt} : aucun
+        moteur de règles tiers, aucun ORM, aucune boîte noire~;
+  \item la plateforme tourne sur un site coupé d'Internet~;
+  \item la surface d'attaque de la chaîne critique est celle de Python
+        lui-même.
+\end{itemize}
+
+\section{Les algorithmes mis en œuvre}
+
+\begin{description}[leftmargin=3.4cm, style=nextline]
+  \item[BM25 Okapi] Recherche documentaire pour l'ancrage
+        ($k_1 = 1{,}5$, $b = 0{,}75$), sur index inversé. Écrit avec le module
+        \texttt{math}. C'est ce calcul qui autorise ou refuse l'action.
+  \item[Welford] Calcul incrémental de moyenne et de variance pour les profils
+        comportementaux. Permet de tenir une référence glissante sans conserver
+        l'historique.
+  \item[SHA-256] Empreintes de déduplication des observations, chaînage du
+        journal d'audit, signature des menaces inédites, empreinte de la
+        politique compilée.
+  \item[PBKDF2-HMAC-SHA256] Dérivation des mots de passe, 600\,000 itérations.
+  \item[Score de risque] Somme pondérée de six composantes explicables, sans
+        aucun poids appris.
+\end{description}
+
+\section{L'intelligence : de quelle nature ?}
+
+C'est la question qui vient toujours. La réponse doit être précise, parce que
+trois notions différentes sont souvent confondues : \emph{autonome},
+\emph{intelligence artificielle}, et \emph{modèle de langage}.
+
+\subsection{Ce n'est pas un agent fondé sur un modèle de langage}
+
+La plateforme n'est pas une boucle « instruction, outil, observation » pilotée
+par un modèle. C'est un \textbf{pipeline déterministe} de neuf étapes.
+\textbf{Aucun modèle de langage ne décide quoi que ce soit.}
+
+\subsection{Trois familles portent l'intelligence}
+
+\begin{description}[leftmargin=*, style=nextline]
+  \item[Apprentissage statistique non supervisé] \texttt{detection/ueba/}.
+        Profil comportemental par entité : moyenne et écart-type glissants,
+        scores d'écart. Le scoreur \textbf{s'abstient sous sept observations},
+        plutôt que de qualifier d'anormal ce qu'il n'a jamais vu. Le système
+        construit bien son modèle du normal à partir des données : c'est de
+        l'apprentissage.
+  \item[Recherche d'information] \texttt{enrichment/}. BM25 sur un fonds de
+        vingt-huit fiches de référence. Ce n'est pas de l'apprentissage, mais
+        c'est ce qui commande l'autorisation d'agir.
+  \item[Raisonnement symbolique] \texttt{domain/taxonomy.py},
+        \texttt{orchestration/}. Base de connaissances explicite — vingt-deux
+        types d'attaques, trente-huit gestes catalogués, playbooks, table des
+        objectifs de confinement — et moteur d'inférence. C'est la branche
+        historique de l'intelligence artificielle, celle des systèmes experts,
+        et c'est elle qui porte l'essentiel des décisions.
+\end{description}
+
+\subsection{Où un modèle de langage peut intervenir}
+
+Deux emplacements, tous deux facultatifs et hors du chemin d'exécution :
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{la mise en forme des réponses de l'assistant} — les chiffres
+        restent ceux calculés par la plateforme, le modèle ne fait que
+        rédiger~;
+  \item \textbf{le conseil après un refus} — le modèle peut rédiger la
+        justification, voire désigner l'alternative, mais
+        \textbf{exclusivement parmi les gestes déjà calculés} par la recherche
+        de substitution.
+\end{enumerate}
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir --- l'invariant qui rend cela acceptable},
+  fonttitle=\bfseries, boxrule=0.6pt]
+Le modèle \textbf{choisit dans une liste, il ne la fabrique pas}. Tout candidat
+a déjà passé les trois conditions de la substitution : exécutable seul,
+entièrement réversible, strictement moins engageant que le geste écarté. Un
+modèle qui répondrait n'importe quoi ne peut pas faire sortir un geste
+dangereux — sa réponse est confrontée à la liste et rejetée si elle n'y figure
+pas. Un test le vérifie avec un fournisseur qui propose délibérément d'effacer
+un disque.
+\end{tcolorbox}
+
+Par défaut, le fournisseur configuré est \texttt{offline} et le paquet
+\texttt{anthropic} n'est pas installé : \textbf{aucun appel à un modèle n'a
+lieu}. Pour l'activer :
+
+\begin{lstlisting}[language=bash]
+$ pip install anthropic
+$ export CIRT_LLM_PROVIDER=anthropic
+$ export ANTHROPIC_API_KEY=...
+\end{lstlisting}
+
+\subsection{Pourquoi ce choix se défend}
+
+Sans validation humaine en amont, la seule défense d'une action est sa
+justification \emph{a posteriori}. Un playbook rend une réponse exacte : telle
+règle, de tel fichier, dans telle version. Un modèle génératif rend au mieux
+une reconstruction plausible de son propre raisonnement — ce qui n'est pas la
+même chose, et ne se vérifie pas.
+
+S'y ajoutent le déterminisme — la même menace doit produire la même réponse —
+et l'énumérabilité du périmètre d'action : on doit pouvoir dire exactement ce
+que le système est capable de faire.
+
+\section{Architecture logicielle}
+
+L'architecture est hexagonale. La couche \texttt{domain/} — modèle métier,
+invariants, taxonomie — \textbf{ne dépend de rien} : ni de la base, ni du web,
+ni d'aucune bibliothèque tierce. Les couches extérieures dépendent d'elle, et
+jamais l'inverse.
+
+C'est ce qui permet de remplacer SQLite, FastAPI ou un actuateur sans toucher
+aux règles métier — et c'est aussi ce qui rend la suite de tests rapide : la
+plus grande part s'exécute sans base et sans serveur.
+
+\section{Qualité}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{561 tests} — unitaires, d'intégration, et de recette (les
+        critères CR du cahier des charges).
+  \item \textbf{Ruff} pour le style et les erreurs courantes, sur le code
+        source comme sur les tests.
+  \item Des \textbf{tests de garde} qui figent les invariants : absence de
+        route de validation préalable dans le schéma de l'API, absence de
+        dialogue natif dans l'interface, traduction obligatoire de tout geste
+        du catalogue.
+\end{itemize}

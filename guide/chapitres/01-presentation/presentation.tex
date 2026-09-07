@@ -1,0 +1,125 @@
+\chapter{Présentation de la plateforme}
+\minitoc
+
+\section{Ce qu'est CIRTDEFENSE}
+
+CIRTDEFENSE est la plateforme d'orchestration autonome de la réponse aux
+incidents du Centre de réponse aux incidents informatiques. Elle occupe la
+place qui sépare les \emph{capteurs} — pare-feu, sondes réseau, agents de
+poste, corrélateur d'événements — des \emph{équipements} sur lesquels on agit
+pour contenir une menace.
+
+Sa particularité tient en une phrase : \textbf{elle décide et agit sans
+attendre l'accord préalable d'un agent}. L'analyste est informé après coup, et
+conserve le pouvoir d'annuler chaque geste appliqué.
+
+\section{Le problème qu'elle traite}
+
+Un centre de réponse national reçoit chaque jour un volume d'alertes qu'aucune
+équipe ne peut traiter à la main dans le délai où le confinement a encore un
+sens. Le temps qui s'écoule entre la détection d'une exfiltration et le blocage
+de l'adresse qui la porte se compte en dizaines de minutes lorsqu'un humain
+doit lire, comprendre, décider puis se connecter à chaque équipement. Pendant
+ce temps, les données partent.
+
+La réponse habituelle consiste à outiller l'analyste pour qu'il aille plus
+vite. CIRTDEFENSE fait un autre choix : \textbf{déplacer la garde humaine de
+l'amont vers l'aval}. La plateforme agit, puis rend compte ; l'humain contrôle
+au lieu d'autoriser.
+
+\section{Ce qui rend ce choix tenable}
+
+Supprimer le point de contrôle humain avant l'action ne s'improvise pas. Quatre
+garde-fous le compensent, et ils sont vérifiés à chaque incident.
+
+\subsection{La réponse doit être documentée}
+
+Avant toute décision, la plateforme cherche dans son fonds documentaire les cas
+comparables à ce qu'elle observe. Sans précédent écrit, elle considère qu'elle
+agirait sur une hypothèse : \textbf{elle s'abstient et le dit}. C'est le refus
+le plus important du système.
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir}, fonttitle=\bfseries, boxrule=0.6pt]
+Un taux de refus élevé n'est pas un dysfonctionnement. Il signale que la
+documentation de référence est en retard sur les menaces observées. La réponse
+est d'enrichir cette documentation, non d'abaisser le niveau d'exigence de la
+plateforme.
+\end{tcolorbox}
+
+\subsection{Le geste doit être annulable}
+
+Chaque geste que la plateforme sait appliquer est décrit dans un
+\emph{catalogue de réversibilité} qui déclare, pour chacun, s'il s'annule
+entièrement, partiellement, ou pas du tout, et par quel geste inverse. Un geste
+qui se déclare réversible \textbf{doit} porter son verbe d'annulation, sans
+quoi la plateforme refuse de le construire.
+
+Seuls les gestes entièrement annulables sont engagés sans humain. Les autres
+sont retenus et soumis à décision — c'est l'objet du chapitre~5.
+
+\subsection{L'effet doit être mesuré}
+
+Après un délai de surveillance, la plateforme compare l'état de la machine
+avant et après son intervention : joignabilité, latence, taux d'erreur, débit,
+sessions actives. Si le confinement a dégradé le service qu'il protégeait,
+\textbf{elle l'annule d'elle-même}, sans qu'on le lui demande.
+
+\subsection{Tout doit être rejugeable}
+
+Chaque observation reçue, chaque décision prise, chaque geste appliqué est
+inscrit dans un registre dont les entrées sont chaînées par empreintes
+cryptographiques. Modifier une entrée passée casse la chaîne à partir de là et
+devient visible immédiatement. La base de données refuse d'ailleurs, par
+déclencheur, toute mise à jour du journal.
+
+\section{Les profils d'utilisateur}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}p{2.6cm}p{5cm}p{5.4cm}@{}}
+\toprule
+\textbf{Profil} & \textbf{Ce qu'il fait} & \textbf{Ce à quoi il accède} \\
+\midrule
+Analyste &
+Suit les interventions, tranche sur les gestes à effet durable, annule ce qui
+doit l'être &
+Toute l'exploitation, sauf la configuration \\[6pt]
+Administrateur &
+Installe, configure, rédige les consignes, gère les comptes, réarme le
+coupe-circuit &
+Tout \\[6pt]
+Décideur &
+Consulte le portefeuille, édite les rapports &
+Lecture, et édition des rapports \\[6pt]
+Observateur &
+Consulte sans agir &
+Lecture seule \\
+\bottomrule
+\end{tabular}
+\caption{Les quatre profils et leur périmètre}
+\end{table}
+
+Le premier compte créé à l'installation est un \emph{super-administrateur}~;
+il peut ensuite créer les autres comptes. La procédure figure au chapitre~3.
+
+\section{Vocabulaire employé dans ce guide}
+
+Quelques termes reviennent constamment. Ils sont définis ici une fois pour
+toutes.
+
+\begin{description}[leftmargin=3.6cm, style=nextline]
+  \item[Observation] Ce qu'un capteur signale : une ligne d'alerte, normalisée
+        par la plateforme.
+  \item[Intervention] Le dossier ouvert par la plateforme pour traiter une
+        menace. Il regroupe les observations concordantes et les gestes
+        appliqués. Le code l'appelle \emph{incident}.
+  \item[Geste] Une action de confinement appliquée à un équipement : bloquer
+        une adresse, verrouiller un compte, fermer un port.
+  \item[Catalogue métier] Les 22 types d'attaques que le Centre a documentés,
+        avec pour chacun sa famille, sa gravité, sa dangerosité et sa priorité.
+  \item[Catalogue de réversibilité] Les 38 gestes que la plateforme sait
+        appliquer, avec pour chacun son degré d'annulabilité.
+  \item[Coupe-circuit] Le dispositif qui suspend toute la réponse automatique
+        lorsque la plateforme se trompe trop souvent.
+\end{description}

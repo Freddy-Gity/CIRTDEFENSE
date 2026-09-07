@@ -1,0 +1,52 @@
+\chapter*{Conventions typographiques}
+\markboth{CONVENTIONS TYPOGRAPHIQUES}{}
+\addcontentsline{toc}{chapter}{Conventions typographiques}
+
+\section*{Dans le texte}
+
+\begin{description}[leftmargin=3.2cm, style=nextline]
+  \item[\texttt{fonte \`a chasse fixe}] Nom de fichier, commande \`a saisir,
+        variable d'environnement, adresse d'une page.
+  \item[\textbf{Gras}] \'El\'ement de l'interface sur lequel agir : nom
+        d'onglet, libell\'e de bouton, intitul\'e de champ.
+  \item[\textit{Italique}] Terme d\'efini au glossaire, ou insistance.
+  \item[EF-nn, CR-nn] Renvoi \`a une exigence fonctionnelle ou \`a un
+        crit\`ere de recette du cahier des charges. Ils sont rappel\'es ici
+        pour que le lecteur puisse remonter au document d'origine.
+\end{description}
+
+\section*{Encadr\'es}
+
+Trois encadr\'es rythment le guide. Ils ne sont pas d\'ecoratifs : chacun
+signale une nature d'information diff\'erente.
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon \`a savoir}, fonttitle=\bfseries, boxrule=0.6pt]
+Pr\'ecision qui \'eclaire un comportement de la plateforme, sans que son
+ignorance ne porte \`a cons\'equence.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=orange!5!white, colframe=orange!70!black,
+  title=\textbf{Attention}, fonttitle=\bfseries, boxrule=0.6pt]
+Point sur lequel une erreur de manipulation a un effet visible : donn\'ees
+perdues, service interrompu, r\'esultat trompeur.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=red!4!white, colframe=darkred,
+  title=\textbf{Limitation connue}, fonttitle=\bfseries, boxrule=0.6pt]
+Comportement que la plateforme n'a pas, ou qu'elle a de fa\c{c}on incompl\`ete,
+et qui est \'enonc\'e ici plut\^ot que d\'ecouvert en exploitation.
+\end{tcolorbox}
+
+\section*{Commandes}
+
+Les commandes \`a saisir sont pr\'ec\'ed\'ees d'une invite qui indique le
+contexte :
+
+\begin{lstlisting}[language=bash]
+$ commande lancee par un utilisateur ordinaire
+# commande necessitant les droits d'administration
+PS> commande PowerShell, sous Windows
+\end{lstlisting}
+
+L'invite elle-m\^eme ne se saisit pas.

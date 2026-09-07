@@ -1,0 +1,91 @@
+\chapter{Première mise en service}
+\minitoc
+
+\section{Créer le compte super-administrateur}
+
+À la toute première ouverture, la plateforme n'a aucun compte. Elle présente
+l'écran \textbf{Première mise en service}, qui ne s'affichera plus ensuite.
+
+\begin{enumerate}[leftmargin=*]
+  \item Ouvrir \texttt{http://127.0.0.1:8000}.
+  \item Renseigner nom, prénom, nom d'utilisateur, adresse électronique et mot
+        de passe.
+  \item Valider par \textbf{Créer le compte}.
+\end{enumerate}
+
+Le compte obtenu est \emph{super-administrateur} : il a tous les droits, y
+compris celui de créer les autres comptes et de transférer son propre rôle.
+
+\begin{tcolorbox}[colback=orange!5!white, colframe=orange!70!black,
+  title=\textbf{Attention}, fonttitle=\bfseries, boxrule=0.6pt]
+Cet écran n'apparaît qu'une fois, et il n'est protégé par rien. Si la
+plateforme est joignable depuis le réseau au moment de sa première mise en
+service, la première personne à l'ouvrir en devient l'administrateur. Créez ce
+compte immédiatement après le premier démarrage, et de préférence depuis le
+poste local.
+\end{tcolorbox}
+
+\section{Créer les comptes d'exploitation}
+
+Depuis l'onglet \textbf{Comptes}, accessible à l'administrateur :
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Créer un compte}, puis choisir le rôle : analyste, décideur ou
+        administrateur.
+  \item Un analyste peut aussi s'inscrire lui-même depuis l'écran de connexion~;
+        son compte reste alors \emph{en attente} jusqu'à ce qu'un
+        administrateur l'admette.
+\end{enumerate}
+
+Les mots de passe sont stockés sous forme d'empreintes PBKDF2-HMAC-SHA256 à
+600\,000 itérations. Ils ne sont jamais conservés en clair, et ne peuvent pas
+être retrouvés — seulement réinitialisés.
+
+\section{Reconnaître l'état du système}
+
+Le bandeau supérieur porte en permanence trois informations. Prenez l'habitude
+de les lire avant toute chose.
+
+\begin{description}[leftmargin=3.8cm, style=nextline]
+  \item[Autonomie active] La plateforme exécute les gestes qu'elle décide. Si
+        la mention est \textbf{Autonomie suspendue}, elle raisonne mais n'agit
+        plus : soit un administrateur l'a désactivée, soit le coupe-circuit
+        s'est déclenché.
+  \item[Mode d'actionnement] \emph{Simulation} ou \emph{production}. En
+        simulation, tout est calculé et tracé, mais rien ne touche vos
+        équipements. C'est le mode par défaut, et c'est celui des
+        démonstrations.
+  \item[Compteurs] Le nombre d'interventions ouvertes et de décisions en
+        attente, rappelés à côté des onglets concernés.
+\end{description}
+
+\section{Premier tour : produire un incident sans risque}
+
+Le meilleur moyen de prendre en main la plateforme est de lui donner une
+attaque à traiter. L'onglet \textbf{Démonstration} déclenche des scénarios
+réalistes en mode simulation.
+
+\begin{enumerate}[leftmargin=*]
+  \item Ouvrir \textbf{Démonstration}.
+  \item Choisir un type d'attaque du catalogue --- par exemple \textbf{A5,
+        exfiltration de données} --- et cliquer sur son bouton de déclenchement.
+  \item Ouvrir \textbf{Vue d'ensemble} : l'intervention y figure, avec les
+        gestes que la plateforme vient d'appliquer.
+  \item Ouvrir \textbf{Journal d'audit} : chaque étape est inscrite, de la
+        réception de l'observation à la notification de l'analyste.
+\end{enumerate}
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir}, fonttitle=\bfseries, boxrule=0.6pt]
+Les scénarios de démonstration ne fabriquent pas d'attaque : ils fabriquent
+\textbf{la charge utile qu'un collecteur émettrait} pour l'attaque décrite. La
+plateforme ne sait pas qu'elle est en démonstration --- elle traite ces
+observations exactement comme celles d'une sonde réelle.
+\end{tcolorbox}
+
+\section{Remise à zéro}
+
+L'onglet \textbf{Démonstration} propose une remise à zéro qui efface les
+interventions et les actions produites par les scénarios. Elle \textbf{ne
+touche pas} au journal d'audit : celui-ci est immuable par construction, et
+l'effacer reviendrait à détruire la seule preuve de ce que le système a fait.

@@ -1,0 +1,136 @@
+\chapter{Variables d'environnement}
+\minitoc
+
+Aucune n'est obligatoire. Les valeurs par défaut sont celles d'une mise en
+service prudente.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{6.6cm}p{3cm}p{4.6cm}@{}}
+\toprule
+\textbf{Variable} & \textbf{Défaut} & \textbf{Rôle} \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Identité et implantation}} \\
+\texttt{CIRT\_ENV} & \texttt{dev} & Environnement déclaré. \\
+\texttt{CIRT\_SITE\_ID} & \texttt{cirt-cm-01} & Identifiant du site. \\
+\texttt{CIRT\_SITE\_LAT} & 3.8747 & Latitude du siège. \\
+\texttt{CIRT\_SITE\_LON} & 11.5203 & Longitude du siège. \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Posture d'autonomie}} \\
+\texttt{CIRT\_AUTONOMY\_ENABLED} & \texttt{true} & Exécution sans validation. \\
+\texttt{CIRT\_ACTUATION\_MODE} & \texttt{simulation} & \texttt{live} pour agir
+réellement. \\
+\texttt{CIRT\_POST\_ACTION\_WATCH\_SECONDS} & 120 & Délai de surveillance. \\
+\texttt{CIRT\_ROLLBACK\_MAX\_LATENCY\_SECONDS} & 180 & Délai borné
+d'annulation. \\
+\texttt{CIRT\_DECLINE\_QUARANTINE\_THRESHOLD} & 7.0 & Seuil de confinement
+après refus. \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Coupe-circuit}} \\
+\texttt{CIRT\_CIRCUIT\_BREAKER\_ENABLED} & \texttt{true} & Activation. \\
+\texttt{CIRT\_BREAKER\_ROLLBACK\_THRESHOLD} & 3 & Annulations tolérées. \\
+\texttt{CIRT\_BREAKER\_ERROR\_THRESHOLD} & 5 & Échecs tolérés. \\
+\texttt{CIRT\_BREAKER\_WINDOW\_SECONDS} & 600 & Largeur de la fenêtre. \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Données et documentation}} \\
+\texttt{CIRT\_DB\_PATH} & \texttt{data/cirtdefense.db} & Base SQLite. \\
+\texttt{CIRT\_KNOWLEDGE\_DIR} & \texttt{enrichment/knowledge} & Fonds
+documentaire. \\
+\texttt{CIRT\_DEGRADED\_SPOOL} & \texttt{data/spool} & File du mode dégradé. \\
+\texttt{CIRT\_DEGRADED\_MAX\_ITEMS} & 10000 & Taille maximale de la file. \\
+\texttt{CIRT\_GROUNDING\_MIN\_SCORE} & 0.15 & Seuil d'ancrage documentaire. \\
+\texttt{CIRT\_REPORT\_LOGO} & \texttt{web/static/logo-antic.png} & Emblème des
+rapports. \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Service et accès}} \\
+\texttt{CIRT\_API\_HOST} & \texttt{0.0.0.0} & Interface d'écoute. \\
+\texttt{CIRT\_API\_PORT} & 8000 & Port. \\
+\texttt{CIRT\_ADMIN\_TOKEN} & \texttt{change-me-admin} & Jeton de service. \\
+\texttt{CIRT\_ANALYST\_TOKEN} & \texttt{change-me-analyst} & Jeton de service. \\
+\texttt{CIRT\_SESSION\_TTL\_HOURS} & 12 & Durée de vie d'une session. \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Modèle de langage (facultatif)}} \\
+\texttt{CIRT\_LLM\_PROVIDER} & \texttt{offline} & \texttt{anthropic} pour
+activer. \\
+\texttt{CIRT\_LLM\_MODEL} & \texttt{claude-opus-5} & Modèle employé. \\
+\texttt{ANTHROPIC\_API\_KEY} & --- & Clé d'accès. \\
+\bottomrule
+\end{tabular}
+\caption{Les vingt-sept variables d'environnement}
+\end{table}
+
+\chapter{Commandes en ligne}
+
+La commande \texttt{cirtd} donne accès aux fonctions essentielles sans passer
+par la console. Elle est utile pour l'exploitation, les scripts et les
+démonstrations sans navigateur.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}p{3.8cm}p{10cm}@{}}
+\toprule
+\textbf{Sous-commande} & \textbf{Ce qu'elle fait} \\
+\midrule
+\texttt{status} & Affiche la posture d'autonomie et l'état du système. \\[4pt]
+\texttt{serve} & Démarre l'API et la console.
+Options \texttt{-{}-host}, \texttt{-{}-port}. \\[4pt]
+\texttt{ingest} & Ingère un événement et exécute la réponse qui en découle. \\[4pt]
+\texttt{control-loop} & Exécute un passage de la boucle de contrôle. \\[4pt]
+\texttt{compile-policy} & Compile une consigne en langage naturel. \\[4pt]
+\texttt{catalog} & Affiche le catalogue de réversibilité. \\[4pt]
+\texttt{audit} & Consulte et vérifie le journal d'audit. \\[4pt]
+\texttt{breaker} & Consulte et réarme le coupe-circuit. \\
+\bottomrule
+\end{tabular}
+\caption{Les huit sous-commandes}
+\end{table}
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir}, fonttitle=\bfseries, boxrule=0.6pt]
+Ces commandes n'ouvrent aucun port réseau, à l'exception de \texttt{serve}. Si
+un pare-feu vous empêche de démarrer le serveur, vous pouvez néanmoins
+démontrer la chaîne complète en ligne de commande.
+\end{tcolorbox}
+
+\chapter{Interface applicative}
+
+L'API compte 91 routes, réparties en quinze familles. La documentation
+interactive complète est servie par la plateforme elle-même sur
+\texttt{/docs} : chaque route y est décrite, avec son schéma et un bouton
+d'essai.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}p{4.4cm}p{1.6cm}p{7.8cm}@{}}
+\toprule
+\textbf{Famille} & \textbf{Routes} & \textbf{Objet} \\
+\midrule
+\texttt{/auth} & 6 & Connexion, inscription, première mise en service. \\
+\texttt{/users} & 14 & Comptes et postes. \\
+\texttt{/events} & 4 & Ingestion des observations. \\
+\texttt{/incidents} & 3 & Portefeuille et détail. \\
+\texttt{/actions} & 3 & Actions et annulation. \\
+\texttt{/policy} & 8 & Politique et catalogue de réversibilité. \\
+\texttt{/audit} & 5 & Journal et notifications. \\
+\texttt{/admin} & 8 & Posture, coupe-circuit, mode dégradé. \\
+\texttt{/demo} & 8 & Scénarios de démonstration. \\
+\texttt{/assistant} & 10 & Questions, bilan, flux. \\
+\texttt{/monitoring} & 5 & Plateformes surveillées. \\
+\texttt{/pending} & 7 & Décisions sur gestes à effet durable. \\
+\texttt{/qualifications} & 5 & Fiches de menaces inédites. \\
+\texttt{/rapports} & 3 & Options, aperçu, édition. \\
+\texttt{/health} & 2 & État du service. \\
+\bottomrule
+\end{tabular}
+\caption{Familles de routes}
+\end{table}
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir --- ce qu'on ne trouvera pas},
+  fonttitle=\bfseries, boxrule=0.6pt]
+Il n'existe \textbf{aucune route de validation préalable} d'une action. C'est
+un critère de recette du cahier des charges, vérifié automatiquement : si
+quelqu'un en ajoutait une, la suite de tests échouerait. C'est la traduction
+technique de la posture d'autonomie.
+\end{tcolorbox}

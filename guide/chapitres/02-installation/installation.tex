@@ -1,0 +1,160 @@
+\chapter{Prérequis et installation}
+\minitoc
+
+\section{Prérequis}
+
+\subsection{Logiciels}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}p{4cm}p{3cm}p{6cm}@{}}
+\toprule
+\textbf{Élément} & \textbf{Version} & \textbf{Remarque} \\
+\midrule
+Python & 3.11 ou plus & Obligatoire. La plateforme emploie des
+constructions introduites en 3.11. \\[6pt]
+Navigateur & récent & Chrome, Firefox ou Edge. La console est une
+application web. \\[6pt]
+Docker & facultatif & Chemin de déploiement recommandé en production. \\[6pt]
+Git & facultatif & Pour récupérer le dépôt~; une archive convient aussi. \\
+\bottomrule
+\end{tabular}
+\caption{Logiciels requis}
+\end{table}
+
+Aucune base de données externe n'est à installer : la plateforme emploie
+SQLite, contenu dans Python.
+
+\subsection{Matériel}
+
+Pour un usage de démonstration ou de recette, deux cœurs et deux gigaoctets de
+mémoire suffisent. En exploitation, dimensionner selon le volume d'observations
+reçues~; l'empreinte mémoire de la plateforme reste modeste, l'essentiel du
+coût étant l'écriture au journal.
+
+\subsection{Réseau}
+
+La plateforme fonctionne \textbf{entièrement hors ligne}. Aucun appel sortant
+n'est nécessaire à son fonctionnement nominal : c'est une exigence du Centre,
+et elle a commandé le choix de toutes les bibliothèques employées
+(chapitre~8).
+
+\section{Installation depuis le dépôt}
+
+\begin{lstlisting}[language=bash]
+$ git clone https://github.com/Freddy-Gity/CIRTDEFENSE.git
+$ cd CIRTDEFENSE
+$ python3 -m venv .venv
+$ source .venv/bin/activate
+$ pip install -e ".[dev]"
+\end{lstlisting}
+
+Sous Windows, dans PowerShell :
+
+\begin{lstlisting}[language=bash]
+PS> py -3.11 -m venv .venv
+PS> .\.venv\Scripts\Activate.ps1
+PS> pip install -e ".[dev]"
+\end{lstlisting}
+
+\begin{tcolorbox}[colback=orange!5!white, colframe=orange!70!black,
+  title=\textbf{Attention --- installez en mode éditable}, fonttitle=\bfseries,
+  boxrule=0.6pt]
+Le tiret \texttt{-e} n'est pas facultatif. L'interface web et l'emblème
+imprimé en tête des rapports vivent dans le dossier \texttt{web/}, qui n'est
+pas déclaré comme donnée du paquet. Une installation ordinaire
+(\texttt{pip install .}) installe le code mais \textbf{pas} l'interface : le
+serveur démarre, l'API répond, et la console est introuvable. Les guillemets
+autour de \texttt{".[dev]"} sont nécessaires sous PowerShell, à cause des
+crochets.
+\end{tcolorbox}
+
+\section{Vérification de l'installation}
+
+Trois commandes suffisent à établir que tout est en place.
+
+\begin{lstlisting}[language=bash]
+$ pytest                      # doit afficher : 561 passed
+$ ruff check src tests        # doit afficher : All checks passed!
+$ cirtd status                # posture d'autonomie et etat du systeme
+\end{lstlisting}
+
+Si \texttt{pytest} passe, la chaîne complète — ingestion, décision, exécution,
+annulation, journal, rapports — fonctionne sur votre poste.
+
+\section{Démarrage}
+
+\begin{lstlisting}[language=bash]
+$ cirtd serve --host 127.0.0.1 --port 8000
+\end{lstlisting}
+
+Puis ouvrir \texttt{http://127.0.0.1:8000} dans un navigateur.
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir}, fonttitle=\bfseries, boxrule=0.6pt]
+Par défaut la plateforme écoute sur \texttt{0.0.0.0}, c'est-à-dire sur toutes
+les interfaces. En poste de travail, préférez \texttt{127.0.0.1} : certaines
+configurations Windows refusent l'écoute sur toutes les interfaces à un compte
+non administrateur, et le message d'erreur n'est pas explicite
+(voir chapitre~9).
+\end{tcolorbox}
+
+\section{Déploiement par conteneur}
+
+\begin{lstlisting}[language=bash]
+$ docker build -t cirtdefense .
+$ docker run -p 8000:8000 -v cirt-data:/data cirtdefense
+\end{lstlisting}
+
+Le volume monté sur \texttt{/data} est \textbf{indispensable}. Sans lui, un
+redémarrage perdrait le journal d'audit et relancerait l'autonomie que le
+coupe-circuit venait d'interrompre.
+
+\begin{tcolorbox}[colback=red!4!white, colframe=darkred,
+  title=\textbf{Limitation connue}, fonttitle=\bfseries, boxrule=0.6pt]
+Dans la topologie décrite par \texttt{docker-compose.yml}, la boucle de
+contrôle qui mesure l'effet des gestes s'exécute dans un conteneur distinct de
+celui qui les applique. Elle ne dispose donc pas des mesures de référence
+prises au moment de l'action, et ne vérifie rien --- silencieusement. Tant que
+ce point n'est pas corrigé, exécutez la boucle de contrôle dans le même
+processus que l'API, ou lancez-la par la commande \texttt{cirtd control-loop}
+sur le conteneur applicatif.
+\end{tcolorbox}
+
+\section{Configuration}
+
+Toute la configuration passe par des variables d'environnement. Aucune n'est
+obligatoire : la plateforme démarre avec des valeurs par défaut prudentes,
+notamment le \emph{mode simulation}, dans lequel les gestes sont décidés et
+tracés mais n'ont aucun effet réel sur les équipements.
+
+Les trois variables à connaître avant tout :
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}p{5.4cm}p{2.4cm}p{5.6cm}@{}}
+\toprule
+\textbf{Variable} & \textbf{Défaut} & \textbf{Rôle} \\
+\midrule
+\texttt{CIRT\_ACTUATION\_MODE} & \texttt{simulation} &
+\texttt{live} pour agir réellement sur les équipements. \\[6pt]
+\texttt{CIRT\_AUTONOMY\_ENABLED} & \texttt{true} &
+\texttt{false} : la plateforme raisonne et journalise, mais n'exécute rien. \\[6pt]
+\texttt{CIRT\_DB\_PATH} & \texttt{data/cirtdefense.db} &
+Emplacement de la base. \\
+\bottomrule
+\end{tabular}
+\caption{Variables essentielles}
+\end{table}
+
+La liste complète des vingt-sept variables figure en annexe~A.
+
+\begin{tcolorbox}[colback=orange!5!white, colframe=orange!70!black,
+  title=\textbf{Attention --- passage en production}, fonttitle=\bfseries,
+  boxrule=0.6pt]
+Avant de basculer \texttt{CIRT\_ACTUATION\_MODE} sur \texttt{live}, changez
+impérativement \texttt{CIRT\_ADMIN\_TOKEN} et \texttt{CIRT\_ANALYST\_TOKEN} :
+leurs valeurs par défaut (\texttt{change-me-admin},
+\texttt{change-me-analyst}) sont publiques. Un jeton par défaut en production
+donne à quiconque le droit de déclencher des gestes sur vos équipements.
+\end{tcolorbox}

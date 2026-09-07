@@ -1,0 +1,93 @@
+%%%===========================================================================
+%%% glossaire.tex — acronymes et entrees de glossaire propres au projet
+%%% (bloc extrait du modele d'origine, adapte a CIRTDEFENSE)
+%%%===========================================================================
+\usepackage[acronym]{glossaries}
+\makeglossary
+
+%%% ------------------------------------------------------------ acronymes
+\newacronym{enspy}{ENSPY}{\'{E}cole Nationale Sup\'{e}rieure Polytechnique de Yaound\'{e}}
+\newacronym{uy1}{UY1}{Universit\'{e} de Yaound\'{e} I}
+\newacronym{antic}{ANTIC}{Agence Nationale des Technologies de l'Information et de la Communication}
+\newacronym{cirt}{CIRT}{Computer Incident Response Team}
+\newacronym{soar}{SOAR}{Security Orchestration, Automation and Response}
+\newacronym{siem}{SIEM}{Security Information and Event Management}
+\newacronym{ueba}{UEBA}{User and Entity Behavior Analytics}
+\newacronym{edr}{EDR}{Endpoint Detection and Response}
+\newacronym{nids}{NIDS}{Network Intrusion Detection System}
+\newacronym{ioc}{IOC}{Indicator of Compromise}
+\newacronym{rag}{RAG}{Retrieval-Augmented Generation}
+\newacronym{uml}{UML}{Unified Modeling Language}
+\newacronym{api}{API}{Application Programming Interface}
+\newacronym{rest}{REST}{Representational State Transfer}
+\newacronym{sse}{SSE}{Server-Sent Events}
+
+%%% ---------------------------------------------------------- glossaire
+\newglossaryentry{autonomie}{
+  name = Autonomie,
+  description = {Capacit\'{e} du syst\`{e}me \`{a} ex\'{e}cuter une action corrective
+  sans validation humaine pr\'{e}alable. Dans ce travail, l'autonomie n'est jamais
+  inconditionnelle : elle est born\'{e}e par la r\'{e}versibilit\'{e} de l'action},
+  plural = autonomies
+}
+
+\newglossaryentry{reversibilite}{
+  name = R\'{e}versibilit\'{e},
+  description = {Propri\'{e}t\'{e} d'une action corrective d\'{e}signant la possibilit\'{e}
+  d'en annuler l'effet. Elle prend trois valeurs : r\'{e}versible, partiellement
+  r\'{e}versible, irr\'{e}versible},
+  plural = r\'{e}versibilit\'{e}s
+}
+
+\newglossaryentry{rollback}{
+  name = Rollback,
+  description = {Annulation d'une action ex\'{e}cut\'{e}e, au moyen d'un jeton rendu par
+  l'actionneur au moment de l'ex\'{e}cution},
+  plural = rollbacks
+}
+
+\newglossaryentry{playbook}{
+  name = Playbook,
+  description = {Proc\'{e}dure de r\'{e}ponse d\'{e}clarative associant une famille de
+  menace \`{a} une suite d'actions correctives param\'{e}tr\'{e}es},
+  plural = playbooks
+}
+
+\newglossaryentry{actionneur}{
+  name = Actionneur,
+  description = {Connecteur ex\'{e}cutant un geste sur un \'{e}quipement r\'{e}el
+  (pare-feu, EDR, annuaire, r\'{e}solveur DNS). Il expose un contrat unique :
+  ex\'{e}cution idempotente et jeton d'annulation},
+  plural = actionneurs
+}
+
+\newglossaryentry{grounding}{
+  name = Ancrage documentaire,
+  description = {Garde interdisant toute action lorsque le contexte
+  r\'{e}uni ne repose sur aucun document de r\'{e}f\'{e}rence. Emp\^{e}che le
+  syst\`{e}me d'agir sur une menace qu'il ne documente pas},
+  plural = ancrages documentaires
+}
+
+\newglossaryentry{coupecircuit}{
+  name = Coupe-circuit,
+  description = {M\'{e}canisme global suspendant l'autonomie lorsque le taux
+  d'\'{e}chec ou d'annulation d\'{e}passe un seuil, sur le mod\`{e}le du patron
+  \emph{circuit breaker}},
+  plural = coupe-circuits
+}
+
+\newglossaryentry{journalimmuable}{
+  name = Journal immuable,
+  description = {Registre d'audit cha\^{i}n\'{e} par empreintes cryptographiques,
+  dont la modification et la suppression sont interdites au niveau du moteur
+  de base de donn\'{e}es},
+  plural = journaux immuables
+}
+
+\newglossaryentry{modedegrade}{
+  name = Mode d\'{e}grad\'{e},
+  description = {R\'{e}gime de fonctionnement sans connectivit\'{e} sortante, o\`{u}
+  les \'{e}v\'{e}nements sont mis en file et rejou\'{e}s au retour du lien},
+  plural = modes d\'{e}grad\'{e}s
+}

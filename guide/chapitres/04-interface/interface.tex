@@ -1,0 +1,124 @@
+\chapter{Description de l'interface}
+\minitoc
+
+La console est une application web à page unique. La navigation se fait par la
+barre latérale gauche, qui compte huit entrées. Les deux dernières — journal
+d'audit et réglages — sont séparées des autres : les fonctions courantes en
+haut, l'audit et la configuration en bas.
+
+\section{Vue d'ensemble}
+
+C'est l'écran d'accueil de l'exploitation. Il répond à la question « que s'est-il
+passé depuis que je ne regardais pas~? ».
+
+On y trouve, de haut en bas :
+
+\begin{itemize}[leftmargin=*]
+  \item les \textbf{décisions requises} — les gestes à effet durable qui
+        attendent votre arbitrage. Ce bloc est traité en détail au
+        chapitre~5~;
+  \item les \textbf{fiches de qualification} — les menaces inédites que la
+        plateforme a contenues sans savoir les nommer~;
+  \item les \textbf{chiffres des vingt-quatre dernières heures} : interventions
+        prises en charge, gestes appliqués, gestes annulés~;
+  \item le \textbf{flux des actions exécutées}, du plus récent au plus ancien.
+\end{itemize}
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir --- le taux d'annulation}, fonttitle=\bfseries,
+  boxrule=0.6pt]
+C'est l'indicateur à surveiller en priorité. Il mesure la fréquence à laquelle
+la plateforme doit défaire ce qu'elle vient de faire. Une valeur qui s'élève
+durablement justifie de revoir les consignes de réponse, voire de rouvrir la
+question de la posture d'autonomie.
+\end{tcolorbox}
+
+\section{Portefeuille}
+
+La liste des interventions, \textbf{ordonnée par enjeu décroissant}. L'ordre
+n'est pas chronologique : il combine six composantes explicables — gravité
+constatée, importance de la machine touchée, nombre d'observations
+concordantes, confiance moyenne des capteurs, fraîcheur, et deux parts issues
+du catalogue métier : la priorité et la dangerosité.
+
+Aucun poids n'est appris. Le décideur doit pouvoir justifier l'ordre du
+portefeuille sans lire les paramètres d'un modèle.
+
+Chaque ligne se déplie sur le détail de l'intervention : observations reçues,
+décision prise, gestes appliqués, chronologie.
+
+\section{Surveillance}
+
+L'état de sécurité des plateformes déclarées sous surveillance. On y ajoute une
+plateforme par la modale \textbf{Ajouter}, en indiquant son nom, son adresse et
+sa criticité.
+
+La carte situe géographiquement les plateformes surveillées autour du siège du
+Centre~; le balayage radar signale celles dont l'état s'est dégradé.
+
+\section{Réversibilité}
+
+Le catalogue des trente-huit gestes que la plateforme sait appliquer. Pour
+chacun : ce qu'il fait, son degré d'annulabilité, le geste inverse, ce qui
+subsiste après annulation, et le nombre approximatif d'équipements touchés.
+
+Cet écran est en lecture seule. Il sert à répondre à la question « qu'est-ce
+que ce système est capable de faire~? » — et la réponse est un ensemble fini,
+inspectable, publiable.
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir}, fonttitle=\bfseries, boxrule=0.6pt]
+Trois gestes du catalogue sont marqués \emph{irréversibles} : l'extinction
+d'une machine, l'effacement d'un disque et la suppression d'un compte. La
+plateforme ne les exécute \textbf{jamais} d'elle-même, quelles que soient les
+circonstances.
+\end{tcolorbox}
+
+\section{Démonstration}
+
+Le déclenchement des vingt-deux types du catalogue, seuls ou par famille, plus
+un scénario de menace inédite. C'est l'écran des présentations et de la
+recette.
+
+\section{Rapports}
+
+L'édition des rapports d'opérations. Rien n'est produit à l'ouverture de
+l'écran : vous choisissez ce que le rapport doit couvrir, puis son format.
+Le chapitre~7 y est consacré.
+
+\section{Journal d'audit}
+
+Le registre chaîné, consultable et filtrable par type d'événement ou par
+intervention. Chaque ligne porte son numéro d'ordre, son horodatage, son type,
+son auteur et son empreinte.
+
+En tête de l'écran, la \textbf{vérification de la chaîne} : elle recalcule les
+empreintes de bout en bout et indique si la chaîne est intacte.
+
+\begin{tcolorbox}[colback=orange!5!white, colframe=orange!70!black,
+  title=\textbf{Attention}, fonttitle=\bfseries, boxrule=0.6pt]
+Si la vérification signale une chaîne rompue, il ne s'agit pas d'une anomalie
+de fonctionnement mais d'un \textbf{incident de sécurité portant sur la
+plateforme elle-même} : une entrée a été modifiée en dehors de l'application.
+Préservez le fichier de base en l'état et ouvrez une enquête.
+\end{tcolorbox}
+
+\section{Réglages}
+
+Les préférences de session — thème, affichage — et, pour l'administrateur, la
+posture d'autonomie, la politique de réponse, le coupe-circuit et la gestion
+des comptes. Le chapitre~6 détaille ces fonctions.
+
+\section{L'assistant}
+
+Une bulle présente sur tous les écrans ouvre l'assistant d'exploitation. Il
+répond à des questions portant sur les données de la plateforme : « fais le
+bilan du jour », « pourquoi cette intervention n'a-t-elle rien déclenché~? »,
+« combien d'annulations cette semaine~? ».
+
+\begin{tcolorbox}[colback=green!4!white, colframe=darkgreen,
+  title=\textbf{Bon à savoir}, fonttitle=\bfseries, boxrule=0.6pt]
+L'assistant ne dispose d'aucune information hors des données de la plateforme,
+et ne fabrique jamais un chiffre. Une question hors de son périmètre reçoit un
+refus explicite accompagné de ce qu'il sait faire — jamais une réponse inventée.
+\end{tcolorbox}
