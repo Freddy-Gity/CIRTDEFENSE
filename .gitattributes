@@ -2,3 +2,5 @@
 * text=auto eol=lf
 *.png binary
 *.svg text eol=lf
+*.mp4 binary
+*.woff2 binary

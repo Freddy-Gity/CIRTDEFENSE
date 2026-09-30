@@ -30,11 +30,13 @@ CIRTDEFENSE/
 │   │   ├── ADR-002-coupe-circuit.md
 │   │   ├── ADR-003-playbooks-versus-generation.md
 │   │   └── ADR-004-journal-immuable.md
-│   └── diagrams/                 Diagrammes source (Mermaid)
-│       ├── cas-utilisation-v3.mmd
-│       ├── sequence-reponse-autonome.mmd
-│       ├── sequence-boucle-controle.mmd
-│       └── composants.mmd
+│   ├── diagrams/                 Diagrammes source (Mermaid)
+│   │   ├── cas-utilisation-v3.mmd
+│   │   ├── sequence-reponse-autonome.mmd
+│   │   ├── sequence-boucle-controle.mmd
+│   │   └── composants.mmd
+│   └── media/gandal/             Animation de presentation (15 s) : source HTML,
+│                                 video MP4 et script de rendu
 │
 ├── src/cirtdefense/
 │   ├── __init__.py
